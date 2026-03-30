@@ -20,10 +20,9 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T14:32:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "enterprise_soc",
-          "sources_queried": 147,
-          "processing_time_seconds": 45.2
+          "sources_referenced": 147
         },
         "alert_level": {
           "level": "high",
@@ -211,10 +210,9 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "enterprise_executive",
-          "sources_queried": 52,
-          "processing_time_seconds": 28.5
+          "sources_referenced": 52
         },
         "alert_level": {
           "level": "elevated",
@@ -304,7 +302,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "smb_security"
         },
         "alert_level": {
@@ -426,7 +424,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "individual_researcher"
         },
         "executive_summary": {
@@ -546,7 +544,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "individual_privacy"
         },
         "alert_level": {
@@ -686,7 +684,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
-          "skill_version": "3.0.0",
+          "skill_version": "1.0.0",
           "persona_used": "red_team"
         },
         "executive_summary": {

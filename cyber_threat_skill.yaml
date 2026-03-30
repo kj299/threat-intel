@@ -1,48 +1,35 @@
 # =============================================================================
-# ULTIMATE CYBER THREAT INTELLIGENCE SKILL
-# Version: 3.0.0 - Enterprise & Personal Edition
-# Capability Level: Exceeds Elite Human Analyst
+# CYBER THREAT INTELLIGENCE PROMPT TOOLKIT - SKILL SPECIFICATION
+# Version: 1.0.0
 # =============================================================================
-# This skill combines the analytical power of an elite threat intelligence team
-# with AI-enhanced pattern recognition, predictive modeling, and adaptive learning.
-# Designed for Fortune 500 security teams AND individual security enthusiasts.
+# This specification defines personas, scoring models, analysis workflows,
+# and output templates for structured threat intelligence prompt engineering.
 # =============================================================================
 
 skill:
-  name: "Ultimate Cyber Threat Intelligence Analyzer"
-  codename: "SENTINEL-X"
+  name: "Cyber Threat Intelligence Prompt Toolkit"
   description: |
-    Next-generation threat intelligence platform combining elite human analyst 
-    methodologies with AI-enhanced pattern recognition, predictive threat modeling,
-    and adaptive learning. Serves enterprise SOCs and individual security researchers
-    with equal depth and precision.
-  version: "3.0.0"
-  author: "Security Operations Center"
-  license: "Enterprise + Personal"
+    A structured prompt specification that guides AI assistants to produce
+    professional-grade threat intelligence reports. Supports multiple personas,
+    structured IOC/TTP extraction, and compliance mapping.
+  version: "1.0.0"
+  author: "kj299"
+  license: "MIT"
   category: "Cybersecurity"
-  capability_level: "superhuman"
-  
+
   tags:
     - threat-intelligence
-    - AI-enhanced
-    - predictive-analytics
-    - enterprise-security
-    - personal-security
+    - prompt-engineering
     - MITRE-ATT&CK
-    - real-time-monitoring
-    - automated-hunting
+    - cybersecurity
 
   capabilities:
-    - "Real-time threat monitoring across 150+ sources"
-    - "Predictive threat modeling with 85%+ accuracy"
-    - "Automated MITRE ATT&CK mapping"
+    - "Structured threat analysis across 150+ referenced sources"
+    - "MITRE ATT&CK TTP mapping templates"
     - "Natural language threat queries"
-    - "Attack simulation and war-gaming"
-    - "Threat actor attribution with confidence scoring"
-    - "Supply chain risk analysis"
-    - "Insider threat behavioral detection"
-    - "Multi-language intelligence processing"
-    - "Automated IOC lifecycle management"
+    - "Threat scenario modeling templates"
+    - "Supply chain risk analysis frameworks"
+    - "IOC extraction and formatting templates"
 
 # =============================================================================
 # ADAPTIVE PERSONA SYSTEM
