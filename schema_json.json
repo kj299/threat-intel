@@ -1,0 +1,636 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sentinel-x.security/schemas/skill-v3.0.0.json",
+  "title": "SENTINEL-X Cyber Threat Intelligence Skill Schema",
+  "description": "JSON Schema for validating SENTINEL-X skill configuration and outputs",
+  "version": "3.0.0",
+  "type": "object",
+  
+  "definitions": {
+    
+    "ioc_network": {
+      "type": "object",
+      "description": "Network-based Indicator of Compromise",
+      "required": ["type", "value", "confidence", "source"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["IPv4", "IPv6", "Domain", "URL", "SSL_Certificate_Hash", "JA3", "JA3S", "JARM", "HTTP_Header", "User_Agent"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["High", "Medium", "Low"]
+        },
+        "source": {
+          "type": "string"
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "associated_threat": {
+          "type": "string"
+        },
+        "associated_actor": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "kill_chain_phase": {
+          "type": "string"
+        },
+        "tlp": {
+          "type": "string",
+          "enum": ["WHITE", "GREEN", "AMBER", "AMBER+STRICT", "RED"]
+        }
+      }
+    },
+    
+    "ioc_host": {
+      "type": "object",
+      "description": "Host-based Indicator of Compromise",
+      "required": ["type", "value", "confidence", "source"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["MD5", "SHA1", "SHA256", "SHA512", "SSDEEP", "IMPHASH", "File_Name", "File_Path", "Registry_Key", "Registry_Value", "Scheduled_Task", "Service_Name", "Mutex", "Named_Pipe", "Process_Name", "Command_Line", "WMI_Query"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["High", "Medium", "Low"]
+        },
+        "source": {
+          "type": "string"
+        },
+        "associated_threat": {
+          "type": "string"
+        },
+        "associated_malware_family": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["Windows", "Linux", "macOS", "Android", "iOS", "Cross-Platform"]
+        }
+      }
+    },
+    
+    "ioc_email": {
+      "type": "object",
+      "description": "Email-based Indicator of Compromise",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Sender_Address", "Sender_Domain", "Reply_To", "Subject_Pattern", "Attachment_Name", "Attachment_Hash", "Header_X-Originating-IP", "Header_X-Mailer"]
+        },
+        "value": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["High", "Medium", "Low"]
+        },
+        "campaign": {
+          "type": "string"
+        },
+        "threat_type": {
+          "type": "string",
+          "enum": ["Phishing", "Spear_Phishing", "BEC", "Malware_Distribution", "Credential_Harvesting"]
+        }
+      }
+    },
+    
+    "attack_method": {
+      "type": "object",
+      "description": "Attack method or technique",
+      "required": ["technique_name", "attack_vector"],
+      "properties": {
+        "technique_name": {
+          "type": "string"
+        },
+        "mitre_attack_id": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+        },
+        "attack_vector": {
+          "type": "string",
+          "enum": ["Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Collection", "Command and Control", "Exfiltration", "Impact"]
+        },
+        "cve_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CVE-[0-9]{4}-[0-9]+$"
+          }
+        },
+        "cvss_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10.0
+        },
+        "cvss_version": {
+          "type": "string",
+          "enum": ["2.0", "3.0", "3.1", "4.0"],
+          "default": "3.1"
+        },
+        "exploit_availability": {
+          "type": "string",
+          "enum": ["None", "PoC", "Weaponized", "In-The-Wild"]
+        },
+        "first_observed": {
+          "type": "string",
+          "format": "date"
+        },
+        "last_observed": {
+          "type": "string",
+          "format": "date"
+        },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "sophistication": {
+          "type": "string",
+          "enum": ["Basic", "Intermediate", "Advanced", "Nation-State"]
+        },
+        "targeted_sectors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "targeted_technologies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "technical_description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "business_impact": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    
+    "ttp_mapping": {
+      "type": "object",
+      "description": "MITRE ATT&CK TTP Mapping",
+      "required": ["tactic", "technique_id", "technique_name"],
+      "properties": {
+        "tactic": {
+          "type": "string",
+          "enum": ["Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Collection", "Command and Control", "Exfiltration", "Impact"]
+        },
+        "technique_id": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}$"
+        },
+        "technique_name": {
+          "type": "string"
+        },
+        "sub_technique_id": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}\\.[0-9]{3}$"
+        },
+        "sub_technique_name": {
+          "type": "string"
+        },
+        "procedure_details": {
+          "type": "string"
+        },
+        "detection_method": {
+          "type": "string"
+        },
+        "data_sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "platforms": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "permissions_required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mitigations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    
+    "threat_actor": {
+      "type": "object",
+      "description": "Threat Actor Profile",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "type": {
+          "type": "string",
+          "enum": ["APT", "Criminal", "Hacktivist", "Insider", "Unknown"]
+        },
+        "motivation": {
+          "type": "string",
+          "enum": ["Financial", "Espionage", "Disruption", "Hacktivism", "Unknown"]
+        },
+        "origin_country": {
+          "type": "string"
+        },
+        "suspected_attribution": {
+          "type": "string"
+        },
+        "target_sectors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "target_regions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "active_since": {
+          "type": "string",
+          "format": "date"
+        },
+        "last_activity": {
+          "type": "string",
+          "format": "date"
+        },
+        "associated_ttps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "associated_malware": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "associated_tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "infrastructure": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["High", "Medium", "Low"]
+        }
+      }
+    },
+    
+    "vulnerability_forecast": {
+      "type": "object",
+      "description": "Vulnerability exploitation forecast",
+      "required": ["cve_id", "exploit_maturity", "priority"],
+      "properties": {
+        "cve_id": {
+          "type": "string",
+          "pattern": "^CVE-[0-9]{4}-[0-9]+$"
+        },
+        "cvss_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10.0
+        },
+        "days_since_disclosure": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exploit_maturity": {
+          "type": "string",
+          "enum": ["None", "PoC", "Weaponized", "In-The-Wild"]
+        },
+        "greynoise_activity": {
+          "type": "boolean"
+        },
+        "greynoise_classification": {
+          "type": "string",
+          "enum": ["benign", "malicious", "unknown"]
+        },
+        "cisa_kev_listed": {
+          "type": "boolean"
+        },
+        "epss_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "bank_exposure": {
+          "type": "string",
+          "enum": ["None", "Low", "Medium", "High", "Critical"]
+        },
+        "affected_products": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P1", "P2", "P3", "P4"]
+        }
+      }
+    },
+    
+    "threat_score": {
+      "type": "object",
+      "description": "Multi-dimensional threat score",
+      "required": ["total_score", "priority"],
+      "properties": {
+        "total_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFORMATIONAL"]
+        },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "exploitability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "impact": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "relevance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "urgency": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "response_time": {
+          "type": "string"
+        }
+      }
+    },
+    
+    "persona": {
+      "type": "string",
+      "enum": ["enterprise_soc", "enterprise_executive", "smb_security", "individual_researcher", "individual_privacy", "red_team"]
+    },
+    
+    "output_format": {
+      "type": "string",
+      "enum": ["auto", "executive_brief", "full_report", "technical_ioc_package", "board_presentation", "ciso_briefing", "personal_security_guide", "checklist", "dashboard"]
+    },
+    
+    "time_range": {
+      "type": "string",
+      "enum": ["48h", "7d", "30d", "90d"]
+    },
+    
+    "alert_level": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["critical", "high", "elevated", "normal"]
+        },
+        "icon": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  
+  "properties": {
+    
+    "skill_input": {
+      "type": "object",
+      "description": "User input to the skill",
+      "required": ["user_persona"],
+      "properties": {
+        "user_persona": { "$ref": "#/definitions/persona" },
+        "query_mode": {
+          "type": "string",
+          "enum": ["natural_language", "guided", "quick_scan", "deep_research", "continuous"],
+          "default": "guided"
+        },
+        "organization_sector": {
+          "type": "string"
+        },
+        "organization_size": {
+          "type": "string",
+          "enum": ["enterprise_large", "enterprise_mid", "smb", "small"]
+        },
+        "new_business_initiative": {
+          "type": "string"
+        },
+        "geographic_presence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "technology_stack": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "security_tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "security_experience": {
+          "type": "string",
+          "enum": ["beginner", "intermediate", "advanced", "expert"]
+        },
+        "personal_focus_areas": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "learning_interests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "time_range": { "$ref": "#/definitions/time_range" },
+        "threat_categories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "output_format": { "$ref": "#/definitions/output_format" },
+        "natural_language_query": {
+          "type": "string"
+        }
+      }
+    },
+    
+    "skill_output": {
+      "type": "object",
+      "description": "Output from the skill",
+      "properties": {
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "generated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "skill_version": {
+              "type": "string"
+            },
+            "persona_used": { "$ref": "#/definitions/persona" },
+            "sources_queried": {
+              "type": "integer"
+            },
+            "processing_time_seconds": {
+              "type": "number"
+            }
+          }
+        },
+        "alert_level": { "$ref": "#/definitions/alert_level" },
+        "executive_summary": {
+          "type": "object",
+          "properties": {
+            "headline": { "type": "string" },
+            "key_points": {
+              "type": "array",
+              "items": { "type": "string" },
+              "maxItems": 7
+            },
+            "critical_actions": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "threats": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/attack_method" }
+        },
+        "iocs": {
+          "type": "object",
+          "properties": {
+            "network": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ioc_network" }
+            },
+            "host": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ioc_host" }
+            },
+            "email": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ioc_email" }
+            }
+          }
+        },
+        "ttps": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ttp_mapping" }
+        },
+        "threat_actors": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/threat_actor" }
+        },
+        "vulnerabilities": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/vulnerability_forecast" }
+        },
+        "threat_scores": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/threat_score" }
+        },
+        "recommendations": {
+          "type": "object",
+          "properties": {
+            "immediate": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "action": { "type": "string" },
+                  "owner": { "type": "string" },
+                  "timeline": { "type": "string" },
+                  "risk_addressed": { "type": "string" }
+                }
+              }
+            },
+            "short_term": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "strategic": {
+              "type": "array",
+              "items": { "type": "object" }
+            }
+          }
+        },
+        "detection_rules": {
+          "type": "object",
+          "properties": {
+            "sigma": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "yara": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "snort": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "kql": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "spl": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "intelligence_gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "gap": { "type": "string" },
+              "impact": { "type": "string" },
+              "recommended_action": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

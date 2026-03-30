@@ -1,0 +1,809 @@
+{
+  "examples": [
+    {
+      "persona": "enterprise_soc",
+      "name": "Ransomware Threat Analysis",
+      "description": "SOC team requesting latest ransomware intelligence for financial sector",
+      "input": {
+        "user_persona": "enterprise_soc",
+        "query_mode": "deep_research",
+        "organization_sector": "Financial Services / Banking",
+        "organization_size": "enterprise_large",
+        "new_business_initiative": "Digital asset custody services",
+        "geographic_presence": ["North America", "Europe (EU/UK)"],
+        "technology_stack": ["Microsoft 365 / Azure", "AWS", "Kubernetes / Containers"],
+        "security_tools": ["SIEM (Splunk, Sentinel, QRadar, etc.)", "EDR (CrowdStrike, SentinelOne, Defender, etc.)", "Threat Intelligence Platform"],
+        "time_range": "7d",
+        "threat_categories": ["Ransomware"],
+        "output_format": "technical"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T14:32:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "enterprise_soc",
+          "sources_queried": 147,
+          "processing_time_seconds": 45.2
+        },
+        "alert_level": {
+          "level": "high",
+          "icon": "🟠",
+          "color": "#EA580C",
+          "message": "Active ransomware campaigns targeting financial sector detected"
+        },
+        "executive_summary": {
+          "headline": "LockBit 3.0 and BlackCat/ALPHV actively targeting financial services with new TTPs",
+          "key_points": [
+            "3 active ransomware campaigns targeting financial sector in past 7 days",
+            "LockBit 3.0 introduced new evasion technique bypassing EDR solutions",
+            "BlackCat affiliates exploiting CVE-2024-XXXX in Citrix ADC",
+            "Average ransom demand: $4.2M (up 35% from Q4)",
+            "Digital asset custodians experiencing 2.3x higher targeting rate"
+          ],
+          "critical_actions": [
+            "Patch Citrix ADC immediately (CVE-2024-XXXX)",
+            "Deploy provided YARA rules to EDR",
+            "Block 47 high-confidence IOCs at perimeter"
+          ]
+        },
+        "threats": [
+          {
+            "technique_name": "LockBit 3.0 Ransomware",
+            "mitre_attack_id": "T1486",
+            "attack_vector": "Impact",
+            "cve_ids": ["CVE-2024-XXXX", "CVE-2024-YYYY"],
+            "cvss_score": 9.8,
+            "exploit_availability": "In-The-Wild",
+            "first_observed": "2026-03-22",
+            "sources": ["Recorded Future", "Mandiant", "CISA", "FS-ISAC"],
+            "sophistication": "Advanced",
+            "targeted_sectors": ["Financial Services", "Healthcare", "Manufacturing"],
+            "targeted_technologies": ["Citrix ADC", "VMware ESXi", "Windows Server"],
+            "technical_description": "LockBit 3.0 variant with enhanced EDR evasion using direct syscalls and BYOVD technique. Initial access via Citrix ADC exploitation followed by Cobalt Strike deployment.",
+            "business_impact": "Complete encryption of critical systems, data exfiltration with double extortion, potential $4-10M ransom demand plus recovery costs"
+          }
+        ],
+        "iocs": {
+          "network": [
+            {
+              "type": "IPv4",
+              "value": "185.220.101.xxx",
+              "confidence": "High",
+              "source": "Recorded Future",
+              "first_seen": "2026-03-24T08:00:00Z",
+              "associated_threat": "LockBit 3.0 C2",
+              "tags": ["c2", "lockbit", "ransomware"],
+              "tlp": "AMBER"
+            },
+            {
+              "type": "Domain",
+              "value": "update-service[.]cloud",
+              "confidence": "High",
+              "source": "Mandiant",
+              "first_seen": "2026-03-23T12:00:00Z",
+              "associated_threat": "LockBit 3.0 Payload Delivery",
+              "tlp": "AMBER"
+            }
+          ],
+          "host": [
+            {
+              "type": "SHA256",
+              "value": "a1b2c3d4e5f6...[truncated]",
+              "confidence": "High",
+              "source": "MalwareBazaar",
+              "associated_threat": "LockBit 3.0 Encryptor",
+              "associated_malware_family": "LockBit",
+              "platform": "Windows"
+            },
+            {
+              "type": "File_Name",
+              "value": "svchost_update.exe",
+              "confidence": "Medium",
+              "source": "The DFIR Report",
+              "associated_threat": "LockBit Loader"
+            }
+          ]
+        },
+        "ttps": [
+          {
+            "tactic": "Initial Access",
+            "technique_id": "T1190",
+            "technique_name": "Exploit Public-Facing Application",
+            "sub_technique_id": null,
+            "procedure_details": "Exploitation of Citrix ADC CVE-2024-XXXX for initial foothold",
+            "detection_method": "Monitor for unusual Citrix ADC process spawning, web shell artifacts",
+            "data_sources": ["Application Log: Application Log Content", "Network Traffic: Network Traffic Content"]
+          },
+          {
+            "tactic": "Defense Evasion",
+            "technique_id": "T1562",
+            "technique_name": "Impair Defenses",
+            "sub_technique_id": "T1562.001",
+            "procedure_details": "BYOVD technique using vulnerable driver to disable EDR",
+            "detection_method": "Monitor for vulnerable driver loading, unsigned driver installation",
+            "data_sources": ["Driver: Driver Load", "Process: Process Creation"]
+          }
+        ],
+        "threat_scores": [
+          {
+            "total_score": 87,
+            "priority": "P2-HIGH",
+            "dimensions": {
+              "exploitability": 95,
+              "impact": 90,
+              "relevance": 85,
+              "urgency": 80
+            },
+            "response_time": "4-24 hours"
+          }
+        ],
+        "recommendations": {
+          "immediate": [
+            {
+              "action": "Patch Citrix ADC to latest version",
+              "owner": "Infrastructure Team",
+              "timeline": "0-24 hours",
+              "risk_addressed": "CVE-2024-XXXX exploitation"
+            },
+            {
+              "action": "Deploy IOCs to SIEM and EDR",
+              "owner": "SOC",
+              "timeline": "0-4 hours",
+              "risk_addressed": "Early detection of LockBit activity"
+            },
+            {
+              "action": "Block provided IPs/domains at firewall",
+              "owner": "Network Security",
+              "timeline": "0-4 hours",
+              "risk_addressed": "C2 communication prevention"
+            }
+          ],
+          "short_term": [
+            {
+              "action": "Conduct threat hunt for LockBit TTPs",
+              "owner": "Threat Hunting Team",
+              "timeline": "1-7 days",
+              "risk_addressed": "Identify potential existing compromise"
+            },
+            {
+              "action": "Review backup integrity and air-gap status",
+              "owner": "IT Operations",
+              "timeline": "1-3 days",
+              "risk_addressed": "Ransomware recovery capability"
+            }
+          ],
+          "strategic": [
+            {
+              "action": "Implement network segmentation for digital asset systems",
+              "owner": "Enterprise Architecture",
+              "timeline": "30-90 days",
+              "risk_addressed": "Limit blast radius of potential breach"
+            }
+          ]
+        },
+        "detection_rules": {
+          "sigma": [
+            "title: LockBit 3.0 BYOVD Driver Loading\nstatus: experimental\nlogsource:\n  category: driver_load\n  product: windows\ndetection:\n  selection:\n    ImageLoaded|endswith:\n      - '\\RTCore64.sys'\n      - '\\DBUtil_2_3.sys'\n  condition: selection"
+          ],
+          "yara": [
+            "rule LockBit3_Encryptor {\n  meta:\n    description = \"Detects LockBit 3.0 ransomware encryptor\"\n    author = \"SENTINEL-X\"\n    date = \"2026-03-29\"\n  strings:\n    $s1 = \".restoretext\" wide\n    $s2 = \"LockBit 3.0\" ascii wide\n  condition:\n    uint16(0) == 0x5A4D and all of them\n}"
+          ],
+          "kql": [
+            "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where FileName =~ \"svchost_update.exe\" or ProcessCommandLine contains \"RTCore64.sys\"\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessFileName"
+          ]
+        }
+      }
+    },
+    
+    {
+      "persona": "enterprise_executive",
+      "name": "Board-Ready Threat Brief",
+      "description": "Executive briefing for board meeting on cyber risk posture",
+      "input": {
+        "user_persona": "enterprise_executive",
+        "query_mode": "quick_scan",
+        "organization_sector": "Financial Services / Banking",
+        "organization_size": "enterprise_large",
+        "new_business_initiative": "Launching embedded finance platform for retail partners",
+        "time_range": "30d",
+        "output_format": "executive"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T09:00:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "enterprise_executive",
+          "sources_queried": 52,
+          "processing_time_seconds": 28.5
+        },
+        "alert_level": {
+          "level": "elevated",
+          "icon": "🟡",
+          "color": "#CA8A04",
+          "message": "Heightened threat activity in financial sector; new business initiative increases exposure"
+        },
+        "executive_summary": {
+          "headline": "Cyber Risk Elevated Due to New Business Initiative and Active Threat Campaigns",
+          "key_points": [
+            "📈 Ransomware attacks on financial services up 23% vs. last quarter",
+            "🎯 Embedded finance platforms experiencing targeted API attacks",
+            "💰 Average breach cost for financial sector: $5.9M (industry highest)",
+            "🏦 Peer institutions reporting 2 major incidents this month",
+            "⚠️ New business initiative creates 3 additional attack vectors"
+          ],
+          "critical_actions": [
+            "Approve $2.4M security enhancement budget for Q2",
+            "Mandate API security assessment before platform launch",
+            "Brief retail partners on shared security requirements"
+          ]
+        },
+        "risk_dashboard": {
+          "overall_risk_score": 72,
+          "risk_trend": "increasing",
+          "trend_percentage": "+8%",
+          "peer_comparison": {
+            "our_score": 72,
+            "peer_average": 65,
+            "industry_best": 45,
+            "assessment": "Above average risk compared to peers"
+          },
+          "risk_by_category": [
+            {"category": "Ransomware", "score": 78, "trend": "↑"},
+            {"category": "Third-Party Risk", "score": 71, "trend": "↑"},
+            {"category": "API Security", "score": 82, "trend": "↑"},
+            {"category": "Insider Threat", "score": 45, "trend": "→"},
+            {"category": "Cloud Security", "score": 58, "trend": "↓"}
+          ]
+        },
+        "financial_impact": {
+          "potential_breach_cost": "$5.9M - $12.4M",
+          "regulatory_fine_risk": "$1.2M - $8.5M",
+          "reputation_impact": "Stock price impact: -3% to -7% (based on peer incidents)",
+          "insurance_coverage": "Current coverage: $10M; Recommended: $25M"
+        },
+        "investment_recommendations": [
+          {
+            "initiative": "API Security Platform",
+            "investment": "$1.2M",
+            "risk_reduction": "35%",
+            "roi": "3.2x over 3 years",
+            "timeline": "Q2-Q3 2026"
+          },
+          {
+            "initiative": "Extended Detection & Response (XDR)",
+            "investment": "$800K",
+            "risk_reduction": "25%",
+            "roi": "2.8x over 3 years",
+            "timeline": "Q2 2026"
+          },
+          {
+            "initiative": "Third-Party Risk Management Enhancement",
+            "investment": "$400K",
+            "risk_reduction": "20%",
+            "roi": "4.1x over 3 years",
+            "timeline": "Q2-Q3 2026"
+          }
+        ]
+      }
+    },
+    
+    {
+      "persona": "smb_security",
+      "name": "SMB Ransomware Protection Checklist",
+      "description": "Actionable checklist for small business with limited resources",
+      "input": {
+        "user_persona": "smb_security",
+        "query_mode": "guided",
+        "organization_sector": "Professional Services",
+        "organization_size": "smb",
+        "technology_stack": ["Microsoft 365 / Azure", "Google Cloud / Workspace"],
+        "time_range": "7d",
+        "threat_categories": ["Ransomware", "BEC / Social Engineering"],
+        "output_format": "checklist"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T11:15:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "smb_security"
+        },
+        "alert_level": {
+          "level": "elevated",
+          "icon": "🟡",
+          "message": "Professional services firms seeing increased BEC and ransomware activity"
+        },
+        "executive_summary": {
+          "headline": "Your firm faces elevated risk from business email compromise and ransomware",
+          "key_points": [
+            "BEC attacks targeting professional services up 40% this quarter",
+            "Ransomware groups using fake invoice emails as entry point",
+            "Microsoft 365 accounts frequently targeted via phishing",
+            "Good news: Most attacks preventable with basic security measures"
+          ]
+        },
+        "actionable_checklist": {
+          "immediate_actions": [
+            {
+              "priority": 1,
+              "action": "Enable MFA on all Microsoft 365 accounts",
+              "difficulty": "Easy",
+              "time_required": "1-2 hours",
+              "cost": "Free (included in M365)",
+              "instructions_url": "https://docs.microsoft.com/en-us/microsoft-365/admin/security-and-compliance/set-up-multi-factor-authentication",
+              "risk_reduced": "Prevents 99.9% of account compromise attacks"
+            },
+            {
+              "priority": 2,
+              "action": "Verify backup is working and test restore",
+              "difficulty": "Easy",
+              "time_required": "2-3 hours",
+              "cost": "Free",
+              "instructions": "1. Check backup last run date\n2. Select random file\n3. Restore to test location\n4. Verify file integrity",
+              "risk_reduced": "Enables recovery without paying ransom"
+            },
+            {
+              "priority": 3,
+              "action": "Enable email authentication (SPF, DKIM, DMARC)",
+              "difficulty": "Medium",
+              "time_required": "2-4 hours",
+              "cost": "Free",
+              "instructions_url": "https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/email-authentication-about",
+              "risk_reduced": "Blocks spoofed emails impersonating your domain"
+            }
+          ],
+          "this_week_actions": [
+            {
+              "priority": 4,
+              "action": "Train staff on BEC red flags",
+              "difficulty": "Easy",
+              "time_required": "30 min meeting",
+              "cost": "Free",
+              "talking_points": [
+                "Verify wire transfer requests by phone",
+                "Check email addresses carefully (not just display names)",
+                "Be suspicious of urgent requests from executives",
+                "When in doubt, ask IT"
+              ]
+            },
+            {
+              "priority": 5,
+              "action": "Review admin accounts and remove unnecessary access",
+              "difficulty": "Easy",
+              "time_required": "1 hour",
+              "cost": "Free"
+            }
+          ],
+          "this_month_actions": [
+            {
+              "priority": 6,
+              "action": "Set up Microsoft Defender for Office 365 (anti-phishing)",
+              "difficulty": "Medium",
+              "time_required": "2-4 hours",
+              "cost": "$2-3/user/month (may be included in your plan)"
+            },
+            {
+              "priority": 7,
+              "action": "Create incident response contact list",
+              "difficulty": "Easy",
+              "time_required": "1 hour",
+              "cost": "Free",
+              "template_provided": true
+            }
+          ]
+        },
+        "free_tools_recommended": [
+          {
+            "tool": "Microsoft Secure Score",
+            "purpose": "See your security posture and get recommendations",
+            "url": "https://security.microsoft.com/securescore"
+          },
+          {
+            "tool": "Have I Been Pwned",
+            "purpose": "Check if company emails appear in data breaches",
+            "url": "https://haveibeenpwned.com/DomainSearch"
+          },
+          {
+            "tool": "Google Security Checkup",
+            "purpose": "Review Google Workspace security",
+            "url": "https://myaccount.google.com/security-checkup"
+          }
+        ]
+      }
+    },
+    
+    {
+      "persona": "individual_researcher",
+      "name": "Deep Dive: APT29 TTPs Analysis",
+      "description": "Technical analysis for security researcher studying nation-state TTPs",
+      "input": {
+        "user_persona": "individual_researcher",
+        "query_mode": "deep_research",
+        "security_experience": "advanced",
+        "learning_interests": ["Threat intelligence analysis", "OSINT techniques", "Threat hunting"],
+        "time_range": "90d",
+        "natural_language_query": "What are the latest TTPs used by APT29 and how can I hunt for them?"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T16:45:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "individual_researcher"
+        },
+        "executive_summary": {
+          "headline": "APT29 Evolution: New Cloud-Focused TTPs and Detection Opportunities",
+          "key_points": [
+            "APT29 has shifted focus to cloud environments (M365, Azure AD)",
+            "New technique: Abusing OAuth applications for persistence",
+            "Continued use of Cobalt Strike with enhanced evasion",
+            "Multiple detection opportunities in cloud audit logs"
+          ]
+        },
+        "learning_content": {
+          "threat_actor_profile": {
+            "name": "APT29",
+            "aliases": ["Cozy Bear", "The Dukes", "Midnight Blizzard", "NOBELIUM"],
+            "attribution": "Russian Foreign Intelligence Service (SVR)",
+            "motivation": "Espionage",
+            "active_since": "2008",
+            "notable_campaigns": [
+              "SolarWinds supply chain compromise (2020)",
+              "COVID-19 vaccine research targeting (2020)",
+              "Microsoft OAuth abuse campaign (2023-2024)"
+            ]
+          },
+          "ttp_deep_dive": [
+            {
+              "technique": "Cloud Account Manipulation",
+              "mitre_id": "T1098.003",
+              "description": "APT29 adds credentials to OAuth applications for persistent access",
+              "why_it_works": "OAuth apps often have broad permissions and are rarely audited",
+              "detection_approach": "Monitor for new credentials added to service principals",
+              "hunt_query": {
+                "language": "KQL",
+                "query": "AuditLogs\n| where OperationName == \"Add service principal credentials\"\n| where InitiatedBy.user.userPrincipalName != \"expected_admin@domain.com\"\n| project TimeGenerated, InitiatedBy, TargetResources"
+              },
+              "lab_exercise": {
+                "objective": "Understand OAuth application credential abuse",
+                "steps": [
+                  "1. Create test Azure AD tenant",
+                  "2. Register application with Mail.Read permission",
+                  "3. Add new client secret via PowerShell",
+                  "4. Review audit logs for detection opportunity",
+                  "5. Document indicators and build detection rule"
+                ],
+                "safety_note": "Only perform in isolated lab environment"
+              }
+            }
+          ],
+          "methodology_explanation": {
+            "title": "How to Research APT TTPs",
+            "steps": [
+              {
+                "step": 1,
+                "name": "Gather Primary Sources",
+                "description": "Start with vendor reports (Mandiant, Microsoft, CrowdStrike)",
+                "resources": [
+                  "https://www.mandiant.com/resources/blog",
+                  "https://www.microsoft.com/security/blog",
+                  "https://www.crowdstrike.com/blog"
+                ]
+              },
+              {
+                "step": 2,
+                "name": "Map to MITRE ATT&CK",
+                "description": "Use ATT&CK Navigator to visualize coverage",
+                "resources": ["https://mitre-attack.github.io/attack-navigator/"]
+              },
+              {
+                "step": 3,
+                "name": "Identify Detection Opportunities",
+                "description": "For each TTP, identify data sources and detection logic"
+              },
+              {
+                "step": 4,
+                "name": "Build and Test Detections",
+                "description": "Create Sigma rules, test in lab, refine"
+              },
+              {
+                "step": 5,
+                "name": "Document and Share",
+                "description": "Contribute findings to community (MITRE, GitHub, blog)"
+              }
+            ]
+          },
+          "further_reading": [
+            {
+              "title": "Microsoft Report: Midnight Blizzard",
+              "url": "https://www.microsoft.com/security/blog/tag/midnight-blizzard/",
+              "type": "Vendor Report"
+            },
+            {
+              "title": "MITRE ATT&CK: APT29",
+              "url": "https://attack.mitre.org/groups/G0016/",
+              "type": "Framework"
+            },
+            {
+              "title": "The DFIR Report: Cozy Bear Analysis",
+              "url": "https://thedfirreport.com",
+              "type": "Incident Report"
+            }
+          ]
+        }
+      }
+    },
+    
+    {
+      "persona": "individual_privacy",
+      "name": "Family Online Safety Guide",
+      "description": "Simple guidance for parent protecting family online",
+      "input": {
+        "user_persona": "individual_privacy",
+        "query_mode": "guided",
+        "security_experience": "beginner",
+        "personal_focus_areas": ["Protecting my family online", "Phishing and scams", "Mobile device security"],
+        "natural_language_query": "How do I protect my kids from online scams and keep our family devices safe?"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T19:20:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "individual_privacy"
+        },
+        "alert_level": {
+          "level": "normal",
+          "icon": "🟢",
+          "message": "No specific threats targeting your profile, but good security habits are always important"
+        },
+        "friendly_summary": {
+          "headline": "Keeping Your Family Safe Online: A Simple Guide",
+          "message": "Great question! Online safety for families doesn't have to be complicated. Here are the most important things you can do, explained simply."
+        },
+        "family_safety_guide": {
+          "for_the_whole_family": [
+            {
+              "tip": "Create a family password",
+              "what_it_means": "A secret word or phrase that only your family knows. If someone online claims to be a relative or friend asking for help, they should know this password.",
+              "why_it_matters": "Scammers sometimes pretend to be family members in trouble. This simple trick stops them.",
+              "action": "Pick a password at your next family dinner and make sure everyone remembers it"
+            },
+            {
+              "tip": "Talk about what's okay to share online",
+              "what_it_means": "Agree as a family on what information is private (address, school name, vacation plans, etc.)",
+              "why_it_matters": "Information shared online can be used by bad people to target your family",
+              "action": "Have a 10-minute family conversation about online sharing"
+            }
+          ],
+          "for_parents": [
+            {
+              "tip": "Set up parental controls on devices",
+              "what_it_means": "Built-in tools that let you control what your kids can access",
+              "why_it_matters": "Protects kids from inappropriate content and limits screen time",
+              "how_to": {
+                "iphone_ipad": "Settings → Screen Time → Content & Privacy Restrictions",
+                "android": "Settings → Digital Wellbeing & Parental Controls",
+                "windows": "Settings → Accounts → Family",
+                "chromebook": "Use Family Link app"
+              }
+            },
+            {
+              "tip": "Know the signs of phishing",
+              "what_it_means": "Fake emails or messages trying to steal information",
+              "red_flags": [
+                "😱 Creates panic ('Your account will be deleted!')",
+                "🎁 Too good to be true ('You won a prize!')",
+                "🔗 Asks you to click a link urgently",
+                "✍️ Has spelling mistakes or looks unprofessional",
+                "📧 Sender email doesn't match the company"
+              ],
+              "what_to_do": "When in doubt, don't click. Go directly to the website by typing it yourself."
+            }
+          ],
+          "for_kids_teens": [
+            {
+              "tip": "If something feels wrong, tell a parent",
+              "explanation": "Trust your instincts! If someone online makes you uncomfortable, it's always okay to tell mom or dad. You won't get in trouble.",
+              "examples": [
+                "Someone asking for personal information",
+                "Someone asking you to keep secrets from parents",
+                "Someone asking for photos",
+                "Someone being mean or threatening"
+              ]
+            },
+            {
+              "tip": "Not everyone online is who they say they are",
+              "explanation": "People can pretend to be anyone online - even other kids. Be careful about who you trust.",
+              "rule": "Never meet someone in person that you only know from online without a parent"
+            }
+          ],
+          "device_security_basics": [
+            {
+              "device": "All devices",
+              "action": "Turn on automatic updates",
+              "why": "Updates fix security problems. Let them install automatically.",
+              "difficulty": "Easy - one-time setup"
+            },
+            {
+              "device": "Phones and tablets",
+              "action": "Use a PIN or fingerprint to unlock",
+              "why": "Stops others from accessing your device if lost",
+              "difficulty": "Easy"
+            },
+            {
+              "device": "Home WiFi",
+              "action": "Change the default password",
+              "why": "Default passwords are easy for hackers to guess",
+              "difficulty": "Medium - check router manual or call your internet provider"
+            }
+          ]
+        },
+        "scam_alerts_for_families": [
+          {
+            "scam_type": "Gift Card Scams",
+            "how_it_works": "Someone asks you to buy gift cards and share the codes",
+            "remember": "No legitimate company or government agency asks for gift cards as payment. Ever.",
+            "if_this_happens": "Hang up. It's always a scam."
+          },
+          {
+            "scam_type": "Social Media Quizzes",
+            "how_it_works": "Fun quizzes that ask questions like 'What's your pet's name?' or 'What street did you grow up on?'",
+            "the_trick": "These are often the same questions used for password recovery",
+            "advice": "Skip these quizzes or give fake answers"
+          }
+        ],
+        "resources": {
+          "websites": [
+            {
+              "name": "NetSmartz (for kids)",
+              "url": "https://www.netsmartz.org",
+              "description": "Fun, age-appropriate internet safety resources"
+            },
+            {
+              "name": "Common Sense Media",
+              "url": "https://www.commonsensemedia.org",
+              "description": "Reviews and advice for family media use"
+            }
+          ],
+          "if_something_goes_wrong": [
+            "Report scams to FTC: reportfraud.ftc.gov",
+            "Report identity theft: identitytheft.gov",
+            "If a child is in danger: contact local police or call 911"
+          ]
+        }
+      }
+    },
+    
+    {
+      "persona": "red_team",
+      "name": "Attack Path Analysis - Cloud Environment",
+      "description": "Red team requesting attack chain analysis for AWS environment",
+      "input": {
+        "user_persona": "red_team",
+        "query_mode": "deep_research",
+        "time_range": "30d",
+        "threat_categories": ["Cloud Security", "Credential Attacks"],
+        "natural_language_query": "What are the most effective attack chains for compromising AWS environments based on recent campaigns?"
+      },
+      "output": {
+        "metadata": {
+          "generated_at": "2026-03-29T22:10:00Z",
+          "skill_version": "3.0.0",
+          "persona_used": "red_team"
+        },
+        "executive_summary": {
+          "headline": "AWS Attack Chains: Initial Access to Data Exfiltration",
+          "key_points": [
+            "SSRF to IMDS remains most common initial access (40% of cloud breaches)",
+            "Exposed credentials in code repositories highly effective",
+            "Lambda function abuse for persistence gaining popularity",
+            "S3 bucket misconfigurations still prevalent despite awareness"
+          ]
+        },
+        "attack_chains": [
+          {
+            "name": "SSRF to Full Account Compromise",
+            "effectiveness": "High",
+            "detection_difficulty": "Medium",
+            "chain": [
+              {
+                "step": 1,
+                "technique": "Exploit SSRF in web application",
+                "mitre_id": "T1190",
+                "target": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+                "tools": ["Burp Suite", "Custom scripts"],
+                "notes": "Works on EC2, ECS, EKS. IMDSv2 requires token but often not enforced."
+              },
+              {
+                "step": 2,
+                "technique": "Use stolen credentials for enumeration",
+                "mitre_id": "T1087.004",
+                "commands": [
+                  "aws sts get-caller-identity",
+                  "aws iam list-attached-role-policies --role-name <role>",
+                  "aws ec2 describe-instances --region us-east-1"
+                ],
+                "tools": ["AWS CLI", "Pacu", "ScoutSuite"]
+              },
+              {
+                "step": 3,
+                "technique": "Privilege escalation via IAM",
+                "mitre_id": "T1078.004",
+                "common_misconfigs": [
+                  "iam:PassRole + lambda:CreateFunction = admin",
+                  "iam:AttachUserPolicy = self-escalation",
+                  "sts:AssumeRole to privileged role"
+                ],
+                "tools": ["Pacu", "PMapper", "Cloudsplaining"]
+              },
+              {
+                "step": 4,
+                "technique": "Persistence via Lambda backdoor",
+                "mitre_id": "T1098",
+                "method": "Create Lambda function triggered by CloudWatch event",
+                "evasion": "Use existing role, blend with legitimate functions"
+              },
+              {
+                "step": 5,
+                "technique": "Data exfiltration from S3",
+                "mitre_id": "T1537",
+                "method": "aws s3 sync to attacker-controlled bucket",
+                "evasion": "Use VPC endpoint to avoid CloudTrail data events"
+              }
+            ],
+            "total_time": "2-4 hours with good access",
+            "prerequisites": ["SSRF vulnerability", "IMDS accessible", "Overly permissive IAM"]
+          }
+        ],
+        "tool_recommendations": [
+          {
+            "tool": "Pacu",
+            "purpose": "AWS exploitation framework",
+            "url": "https://github.com/RhinoSecurityLabs/pacu",
+            "key_modules": ["iam__privesc_scan", "lambda__backdoor_new_roles", "ec2__enum"]
+          },
+          {
+            "tool": "ScoutSuite",
+            "purpose": "Multi-cloud security auditing",
+            "url": "https://github.com/nccgroup/ScoutSuite",
+            "use_case": "Post-compromise enumeration and finding additional attack paths"
+          },
+          {
+            "tool": "Cloudsplaining",
+            "purpose": "IAM privilege escalation analysis",
+            "url": "https://github.com/salesforce/cloudsplaining"
+          },
+          {
+            "tool": "Stratus Red Team",
+            "purpose": "Cloud attack simulation",
+            "url": "https://github.com/DataDog/stratus-red-team",
+            "use_case": "Detonating TTPs for detection testing"
+          }
+        ],
+        "evasion_techniques": [
+          {
+            "technique": "Use CloudTrail-excluded actions",
+            "details": "Many read-only actions not logged by default in CloudTrail",
+            "examples": ["s3:GetObject (data events)", "sqs:ReceiveMessage"]
+          },
+          {
+            "technique": "Operate from trusted IP ranges",
+            "details": "If SCPs allow access from corporate IPs, pivot through compromised internal host"
+          },
+          {
+            "technique": "Use STS session tokens",
+            "details": "Temporary credentials harder to track than long-term access keys"
+          }
+        ],
+        "detection_opportunities": {
+          "note": "Understanding blue team detection helps improve red team ops",
+          "indicators": [
+            "API calls from unusual geographic locations",
+            "iam:PassRole followed by lambda:CreateFunction",
+            "ec2:DescribeInstances across all regions",
+            "Credential usage outside normal business hours",
+            "S3 bucket access from new IAM principal"
+          ]
+        }
+      }
+    }
+  ]
+}
