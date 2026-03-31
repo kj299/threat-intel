@@ -71,6 +71,7 @@ threat-intel/
 ├── CHANGELOG.md               # Version history
 ├── CONTRIBUTING.md            # Contribution guidelines
 ├── LICENSE                    # MIT License
+├── CLAUDE.md                  # AI assistant project context
 └── .gitignore                 # Git ignore rules
 ```
 
@@ -82,15 +83,15 @@ The prompt references 150+ sources organized by priority:
 
 | Tier | Category | Examples |
 |------|----------|----------|
-| 1 | Vulnerability Databases | NVD, CISA KEV, Exploit-DB, Vulners |
-| 2 | Commercial Threat Intel | Recorded Future, Mandiant, CrowdStrike |
-| 3 | Search Engines & Aggregators | Shodan, Censys, VirusTotal, GreyNoise |
-| 4 | Bug Bounty Platforms | HackerOne, Bugcrowd |
-| 5 | Offensive Security Resources | OWASP, HackTheBox, PortSwigger |
-| 6 | Community & Blogs | Reddit r/netsec, Krebs on Security, BleepingComputer |
-| 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl |
-| 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA |
-| 9 | Malware Analysis | MalwareBazaar, URLhaus, Malpedia |
+| 1 | Vulnerability Databases | NVD, CISA KEV, Exploit-DB, CVE Details, ExploitPack, OpenCVE |
+| 2 | Commercial Threat Intel | Recorded Future, Mandiant, CrowdStrike, Microsoft, Cisco Talos |
+| 3 | Search Engines & Aggregators | Shodan, Censys, VirusTotal, GreyNoise, Nuclei Templates |
+| 4 | Bug Bounty Platforms | HackerOne, Bugcrowd, Synack, Intigriti |
+| 5 | Offensive Security Resources | OffSec, ExploitPack, HackTheBox, PortSwigger, TryHackMe |
+| 6 | Community & Blogs | r/netsec, r/hacking, r/bugbounty, r/ExploitDev, r/sysadmin, Krebs on Security |
+| 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl, Cybersixgill, SOCRadar |
+| 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC, JPCERT/CC |
+| 9 | Malware Analysis | MalwareBazaar, URLhaus, ThreatFox, Malpedia, Cape Sandbox |
 
 These are reference sources for the AI to draw from, not live API integrations.
 
@@ -108,7 +109,7 @@ The prompt supports several output structures:
 
 ### Detection Rule Formats
 
-The prompt can generate detection rules in: YARA, Sigma, Snort, KQL (Microsoft Sentinel), SPL (Splunk)
+The prompt can generate detection rules in: YARA, Sigma, Snort/Suricata, KQL (Microsoft Sentinel), SPL (Splunk)
 
 ### IOC Formats
 

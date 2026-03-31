@@ -15,7 +15,7 @@
         "security_tools": ["SIEM (Splunk, Sentinel, QRadar, etc.)", "EDR (CrowdStrike, SentinelOne, Defender, etc.)", "Threat Intelligence Platform"],
         "time_range": "7d",
         "threat_categories": ["Ransomware"],
-        "output_format": "technical"
+        "output_format": "technical_ioc_package"
       },
       "output": {
         "metadata": {
@@ -108,7 +108,6 @@
             "tactic": "Initial Access",
             "technique_id": "T1190",
             "technique_name": "Exploit Public-Facing Application",
-            "sub_technique_id": null,
             "procedure_details": "Exploitation of Citrix ADC CVE-2024-XXXX for initial foothold",
             "detection_method": "Monitor for unusual Citrix ADC process spawning, web shell artifacts",
             "data_sources": ["Application Log: Application Log Content", "Network Traffic: Network Traffic Content"]
@@ -185,7 +184,7 @@
             "title: LockBit 3.0 BYOVD Driver Loading\nstatus: experimental\nlogsource:\n  category: driver_load\n  product: windows\ndetection:\n  selection:\n    ImageLoaded|endswith:\n      - '\\RTCore64.sys'\n      - '\\DBUtil_2_3.sys'\n  condition: selection"
           ],
           "yara": [
-            "rule LockBit3_Encryptor {\n  meta:\n    description = \"Detects LockBit 3.0 ransomware encryptor\"\n    author = \"SENTINEL-X\"\n    date = \"2026-03-29\"\n  strings:\n    $s1 = \".restoretext\" wide\n    $s2 = \"LockBit 3.0\" ascii wide\n  condition:\n    uint16(0) == 0x5A4D and all of them\n}"
+            "rule LockBit3_Encryptor {\n  meta:\n    description = \"Detects LockBit 3.0 ransomware encryptor\"\n    author = \"Threat-Intel-Toolkit\"\n    date = \"2026-03-29\"\n  strings:\n    $s1 = \".restoretext\" wide\n    $s2 = \"LockBit 3.0\" ascii wide\n  condition:\n    uint16(0) == 0x5A4D and all of them\n}"
           ],
           "kql": [
             "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where FileName =~ \"svchost_update.exe\" or ProcessCommandLine contains \"RTCore64.sys\"\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessFileName"
@@ -205,7 +204,7 @@
         "organization_size": "enterprise_large",
         "new_business_initiative": "Launching embedded finance platform for retail partners",
         "time_range": "30d",
-        "output_format": "executive"
+        "output_format": "executive_brief"
       },
       "output": {
         "metadata": {

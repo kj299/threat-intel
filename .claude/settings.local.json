@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(python -c \"import json; json.load\\(open\\(''schema_json.json''\\)\\); print\\(''schema_json.json: valid JSON''\\)\")",
+      "Bash(python -c \"import json; json.load\\(open\\(''examples_outputs.json''\\)\\); print\\(''examples_outputs.json: valid JSON''\\)\")"
     ]
   }
 }

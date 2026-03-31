@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Prompt Toolkit -- Skill Documentation
 
-**Version:** 1.0.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-03-30
+**Version:** 1.0.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-03-31
 
 **Supported Platforms:** Microsoft Copilot, ChatGPT, Claude, other LLM-based assistants
 
@@ -13,9 +13,9 @@ This is a structured prompt toolkit that guides AI assistants to produce profess
 ## How It Works
 
 1. The user pastes the prompt template into their AI assistant
-2. The AI assistant asks intake questions to scope the analysis
-3. The user provides context (industry, time range, focus areas, detail level)
-4. The AI generates a structured threat intelligence report adapted to the user's persona
+2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly
+3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days, network edge/endpoints/mobile/APIs/payment systems, full technical detail
+4. The AI generates a structured threat intelligence report with actionable IOCs, detection rules, and TTPs
 
 ## Personas
 
@@ -69,15 +69,15 @@ The prompt references sources organized by priority:
 
 | Tier | Category | Example Sources |
 |------|----------|----------------|
-| 1 | Vulnerability Databases | NVD, CISA KEV, Exploit-DB, Vulners, Packet Storm |
+| 1 | Vulnerability Databases | NVD, CISA KEV, Exploit-DB, CVE Details, ExploitPack, OpenCVE |
 | 2 | Commercial Threat Intel | Recorded Future, Mandiant, CrowdStrike, Microsoft, Cisco Talos |
-| 3 | Search Engines & Aggregators | Shodan, Censys, VirusTotal, GreyNoise |
-| 4 | Bug Bounty Platforms | HackerOne, Bugcrowd, Synack |
-| 5 | Offensive Security Resources | OWASP, HackTheBox, PortSwigger Academy |
-| 6 | Community & Blogs | Reddit r/netsec, Krebs on Security, BleepingComputer |
-| 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl |
-| 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC |
-| 9 | Malware Analysis | MalwareBazaar, URLhaus, Malpedia |
+| 3 | Search Engines & Aggregators | Shodan, Censys, VirusTotal, GreyNoise, Nuclei Templates |
+| 4 | Bug Bounty Platforms | HackerOne, Bugcrowd, Synack, Intigriti |
+| 5 | Offensive Security Resources | OffSec, ExploitPack, HackTheBox, TryHackMe, PortSwigger |
+| 6 | Community & Blogs | r/netsec, r/hacking, r/bugbounty, r/ExploitDev, r/sysadmin, Krebs on Security |
+| 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl, Cybersixgill, SOCRadar |
+| 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC, JPCERT/CC |
+| 9 | Malware Analysis | MalwareBazaar, URLhaus, ThreatFox, Malpedia, Cape Sandbox |
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 

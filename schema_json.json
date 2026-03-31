@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/kj299/threat-intel/schemas/v1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/schema_json.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
   "version": "1.0.0",
@@ -15,7 +15,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["IPv4", "IPv6", "Domain", "URL", "SSL_Certificate_Hash", "JA3", "JA3S", "JARM", "HTTP_Header", "User_Agent"]
+          "enum": ["IPv4", "IPv6", "Domain", "URL", "SSL_Certificate_Hash", "JA3", "JA3S", "JARM", "HTTP_Header", "User_Agent", "CIDR_Range"]
         },
         "value": {
           "type": "string",
@@ -52,6 +52,14 @@
         "tlp": {
           "type": "string",
           "enum": ["WHITE", "GREEN", "AMBER", "AMBER+STRICT", "RED"]
+        },
+        "mitre_technique": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["block", "alert", "hunt"]
         }
       }
     },
@@ -63,7 +71,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["MD5", "SHA1", "SHA256", "SHA512", "SSDEEP", "IMPHASH", "File_Name", "File_Path", "Registry_Key", "Registry_Value", "Scheduled_Task", "Service_Name", "Mutex", "Named_Pipe", "Process_Name", "Command_Line", "WMI_Query"]
+          "enum": ["MD5", "SHA1", "SHA256", "SHA512", "SSDEEP", "IMPHASH", "File_Name", "File_Path", "Registry_Key", "Registry_Value", "Scheduled_Task", "Service_Name", "Mutex", "Named_Pipe", "Process_Name", "Command_Line", "WMI_Query", "WMI_Subscription"]
         },
         "value": {
           "type": "string",
@@ -85,10 +93,18 @@
         "platform": {
           "type": "string",
           "enum": ["Windows", "Linux", "macOS", "Android", "iOS", "Cross-Platform"]
+        },
+        "action": {
+          "type": "string",
+          "enum": ["block", "alert", "hunt"]
+        },
+        "detection_source": {
+          "type": "string",
+          "description": "Log source for detection (e.g., Sysmon Event 1, EDR, AV)"
         }
       }
     },
-    
+
     "ioc_email": {
       "type": "object",
       "description": "Email-based Indicator of Compromise",
@@ -111,6 +127,38 @@
         "threat_type": {
           "type": "string",
           "enum": ["Phishing", "Spear_Phishing", "BEC", "Malware_Distribution", "Credential_Harvesting"]
+        },
+        "action": {
+          "type": "string",
+          "enum": ["block", "alert", "hunt"]
+        }
+      }
+    },
+
+    "ioc_behavioral": {
+      "type": "object",
+      "description": "Behavioral Indicator of Compromise",
+      "required": ["behavior", "data_source", "mitre_technique"],
+      "properties": {
+        "behavior": {
+          "type": "string"
+        },
+        "data_source": {
+          "type": "string"
+        },
+        "detection_logic": {
+          "type": "string"
+        },
+        "mitre_technique": {
+          "type": "string",
+          "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+        },
+        "alert_threshold": {
+          "type": "string"
+        },
+        "siem_query": {
+          "type": "string",
+          "description": "KQL, SPL, or Sigma query for detection"
         }
       }
     },
@@ -338,7 +386,7 @@
           "minimum": 0.0,
           "maximum": 1.0
         },
-        "bank_exposure": {
+        "org_exposure": {
           "type": "string",
           "enum": ["None", "Low", "Medium", "High", "Critical"]
         },
@@ -365,7 +413,7 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFORMATIONAL"]
+          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
         },
         "dimensions": {
           "type": "object",
@@ -400,17 +448,20 @@
     
     "persona": {
       "type": "string",
-      "enum": ["enterprise_soc", "enterprise_executive", "smb_security", "individual_researcher", "individual_privacy", "red_team"]
+      "enum": ["enterprise_soc", "enterprise_executive", "smb_security", "individual_researcher", "individual_privacy", "red_team"],
+      "default": "enterprise_soc"
     },
     
     "output_format": {
       "type": "string",
-      "enum": ["auto", "executive_brief", "full_report", "technical_ioc_package", "board_presentation", "ciso_briefing", "personal_security_guide", "checklist", "dashboard"]
+      "enum": ["auto", "executive_brief", "technical_ioc_package", "board_presentation", "ciso_briefing", "personal_security_guide", "checklist", "dashboard"],
+      "default": "technical_ioc_package"
     },
-    
+
     "time_range": {
       "type": "string",
-      "enum": ["48h", "7d", "30d", "90d"]
+      "enum": ["48h", "7d", "30d", "90d"],
+      "default": "7d"
     },
     
     "alert_level": {
@@ -438,8 +489,8 @@
     
     "skill_input": {
       "type": "object",
-      "description": "User input to the skill",
-      "required": ["user_persona"],
+      "description": "User input to the skill. If no input is provided, defaults are used: search_scope=all_emerging_threats, time_range=7d, assets=network edge/endpoints/mobile/APIs/payment systems, detail=full_technical, output=technical_ioc_package",
+      "required": [],
       "properties": {
         "user_persona": { "$ref": "#/definitions/persona" },
         "query_mode": {
@@ -508,11 +559,8 @@
               "type": "string"
             },
             "persona_used": { "$ref": "#/definitions/persona" },
-            "sources_queried": {
+            "sources_referenced": {
               "type": "integer"
-            },
-            "processing_time_seconds": {
-              "type": "number"
             }
           }
         },
@@ -550,6 +598,10 @@
             "email": {
               "type": "array",
               "items": { "$ref": "#/definitions/ioc_email" }
+            },
+            "behavioral": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/ioc_behavioral" }
             }
           }
         },
