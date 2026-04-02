@@ -1452,6 +1452,30 @@ output_templates:
       - name: "response_playbooks"
       - name: "false_positive_guidance"
 
+  doze_sec_integration:
+    description: "Pipe-delimited IOC format for doze_sec batch audit tool"
+    schema: "MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor"
+    detection_methods:
+      - "registry_key"
+      - "event_id"
+      - "file_path"
+      - "process_name"
+      - "named_pipe"
+      - "wmi_query"
+      - "scheduled_task"
+      - "service_name"
+      - "command_line"
+      - "mutex"
+    severity_levels: ["critical", "high", "medium", "low", "info"]
+    notes: "Output only new TTPs not in the provided existing IOC list. One line per indicator. No headers in output."
+    example: |
+      T1547.001|Boot Autostart Execution|registry_key|HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\MalService|critical|APT29
+      T1059.001|PowerShell Execution|event_id|4104|high|LockBit
+      T1055.012|Process Hollowing|process_name|svchost_update.exe|critical|BlackCat
+      T1021.002|SMB Lateral Movement|named_pipe|\\.\pipe\atsvc|high|APT29
+      T1053.005|Scheduled Task Persistence|scheduled_task|\Microsoft\Windows\Maintenance\WinUpdate|critical|LockBit
+      T1047|WMI Execution|wmi_query|SELECT * FROM Win32_Process WHERE Name='cmd.exe'|medium|Unknown
+
 # =============================================================================
 # COMPLIANCE & REGULATORY MAPPING
 # =============================================================================

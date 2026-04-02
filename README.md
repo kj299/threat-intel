@@ -201,7 +201,7 @@ The prompt can generate detection rules in: YARA, Sigma, Snort/Suricata, KQL (Mi
 
 ### IOC Formats
 
-Structured IOC output supports: STIX 2.1, OpenIOC, CSV, JSON, MISP
+Structured IOC output supports: STIX 2.1, OpenIOC, CSV, JSON, MISP, pipe-delimited (doze_sec)
 
 ---
 

@@ -597,6 +597,23 @@ SHA256,a1b2c3d4e5f6...,High,LockBit Encryptor,LockBit Gang,T1486,MalwareBazaar,2
 }
 ```
 
+**Pipe-Delimited IOC Export (for doze_sec batch audit):**
+
+Generate a pipe-delimited list of all IOCs suitable for the doze_sec batch audit tool. One indicator per line, no header row. Only include NEW TTPs not already in any provided existing IOC list.
+
+Format: `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`
+
+Valid detection methods: `registry_key`, `event_id`, `file_path`, `process_name`, `named_pipe`, `wmi_query`, `scheduled_task`, `service_name`, `command_line`, `mutex`
+
+```
+T1547.001|Boot Autostart Execution|registry_key|HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\MalService|critical|APT29
+T1059.001|PowerShell Execution|event_id|4104|high|LockBit
+T1055.012|Process Hollowing|process_name|svchost_update.exe|critical|BlackCat
+T1021.002|SMB Lateral Movement|named_pipe|\\.\pipe\atsvc|high|APT29
+T1053.005|Scheduled Task Persistence|scheduled_task|\Microsoft\Windows\Maintenance\WinUpdate|critical|LockBit
+T1047|WMI Execution|wmi_query|SELECT * FROM Win32_Process WHERE Name='cmd.exe'|medium|Unknown
+```
+
 #### 7. Detection Rule Recommendations
 
 Provide ready-to-deploy detection rules for each major threat identified:

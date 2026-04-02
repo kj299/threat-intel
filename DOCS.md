@@ -108,7 +108,7 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 - Actionable Checklist
 
 ### Export Formats
-- **IOCs**: CSV, STIX 2.1, OpenIOC, JSON, MISP
+- **IOCs**: CSV, STIX 2.1, OpenIOC, JSON, MISP, pipe-delimited (doze_sec batch audit)
 - **Detection Rules**: YARA, Sigma, Snort, Suricata, KQL, SPL
 - **Frameworks**: MITRE ATT&CK Navigator layers
 

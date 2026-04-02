@@ -671,6 +671,41 @@
             }
           }
         },
+        "doze_sec_iocs": {
+          "type": "array",
+          "description": "Pipe-delimited IOC lines for doze_sec batch audit tool. Format: MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor",
+          "items": {
+            "type": "object",
+            "required": ["mitre_id", "name", "detection_method", "detection_value", "severity"],
+            "properties": {
+              "mitre_id": {
+                "type": "string",
+                "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "detection_method": {
+                "type": "string",
+                "enum": ["registry_key", "event_id", "file_path", "process_name", "named_pipe", "wmi_query", "scheduled_task", "service_name", "command_line", "mutex"]
+              },
+              "detection_value": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low", "info"]
+              },
+              "actor": {
+                "type": "string"
+              },
+              "pipe_delimited": {
+                "type": "string",
+                "description": "Pre-formatted pipe-delimited line for direct import"
+              }
+            }
+          }
+        },
         "intelligence_gaps": {
           "type": "array",
           "items": {
