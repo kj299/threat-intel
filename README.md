@@ -8,37 +8,125 @@ A structured prompt toolkit for generating comprehensive cyber threat intelligen
 
 This project provides a detailed, structured prompt template that guides AI assistants to produce professional-grade threat intelligence reports. It includes:
 
-- **A comprehensive prompt** ([cyber_threat_prompt.md](cyber_threat_prompt.md)) with intake questions, 150+ source references organized into tiers, extraction frameworks for IOCs/TTPs, and structured output templates
-- **A skill specification** ([cyber_threat_skill.yaml](cyber_threat_skill.yaml)) defining personas, scoring models, and analysis workflows (see [DOCS.md](DOCS.md) for full documentation)
-- **A JSON schema** ([schema_json.json](schema_json.json)) for validating structured output
-- **Example outputs** ([examples_outputs.json](examples_outputs.json)) showing what generated reports look like across different personas
+- **A comprehensive prompt** ([cyber_threat_prompt.md](cyber_threat_prompt.md)) -- the main template you paste into an AI assistant
+- **A skill specification** ([cyber_threat_skill.yaml](cyber_threat_skill.yaml)) -- personas, scoring models, and analysis workflows
+- **A JSON schema** ([schema_json.json](schema_json.json)) -- validates structured output
+- **Example outputs** ([examples_outputs.json](examples_outputs.json)) -- sample reports for all 6 personas
 
 This is **not** a standalone product or platform. It is a prompt engineering toolkit that leverages AI assistants' existing knowledge to produce structured threat intelligence analysis.
 
 ---
 
-## Quick Start
+## How to Use Each File
 
+### 1. The Prompt Template -- `cyber_threat_prompt.md`
+
+This is the core of the toolkit. Copy and paste the entire contents into any AI assistant to generate a threat intelligence report.
+
+**Basic usage (no input needed):**
 1. Open your preferred AI assistant (Copilot, ChatGPT, Claude, etc.)
-2. Paste the contents of [cyber_threat_prompt.md](cyber_threat_prompt.md)
-3. Answer the intake questions (scope, time range, business context, detail level)
-4. Receive structured threat intelligence output
+2. Paste the full contents of [cyber_threat_prompt.md](cyber_threat_prompt.md)
+3. The AI will immediately generate a full technical IOC package using defaults: all emerging threats from the last 7 days targeting network edge devices, endpoints, mobile, APIs, and payment systems
 
-### Example Queries
+**Custom usage:**
+1. Paste the prompt
+2. Before or after pasting, provide your own parameters:
+   - **Search scope** -- narrow to a specific threat (e.g., "focus on ransomware targeting healthcare")
+   - **Time range** -- change from the default 7 days (e.g., "last 24 hours" or "last 90 days")
+   - **Assets** -- specify your environment (e.g., "AWS cloud infrastructure and Kubernetes")
+   - **Detail level** -- request executive-level or technical summary instead of full technical
 
-**For a security team:**
+**What you get back:**
+- Prioritized threat list with MITRE ATT&CK mappings
+- IOCs (IPs, domains, hashes, behavioral indicators) formatted for SIEM/EDR import
+- Detection rules in YARA, Sigma, KQL, SPL, and Snort/Suricata formats
+- CSV and STIX 2.1 exports ready for ingestion
+- Recommended actions matrix with owners and timelines
+
+**Example queries to add after pasting the prompt:**
 ```
 What ransomware groups are currently targeting financial services?
 ```
-
-**For an executive:**
 ```
 Generate a board-ready cyber risk briefing for our digital transformation initiative.
 ```
-
-**For an individual:**
 ```
 I think I clicked a phishing link. What should I do?
+```
+
+### 2. The Skill Specification -- `cyber_threat_skill.yaml`
+
+This YAML file is a reference specification, not something you paste into an AI. It defines:
+
+- **Persona profiles** -- how the output adapts for SOC analysts, executives, SMBs, researchers, individuals, and red teamers
+- **Threat scoring model** -- the weighted formula (exploitability, impact, relevance, urgency) and priority levels (P1-P5)
+- **Input configuration** -- all the questions the prompt asks and their valid options
+- **Analysis workflows** -- the step-by-step process the prompt follows
+- **Source categories** -- the 9 tiers of intelligence sources with priorities
+
+**When to use it:**
+- As a reference when customizing the prompt for your organization
+- As a configuration spec if building automation around the prompt
+- To understand the scoring weights and how priorities are assigned
+- To see the full list of persona-specific output adaptations
+
+See [DOCS.md](DOCS.md) for the full human-readable documentation of this specification.
+
+### 3. The JSON Schema -- `schema_json.json`
+
+This is a JSON Schema (draft-07) that defines the structure of valid threat intelligence output. Use it to validate that AI-generated output conforms to the expected format.
+
+**When to use it:**
+- Validate AI output programmatically before feeding it into your SIEM or TIP
+- Build parsers that extract IOCs from the structured JSON output
+- Integrate with automation pipelines that expect consistent output format
+
+**How to validate output:**
+```bash
+pip install jsonschema
+jsonschema -i your-output.json schema_json.json
+```
+
+**What it defines:**
+- IOC schemas (network, host, email, behavioral) with required fields, types, and enums
+- TTP mapping structure aligned to MITRE ATT&CK
+- Threat actor profiles with attribution confidence
+- Vulnerability forecasts with EPSS scores and exploit maturity
+- Threat scoring dimensions and priority levels
+- Detection rule containers (Sigma, YARA, Snort, KQL, SPL)
+
+### 4. Example Outputs -- `examples_outputs.json`
+
+This file contains complete example outputs for all 6 personas so you can see exactly what the prompt generates before using it.
+
+**When to use it:**
+- Preview what each persona's output looks like before choosing one
+- Use as test fixtures when building parsers or integrations
+- Reference when customizing the prompt -- see what fields are generated
+- Validate your schema setup by running examples through the validator
+
+**Examples included:**
+
+| Persona | Example | What it shows |
+|---------|---------|---------------|
+| Enterprise SOC | Ransomware threat analysis | Full IOCs, Sigma/YARA/KQL rules, MITRE mappings |
+| Executive | Board-ready threat brief | Risk dashboard, financial impact, investment recommendations |
+| SMB Security | Ransomware protection checklist | Step-by-step actions with costs and difficulty ratings |
+| Researcher | APT29 TTP deep dive | Lab exercises, methodology walkthrough, detection queries |
+| Individual | Family online safety guide | Jargon-free tips, device setup instructions, scam alerts |
+| Red Team | AWS cloud attack paths | Attack chains, tool recommendations, evasion techniques |
+
+**Validate examples against the schema:**
+```bash
+# Extract a single example and validate
+python -c "
+import json
+with open('examples_outputs.json') as f:
+    data = json.load(f)
+print(json.dumps(data['examples'][0]['output'], indent=2))
+" > test_output.json
+
+jsonschema -i test_output.json schema_json.json
 ```
 
 ---
