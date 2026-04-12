@@ -396,7 +396,7 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["P1", "P2", "P3", "P4"]
+          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
         }
       }
     },
