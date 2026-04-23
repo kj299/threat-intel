@@ -335,11 +335,21 @@ output_templates:
   doze_sec_integration:
     description: "Pipe-delimited IOC format for doze_sec batch audit"
     schema: "MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor"
-    detection_methods: [registry_key, event_id, file_path, process_name, named_pipe, wmi_query, scheduled_task, service_name, command_line, mutex]
-    severity_levels: [critical, high, medium, low, info]
+    detection_methods:
+      - "registry key"
+      - "event id"
+      - "process name"
+      - "file path"
+      - "named pipe"
+      - "wmi query"
+    severity_levels: [CRITICAL, WARNING, INFO]
     rules:
       - "New TTPs only (not in provided existing IOC list)"
-      - "One indicator per line, no header row"
+      - "One indicator per line, no header row, no preamble, no markdown, no commentary"
+      - "Detection_Method MUST match one of the listed values exactly (lowercase with spaces, not underscores)"
+      - "Severity MUST be uppercase: CRITICAL, WARNING, or INFO"
+      - "Detection_Value is ASCII-only, <= 260 chars, and must not contain any of: \" ' ` $ ; | & < > ( ) { } ^"
+      - "Exactly 5 pipe separators per row (6 fields total)"
 
 # =============================================================================
 # COMPLIANCE MAPPING
