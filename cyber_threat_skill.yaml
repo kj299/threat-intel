@@ -1,18 +1,19 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE PROMPT TOOLKIT - SKILL SPECIFICATION
-# Version: 1.0.0
+# Version: 1.1.0
 # =============================================================================
-# This specification defines personas, scoring models, analysis workflows,
-# and output templates for structured threat intelligence prompt engineering.
+# Defines personas, scoring models, source-coverage enforcement, and output
+# templates for the threat intelligence prompt. Full source matrix lives in
+# cyber_threat_prompt.md (single source of truth — do not duplicate here).
 # =============================================================================
 
 skill:
   name: "Cyber Threat Intelligence Prompt Toolkit"
   description: |
-    A structured prompt specification that guides AI assistants to produce
-    professional-grade threat intelligence reports. Supports multiple personas,
-    structured IOC/TTP extraction, and compliance mapping.
-  version: "1.0.0"
+    Structured prompt specification that guides AI assistants to produce
+    professional-grade threat intelligence reports with enforced source
+    coverage, mandatory IOC citations, and a no-fabrication rule.
+  version: "1.1.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -24,893 +25,291 @@ skill:
     - cybersecurity
 
   capabilities:
-    - "Structured threat analysis across 150+ referenced sources"
+    - "Enforced source coverage across 9 tiers with per-tier minimums"
+    - "Mandatory per-IOC source citation"
+    - "No-fabrication rule — unverifiable findings marked, never invented"
     - "MITRE ATT&CK TTP mapping templates"
-    - "Natural language threat queries"
-    - "Threat scenario modeling templates"
-    - "Supply chain risk analysis frameworks"
-    - "IOC extraction and formatting templates"
+    - "Threat scoring (exploitability, impact, relevance, urgency)"
+    - "IOC export formats: CSV, STIX 2.1, pipe-delimited, MISP, OpenIOC"
+    - "Six personas with adapted output depth and format"
 
 # =============================================================================
-# ADAPTIVE PERSONA SYSTEM
+# SOURCE COVERAGE PROTOCOL
+# Formal specification of what the prompt enforces (rules R1-R5).
+# =============================================================================
+source_coverage_protocol:
+  description: |
+    Compels agents to actually search across source tiers rather than
+    producing superficial output from general knowledge.
+
+  tier_minimums:
+    tier_1_vulnerability_dbs: 5
+    tier_2_commercial_ti: 4
+    tier_3_search_engines: 3
+    tier_4_bug_bounty: 2
+    tier_5_offensive_research: 2
+    tier_6_community_researchers: 3
+    tier_7_dark_web: best_effort
+    tier_8_government: 3
+    tier_9_malware_analysis: 3
+
+  must_minimum_total: 25
+
+  coverage_badges:
+    FULL:
+      threshold: ">=25 MUST-sources consulted"
+      meaning: "All tier minimums met"
+    PARTIAL:
+      threshold: "13-24 MUST-sources consulted"
+      meaning: "At least 50% of tier minimums met"
+    MINIMAL:
+      threshold: "<13 MUST-sources consulted"
+      meaning: "Below 50% — report should be treated as preliminary"
+
+  enforcement_rules:
+    R1_tier_minimums:
+      description: "Meet per-tier minimum source consultations before writing report"
+    R2_source_citation:
+      description: "Every IOC, TTP, claim must carry a source field naming a Matrix entry"
+      rejected_values: ["unknown", "general knowledge", "n/a", ""]
+    R3_no_fabrication:
+      description: "If source is inaccessible, mark status: unverified. Never invent data."
+      applies_to: ["IPs", "domains", "hashes", "CVE numbers", "actor attributions", "dates"]
+    R4_coverage_badge:
+      description: "Report header must stamp COVERAGE: FULL | PARTIAL | MINIMAL"
+    R5_ledger:
+      description: "Appendix A of every report is the Source Coverage Ledger"
+
+# =============================================================================
+# PERSONAS
 # =============================================================================
 persona_profiles:
-  description: "Automatically adapts output and analysis depth based on user persona"
-  
+  description: "Output and analysis depth adapt to persona"
+
   enterprise_soc:
     name: "Enterprise Security Operations Center"
-    description: "Large organization with dedicated security team"
-    characteristics:
-      - "Multiple security tools and SIEM"
-      - "Compliance requirements (SOX, PCI, GDPR)"
-      - "Complex attack surface"
-      - "Formal incident response process"
     output_preferences:
-      detail_level: "comprehensive"
-      format: "structured_report"
-      ioc_format: "stix_2.1"
+      detail_level: comprehensive
+      format: structured_report
+      ioc_format: stix_2.1
       include_detection_rules: true
       include_playbooks: true
       compliance_mapping: true
     analysis_depth:
-      threat_modeling: "full"
-      attack_simulation: "enabled"
-      supply_chain: "deep"
-      insider_threat: "enabled"
-    alert_channels:
-      - "siem_integration"
-      - "email"
-      - "slack"
-      - "pagerduty"
+      threat_modeling: full
+      attack_simulation: enabled
+      supply_chain: deep
+      insider_threat: enabled
 
   enterprise_executive:
     name: "Executive Leadership / Board"
-    description: "C-suite and board members requiring business context"
-    characteristics:
-      - "Limited technical background"
-      - "Focus on business risk and financial impact"
-      - "Time-constrained"
-      - "Strategic decision-making"
     output_preferences:
-      detail_level: "executive_summary"
-      format: "visual_dashboard"
+      detail_level: executive_summary
+      format: visual_dashboard
       max_pages: 2
       include_financials: true
       peer_comparison: true
       trend_arrows: true
     analysis_depth:
-      threat_modeling: "business_impact_only"
-      attack_simulation: "scenario_outcomes"
-      supply_chain: "vendor_risk_scores"
-      insider_threat: "risk_metrics"
-    visualizations:
-      - "risk_heatmap"
-      - "trend_charts"
-      - "peer_benchmark"
+      threat_modeling: business_impact_only
+      attack_simulation: scenario_outcomes
+      supply_chain: vendor_risk_scores
+      insider_threat: risk_metrics
 
   smb_security:
     name: "Small/Medium Business"
-    description: "Limited security resources, needs actionable guidance"
-    characteristics:
-      - "No dedicated security team"
-      - "Limited budget"
-      - "Cloud-heavy infrastructure"
-      - "Needs prioritized actions"
     output_preferences:
-      detail_level: "actionable"
-      format: "checklist"
+      detail_level: actionable
+      format: checklist
       prioritize_free_tools: true
       include_step_by_step: true
       budget_conscious: true
     analysis_depth:
-      threat_modeling: "relevant_only"
-      attack_simulation: "disabled"
-      supply_chain: "critical_vendors"
-      insider_threat: "basic"
-    focus_areas:
-      - "ransomware_prevention"
-      - "phishing_defense"
-      - "backup_verification"
-      - "mfa_implementation"
+      threat_modeling: relevant_only
+      attack_simulation: disabled
+      supply_chain: critical_vendors
+      insider_threat: basic
+    focus_areas: [ransomware_prevention, phishing_defense, backup_verification, mfa_implementation]
 
   individual_researcher:
     name: "Security Researcher / Enthusiast"
-    description: "Individual interested in threat intelligence and security"
-    characteristics:
-      - "Technical background"
-      - "Learning-focused"
-      - "Personal device protection"
-      - "May contribute to community"
     output_preferences:
-      detail_level: "technical_deep_dive"
-      format: "educational"
+      detail_level: technical_deep_dive
+      format: educational
       include_methodology: true
       include_references: true
-      encourage_exploration: true
     analysis_depth:
-      threat_modeling: "learning_focused"
-      attack_simulation: "lab_safe"
-      supply_chain: "awareness"
-      insider_threat: "conceptual"
-    learning_modules:
-      - "threat_analysis_techniques"
-      - "ioc_investigation"
-      - "malware_analysis_basics"
-      - "osint_methodology"
+      threat_modeling: learning_focused
+      attack_simulation: lab_safe
 
   individual_privacy:
     name: "Privacy-Conscious Individual"
-    description: "Personal user focused on privacy and personal security"
-    characteristics:
-      - "Non-technical"
-      - "Privacy focused"
-      - "Personal device and account security"
-      - "Family protection"
     output_preferences:
-      detail_level: "simple_actionable"
-      format: "friendly_guide"
+      detail_level: simple_actionable
+      format: friendly_guide
       no_jargon: true
       include_why: true
-      family_friendly: true
     analysis_depth:
-      threat_modeling: "personal_risk"
-      attack_simulation: "disabled"
-      supply_chain: "app_permissions"
-      insider_threat: "disabled"
-    focus_areas:
-      - "password_security"
-      - "phishing_recognition"
-      - "social_media_privacy"
-      - "device_security"
-      - "identity_theft_prevention"
+      threat_modeling: personal_risk
+      attack_simulation: disabled
+    focus_areas: [password_security, phishing_recognition, social_media_privacy, device_security, identity_theft_prevention]
 
   red_team:
     name: "Red Team / Penetration Tester"
-    description: "Offensive security professional"
-    characteristics:
-      - "Highly technical"
-      - "Needs exploit details"
-      - "Attack path focus"
-      - "Tool recommendations"
     output_preferences:
-      detail_level: "exploit_focused"
-      format: "technical_brief"
+      detail_level: exploit_focused
+      format: technical_brief
       include_poc_references: true
       include_tool_suggestions: true
       attack_chain_visualization: true
     analysis_depth:
-      threat_modeling: "attack_paths"
-      attack_simulation: "full_chain"
-      supply_chain: "exploitation_vectors"
-      insider_threat: "simulation_scenarios"
-
-# =============================================================================
-# NATURAL LANGUAGE QUERY ENGINE
-# =============================================================================
-nlp_query_engine:
-  description: "Process natural language questions about threats"
-  enabled: true
-  
-  example_queries:
-    - query: "What ransomware groups are targeting healthcare?"
-      intent: "sector_threat_analysis"
-      entities: ["ransomware", "healthcare"]
-      
-    - query: "Show me the latest vulnerabilities in Apache"
-      intent: "vulnerability_search"
-      entities: ["Apache"]
-      
-    - query: "How would an attacker compromise our AWS environment?"
-      intent: "attack_path_modeling"
-      entities: ["AWS", "cloud"]
-      
-    - query: "What should I do if I clicked a phishing link?"
-      intent: "incident_response_guidance"
-      entities: ["phishing", "personal"]
-      
-    - query: "Compare our security posture to other banks"
-      intent: "peer_benchmarking"
-      entities: ["banking", "comparison"]
-
-  intent_handlers:
-    sector_threat_analysis:
-      actions:
-        - "filter_threats_by_sector"
-        - "identify_active_actors"
-        - "extract_ttps"
-        - "generate_report"
-        
-    vulnerability_search:
-      actions:
-        - "query_nvd"
-        - "check_exploit_availability"
-        - "assess_exposure"
-        - "prioritize_patching"
-        
-    attack_path_modeling:
-      actions:
-        - "map_attack_surface"
-        - "identify_entry_points"
-        - "model_lateral_movement"
-        - "visualize_kill_chain"
-        
-    incident_response_guidance:
-      actions:
-        - "assess_compromise_indicators"
-        - "provide_containment_steps"
-        - "recommend_remediation"
-        - "suggest_monitoring"
-        
-    peer_benchmarking:
-      actions:
-        - "gather_industry_data"
-        - "compare_metrics"
-        - "identify_gaps"
-        - "recommend_improvements"
+      threat_modeling: attack_paths
+      attack_simulation: full_chain
+      supply_chain: exploitation_vectors
 
 # =============================================================================
 # USER INPUT CONFIGURATION
 # =============================================================================
 user_inputs:
-  
-  # If the user does not provide input, proceed immediately with all defaults.
-  # Do not ask clarifying questions -- begin analysis automatically.
+
+  # If user provides no input, proceed immediately with all defaults.
+  # Do not ask clarifying questions.
   defaults:
-    search_scope: "all_emerging_threats"
-    time_range: "7d"
-    assets_of_concern:
-      - "network_edge_devices"
-      - "endpoints"
-      - "mobile"
-      - "APIs"
-      - "payment_systems"
-    detail_level: "full_technical"
-    output_format: "technical_ioc_package"
+    user_persona: enterprise_soc
+    search_scope: all_emerging_threats
+    time_range: 7d
+    assets_of_concern: [network_edge_devices, endpoints, mobile, APIs, payment_systems]
+    detail_level: full_technical
+    output_format: technical_ioc_package
 
   initial_questions:
     - name: user_persona
       type: single_select
-      prompt: "Who are you?"
-      default: "enterprise_soc"
       options:
-        - label: "Enterprise Security Team (SOC/CISO)"
-          value: "enterprise_soc"
-        - label: "Executive/Board Member"
-          value: "enterprise_executive"
-        - label: "Small/Medium Business"
-          value: "smb_security"
-        - label: "Security Researcher/Enthusiast"
-          value: "individual_researcher"
-        - label: "Individual (Personal Security)"
-          value: "individual_privacy"
-        - label: "Red Team/Penetration Tester"
-          value: "red_team"
+        - { label: "Enterprise Security Team (SOC/CISO)", value: enterprise_soc }
+        - { label: "Executive/Board Member", value: enterprise_executive }
+        - { label: "Small/Medium Business", value: smb_security }
+        - { label: "Security Researcher/Enthusiast", value: individual_researcher }
+        - { label: "Individual (Personal Security)", value: individual_privacy }
+        - { label: "Red Team/Penetration Tester", value: red_team }
 
-    - name: query_mode
-      type: single_select
-      prompt: "How would you like to interact?"
-      default: "guided"
-      options:
-        - label: "Ask me anything (natural language)"
-          value: "natural_language"
-        - label: "Guided analysis (step-by-step)"
-          value: "guided"
-        - label: "Quick scan (automated)"
-          value: "quick_scan"
-        - label: "Deep research (comprehensive)"
-          value: "deep_research"
-        - label: "Real-time monitoring"
-          value: "continuous"
-
-  enterprise_inputs:
-    - name: organization_sector
-      type: single_select
-      prompt: "What is your organization's primary sector?"
-      condition: "user_persona in ['enterprise_soc', 'enterprise_executive', 'smb_security']"
-      options:
-        - "Financial Services / Banking"
-        - "Healthcare / Pharma"
-        - "Technology / Software"
-        - "Manufacturing / Industrial"
-        - "Retail / E-commerce"
-        - "Energy / Utilities"
-        - "Government / Public Sector"
-        - "Education"
-        - "Professional Services"
-        - "Media / Entertainment"
-        - "Transportation / Logistics"
-        - "Other"
-
-    - name: organization_size
-      type: single_select
-      prompt: "Organization size?"
-      condition: "user_persona in ['enterprise_soc', 'enterprise_executive', 'smb_security']"
-      options:
-        - label: "Enterprise (10,000+ employees)"
-          value: "enterprise_large"
-        - label: "Mid-Market (1,000-10,000)"
-          value: "enterprise_mid"
-        - label: "SMB (100-1,000)"
-          value: "smb"
-        - label: "Small Business (<100)"
-          value: "small"
-
-    - name: new_business_initiative
-      type: text
-      prompt: "Any new business initiatives increasing risk exposure?"
-      placeholder: "e.g., Digital transformation, M&A, new product launch, cloud migration"
-      condition: "user_persona in ['enterprise_soc', 'enterprise_executive']"
-
-    - name: geographic_presence
-      type: multi_select
-      prompt: "Geographic regions of operation?"
-      condition: "user_persona in ['enterprise_soc', 'enterprise_executive']"
-      options:
-        - "North America"
-        - "Europe (EU/UK)"
-        - "Asia Pacific"
-        - "Middle East"
-        - "Latin America"
-        - "Africa"
-
-    - name: technology_stack
-      type: multi_select
-      prompt: "Key technology platforms?"
-      condition: "user_persona in ['enterprise_soc', 'smb_security']"
-      options:
-        - "Microsoft 365 / Azure"
-        - "AWS"
-        - "Google Cloud / Workspace"
-        - "On-premises Windows"
-        - "On-premises Linux"
-        - "Kubernetes / Containers"
-        - "VMware"
-        - "Salesforce"
-        - "SAP"
-        - "Oracle"
-        - "Custom Applications"
-
-    - name: security_tools
-      type: multi_select
-      prompt: "Existing security tools?"
-      condition: "user_persona == 'enterprise_soc'"
-      options:
-        - "SIEM (Splunk, Sentinel, QRadar, etc.)"
-        - "EDR (CrowdStrike, SentinelOne, Defender, etc.)"
-        - "SOAR Platform"
-        - "Threat Intelligence Platform"
-        - "Vulnerability Scanner"
-        - "CASB"
-        - "DLP"
-        - "PAM"
-        - "NDR"
-        - "Email Security Gateway"
-
-  individual_inputs:
-    - name: security_experience
-      type: single_select
-      prompt: "Your security experience level?"
-      condition: "user_persona in ['individual_researcher', 'individual_privacy']"
-      options:
-        - label: "Beginner - Just getting started"
-          value: "beginner"
-        - label: "Intermediate - Know the basics"
-          value: "intermediate"
-        - label: "Advanced - Experienced practitioner"
-          value: "advanced"
-        - label: "Expert - Professional/researcher"
-          value: "expert"
-
-    - name: personal_focus_areas
-      type: multi_select
-      prompt: "What are you most concerned about?"
-      condition: "user_persona == 'individual_privacy'"
-      options:
-        - "Password and account security"
-        - "Phishing and scams"
-        - "Privacy on social media"
-        - "Protecting my family online"
-        - "Identity theft"
-        - "Mobile device security"
-        - "Smart home security"
-        - "Online shopping safety"
-
-    - name: learning_interests
-      type: multi_select
-      prompt: "What do you want to learn about?"
-      condition: "user_persona == 'individual_researcher'"
-      options:
-        - "Threat intelligence analysis"
-        - "Malware analysis"
-        - "Vulnerability research"
-        - "OSINT techniques"
-        - "Incident response"
-        - "Penetration testing"
-        - "Threat hunting"
-        - "Reverse engineering"
-        - "CTF challenges"
-
-  analysis_parameters:
     - name: time_range
       type: single_select
-      prompt: "Intelligence time range?"
-      default: "7d"
+      default: 7d
       options:
-        - label: "Breaking (last 24-48 hours)"
-          value: "48h"
-          description: "Latest threats and exploits"
-        - label: "Recent (last 7 days)"
-          value: "7d"
-          description: "Current threat landscape"
-        - label: "Monthly (last 30 days)"
-          value: "30d"
-          description: "Trend analysis"
-        - label: "Quarterly (last 90 days)"
-          value: "90d"
-          description: "Strategic view"
-
-    - name: threat_categories
-      type: multi_select
-      prompt: "Focus on specific threats? (optional - leave blank for all)"
-      options:
-        - "Ransomware"
-        - "APT / Nation-State"
-        - "Supply Chain"
-        - "Zero-Day Exploits"
-        - "Cloud Security"
-        - "API Security"
-        - "Insider Threat"
-        - "Credential Attacks"
-        - "BEC / Social Engineering"
-        - "DDoS"
-        - "Cryptojacking"
-        - "Mobile Threats"
-        - "IoT / OT Security"
-        - "AI-Enabled Attacks"
+        - { label: "Breaking (24-48h)", value: 48h }
+        - { label: "Recent (7 days)", value: 7d }
+        - { label: "Monthly (30 days)", value: 30d }
+        - { label: "Quarterly (90 days)", value: 90d }
 
     - name: output_format
       type: single_select
-      prompt: "Preferred output format?"
-      default: "technical_ioc_package"
+      default: technical_ioc_package
       options:
-        - label: "Full Technical Report + IOCs (default)"
-          value: "technical_ioc_package"
-        - label: "Executive Brief (2 pages)"
-          value: "executive_brief"
-        - label: "CISO Briefing (3-4 pages)"
-          value: "ciso_briefing"
-        - label: "Board Presentation"
-          value: "board_presentation"
-        - label: "Personal Security Guide"
-          value: "personal_security_guide"
-        - label: "Actionable Checklist"
-          value: "checklist"
-        - label: "Interactive Dashboard"
-          value: "dashboard"
+        - technical_ioc_package
+        - executive_brief
+        - ciso_briefing
+        - board_presentation
+        - personal_security_guide
+        - checklist
+
+  enterprise_conditional:
+    condition: "user_persona in [enterprise_soc, enterprise_executive, smb_security]"
+    fields:
+      - { name: organization_sector, type: single_select }
+      - { name: organization_size, type: single_select }
+      - { name: new_business_initiative, type: text }
+      - { name: geographic_presence, type: multi_select }
+      - { name: technology_stack, type: multi_select }
+      - { name: security_tools, type: multi_select, condition: "user_persona == enterprise_soc" }
+
+  threat_focus:
+    name: threat_categories
+    type: multi_select
+    optional: true
+    options: [Ransomware, APT, Supply_Chain, Zero_Day, Cloud_Security, API_Security, Insider_Threat, Credential_Attacks, BEC, DDoS, Cryptojacking, Mobile_Threats, IoT_OT, AI_Enabled_Attacks]
 
 # =============================================================================
 # THREAT SCORING ENGINE
 # =============================================================================
 threat_scoring_engine:
-  description: "Multi-dimensional threat scoring for prioritization"
-  
-  scoring_dimensions:
-    - dimension: "exploitability"
+  formula: "score = (exploitability * 0.25) + (impact * 0.25) + (relevance * 0.30) + (urgency * 0.20)"
+
+  dimensions:
+    exploitability:
       weight: 0.25
       factors:
-        - name: "exploit_maturity"
-          scores:
-            none: 0
-            poc: 40
-            weaponized: 70
-            in_the_wild: 100
-        - name: "attack_complexity"
-          scores:
-            high: 20
-            medium: 50
-            low: 100
-        - name: "privileges_required"
-          scores:
-            high: 20
-            low: 50
-            none: 100
+        exploit_maturity: { none: 0, poc: 40, weaponized: 70, in_the_wild: 100 }
+        attack_complexity: { high: 20, medium: 50, low: 100 }
+        privileges_required: { high: 20, low: 50, none: 100 }
 
-    - dimension: "impact"
+    impact:
       weight: 0.25
       factors:
-        - name: "confidentiality"
-          scores:
-            none: 0
-            low: 33
-            high: 100
-        - name: "integrity"
-          scores:
-            none: 0
-            low: 33
-            high: 100
-        - name: "availability"
-          scores:
-            none: 0
-            low: 33
-            high: 100
+        confidentiality: { none: 0, low: 33, high: 100 }
+        integrity: { none: 0, low: 33, high: 100 }
+        availability: { none: 0, low: 33, high: 100 }
 
-    - dimension: "relevance"
+    relevance:
       weight: 0.30
       factors:
-        - name: "sector_targeting"
-          description: "Does threat target our sector?"
-          scores:
-            no: 0
-            possible: 50
-            confirmed: 100
-        - name: "technology_match"
-          description: "Does threat affect our technology?"
-          scores:
-            no: 0
-            partial: 50
-            exact: 100
-        - name: "geographic_targeting"
-          description: "Does threat target our region?"
-          scores:
-            no: 0
-            possible: 50
-            confirmed: 100
+        sector_targeting: { no: 0, possible: 50, confirmed: 100 }
+        technology_match: { no: 0, partial: 50, exact: 100 }
+        geographic_targeting: { no: 0, possible: 50, confirmed: 100 }
 
-    - dimension: "urgency"
+    urgency:
       weight: 0.20
       factors:
-        - name: "active_exploitation"
-          scores:
-            none: 0
-            targeted: 70
-            widespread: 100
-        - name: "trend_direction"
-          scores:
-            decreasing: 20
-            stable: 50
-            increasing: 100
-        - name: "time_sensitivity"
-          description: "Window before patch/mitigation"
-          scores:
-            months: 20
-            weeks: 50
-            days: 80
-            hours: 100
+        active_exploitation: { none: 0, targeted: 70, widespread: 100 }
+        trend_direction: { decreasing: 20, stable: 50, increasing: 100 }
+        time_sensitivity: { months: 20, weeks: 50, days: 80, hours: 100 }
 
   priority_mapping:
-    - range: [90, 100]
-      priority: "P1-CRITICAL"
-      color: "#DC2626"
-      response: "Immediate action required (0-4 hours)"
-      
-    - range: [75, 89]
-      priority: "P2-HIGH"
-      color: "#EA580C"
-      response: "Urgent action required (4-24 hours)"
-      
-    - range: [50, 74]
-      priority: "P3-MEDIUM"
-      color: "#CA8A04"
-      response: "Planned action required (1-7 days)"
-      
-    - range: [25, 49]
-      priority: "P4-LOW"
-      color: "#16A34A"
-      response: "Monitor and track (7-30 days)"
-      
-    - range: [0, 24]
-      priority: "P5-INFO"
-      color: "#6B7280"
-      response: "Awareness only"
+    - { range: [90, 100], priority: P1-CRITICAL, response: "0-4 hours" }
+    - { range: [75, 89],  priority: P2-HIGH,     response: "4-24 hours" }
+    - { range: [50, 74],  priority: P3-MEDIUM,   response: "1-7 days" }
+    - { range: [25, 49],  priority: P4-LOW,      response: "7-30 days" }
+    - { range: [0, 24],   priority: P5-INFO,     response: "Awareness only" }
 
 # =============================================================================
-# COMPREHENSIVE INTELLIGENCE SOURCES (150+)
+# SOURCE TIER PRIORITIES (full source list lives in cyber_threat_prompt.md)
 # =============================================================================
-intelligence_sources:
-
-  source_categories:
-    - category: "vulnerability_databases"
-      priority: "critical"
-      examples: ["NVD", "CISA KEV", "Exploit-DB", "CVE Details", "ExploitPack", "OpenCVE"]
-
-    - category: "commercial_threat_intel"
-      priority: "critical"
-      examples: ["Recorded Future", "Mandiant", "CrowdStrike", "Microsoft", "Cisco Talos"]
-
-    - category: "attack_surface_intelligence"
-      priority: "high"
-      examples: ["GreyNoise", "Shodan", "Censys", "BinaryEdge"]
-
-    - category: "security_search_engines"
-      priority: "high"
-      examples: ["VirusTotal", "Hybrid Analysis", "URLScan", "CVE Details", "Nuclei Templates"]
-
-    - category: "bug_bounty_platforms"
-      priority: "high"
-      examples: ["HackerOne", "Bugcrowd", "Synack", "Intigriti"]
-
-    - category: "offensive_security_resources"
-      priority: "medium"
-      examples: ["OffSec", "ExploitPack", "HackTheBox", "TryHackMe", "PortSwigger"]
-
-    - category: "community_sources"
-      priority: "medium"
-      examples: ["r/netsec", "r/cybersecurity", "r/hacking", "r/bugbounty", "r/ExploitDev", "r/sysadmin", "Hacker News"]
-
-    - category: "dark_web_intelligence"
-      priority: "high"
-      examples: ["Flashpoint", "Intel 471", "DarkOwl", "Cybersixgill", "SOCRadar"]
-
-    - category: "government_regulatory"
-      priority: "critical"
-      examples: ["CISA", "FBI", "NSA", "NCSC", "ENISA", "FS-ISAC", "JPCERT/CC"]
-
-    - category: "malware_analysis"
-      priority: "high"
-      examples: ["MalwareBazaar", "URLhaus", "ThreatFox", "Malpedia", "Cape Sandbox"]
-
-  real_time_feeds:
-    description: "Real-time threat data feeds and community sources"
-    sources:
-      - name: "Reddit Security Communities"
-        type: "social_media"
-        subreddits:
-          - "r/netsec"
-          - "r/cybersecurity"
-          - "r/hacking"
-          - "r/hackernews"
-          - "r/hackers"
-          - "r/masterhacker"
-          - "r/bugbounty"
-          - "r/Hacking_Tutorials"
-          - "r/ExploitDev"
-          - "r/homesecurity"
-          - "r/sysadmin"
-          - "r/malware"
-          - "r/ReverseEngineering"
-          - "r/blueteamsec"
-          - "r/redteamsec"
-          - "r/Pentesting"
-          - "r/computerforensics"
-          - "r/AskNetsec"
-          - "r/privacy"
-
-      - name: "Twitter/X Security Community"
-        type: "social_media"
-        hashtags: ["#infosec", "#threatintel", "#malware", "#0day", "#ransomware"]
-        key_accounts:
-          - "vaborst"
-          - "GossiTheDog"
-          - "MalwareHunterTeam"
-          - "BushidoToken"
-          - "campuscodi"
-
-      - name: "Mastodon Infosec"
-        type: "social_media"
-        instances:
-          - "infosec.exchange"
-          - "ioc.exchange"
-
-      - name: "Telegram Security Channels"
-        type: "messaging"
-        note: "Monitor for leaked data and threat actor communications"
-
-      - name: "Discord Security Servers"
-        type: "messaging"
-        servers:
-          - "InfoSec Community"
-          - "The Many Hats Club"
-          - "HackerOne"
-
-  geopolitical_intelligence:
-    description: "Geopolitical context for threat analysis"
-    sources:
-      - name: "Council on Foreign Relations"
-        url: "https://www.cfr.org"
-        relevance: "Nation-state threat context"
-        
-      - name: "Recorded Future Geopolitical"
-        type: "commercial"
-        
-      - name: "CSIS Cyber Policy"
-        url: "https://www.csis.org/programs/strategic-technologies-program"
-        
-      - name: "Atlantic Council Digital Forensic Lab"
-        url: "https://www.atlanticcouncil.org/programs/digital-forensic-research-lab"
-
-  economic_indicators:
-    description: "Economic factors affecting threat landscape"
-    relevance: "Predict financially-motivated attacks"
-    indicators:
-      - "Cryptocurrency prices (ransomware correlation)"
-      - "Economic sanctions (nation-state activity)"
-      - "Corporate earnings (targeted attacks)"
-      - "Industry M&A activity (espionage)"
+source_tiers:
+  tier_1: { name: vulnerability_databases,     priority: critical }
+  tier_2: { name: commercial_threat_intel,     priority: critical }
+  tier_3: { name: search_engines_aggregators,  priority: high }
+  tier_4: { name: bug_bounty_platforms,        priority: high }
+  tier_5: { name: offensive_security_research, priority: medium }
+  tier_6: { name: community_researchers,       priority: medium }
+  tier_7: { name: dark_web_intelligence,       priority: high, access: mostly_paywalled }
+  tier_8: { name: government_regulatory,       priority: critical }
+  tier_9: { name: malware_analysis,            priority: high }
 
 # =============================================================================
-# ADVANCED ANALYSIS MODULES
+# ANALYSIS MODULES (names only — execution details live in the prompt)
 # =============================================================================
 analysis_modules:
-
   supply_chain_analysis:
-    description: "Deep supply chain risk assessment"
-    enabled: true
-    capabilities:
-      - name: "vendor_risk_scoring"
-        factors:
-          - "security_posture"
-          - "breach_history"
-          - "compliance_certifications"
-          - "geographic_risk"
-          - "concentration_risk"
-          
-      - name: "software_dependency_analysis"
-        scan_targets:
-          - "npm_packages"
-          - "pypi_packages"
-          - "maven_artifacts"
-          - "nuget_packages"
-          - "docker_images"
-        check_for:
-          - "known_vulnerabilities"
-          - "malicious_packages"
-          - "typosquatting"
-          - "dependency_confusion"
-          - "abandoned_packages"
-          
-      - name: "attack_path_mapping"
-        description: "Map how supply chain compromise reaches target"
-        visualization: "interactive_graph"
+    scan_targets: [npm_packages, pypi_packages, maven_artifacts, nuget_packages, docker_images]
+    checks: [known_vulnerabilities, malicious_packages, typosquatting, dependency_confusion, abandoned_packages]
 
-  insider_threat_module:
-    description: "Insider threat indicators and analysis"
-    enabled: true
-    indicator_categories:
-      - category: "technical_indicators"
-        indicators:
-          - "unusual_data_access_patterns"
-          - "after_hours_activity"
-          - "large_data_transfers"
-          - "unauthorized_tool_usage"
-          - "privilege_escalation_attempts"
-          - "security_control_bypass"
-          
-      - category: "behavioral_indicators"
-        indicators:
-          - "resignation_or_termination_notice"
-          - "performance_issues"
-          - "conflict_with_management"
-          - "financial_stress_indicators"
-          - "policy_violations"
-          
-      - category: "contextual_indicators"
-        indicators:
-          - "access_to_sensitive_data"
-          - "upcoming_organizational_changes"
-          - "competitor_contact"
-    
-    risk_scoring:
-      method: "weighted_indicator_sum"
-      threshold_levels:
-        low: 20
-        medium: 50
-        high: 75
-        critical: 90
+  insider_threat:
+    indicator_categories: [technical, behavioral, contextual]
+    thresholds: { low: 20, medium: 50, high: 75, critical: 90 }
 
-  attack_simulation_engine:
-    description: "War-gaming and attack simulation"
-    modes:
-      - name: "tabletop_scenarios"
-        description: "Generate realistic attack scenarios for exercises"
-        customization:
-          - "threat_actor_type"
-          - "target_assets"
-          - "attack_objectives"
-          - "defender_capabilities"
-        outputs:
-          - "scenario_narrative"
-          - "inject_timeline"
-          - "expected_indicators"
-          - "decision_points"
-          
-      - name: "attack_path_modeling"
-        description: "Model specific attack paths through environment"
-        inputs:
-          - "asset_inventory"
-          - "network_topology"
-          - "access_controls"
-          - "security_controls"
-        outputs:
-          - "attack_graph"
-          - "critical_paths"
-          - "chokepoints"
-          - "mitigation_opportunities"
-          
-      - name: "what_if_analysis"
-        description: "Model impact of control changes"
-        scenarios:
-          - "what_if_mfa_disabled"
-          - "what_if_vendor_compromised"
-          - "what_if_admin_credential_stolen"
-          - "what_if_ransomware_executed"
+  attack_simulation:
+    modes: [tabletop_scenarios, attack_path_modeling, what_if_analysis]
 
-  threat_hunting_hypothesis_generator:
-    description: "Generate threat hunting hypotheses based on intelligence"
-    methodology: "intelligence_driven_hunting"
-    outputs:
-      - name: "hypothesis"
-        format: "If [threat actor/technique], then [observable indicators]"
-        
-      - name: "hunt_queries"
-        formats:
-          - "kql"
-          - "spl"
-          - "sigma"
-          - "yara"
-          
-      - name: "data_requirements"
-        description: "Data sources needed for hunt"
-        
-      - name: "success_criteria"
-        description: "How to validate findings"
-        
-    example_hypotheses:
-      - hypothesis: "If APT29 is targeting our sector, we may see CozyDuke DNS patterns"
-        technique: "T1071.004"
-        data_sources: ["dns_logs", "proxy_logs"]
-        
-      - hypothesis: "If ransomware operators gained access, we may see RDP lateral movement"
-        technique: "T1021.001"
-        data_sources: ["windows_security_logs", "network_flow"]
+  threat_hunting_hypothesis:
+    methodology: intelligence_driven_hunting
+    query_formats: [kql, spl, sigma, yara]
 
-  vulnerability_chaining_detector:
-    description: "Identify exploitable vulnerability chains"
-    methodology:
-      - step: "inventory_vulnerabilities"
-        description: "Gather all known vulnerabilities in environment"
-        
-      - step: "map_dependencies"
-        description: "Map how systems connect and trust each other"
-        
-      - step: "identify_chains"
-        description: "Find multi-step exploitation paths"
-        examples:
-          - "CVE-A (web) → CVE-B (privilege) → CVE-C (lateral) → target"
-          
-      - step: "score_chains"
-        description: "Rank by feasibility and impact"
-        
-      - step: "recommend_breaks"
-        description: "Identify where to break the chain"
+  vulnerability_chaining:
+    steps: [inventory, map_dependencies, identify_chains, score_chains, recommend_breaks]
 
-  trend_analysis_engine:
-    description: "Historical trend analysis and forecasting"
-    capabilities:
-      - name: "threat_trend_analysis"
-        metrics:
-          - "attack_volume_by_type"
-          - "sector_targeting_shifts"
-          - "technique_popularity"
-          - "actor_activity_levels"
-        timeframes:
-          - "weekly"
-          - "monthly"
-          - "quarterly"
-          - "yearly"
-          
-      - name: "vulnerability_trends"
-        metrics:
-          - "disclosure_rate"
-          - "exploitation_speed"
-          - "patch_availability_time"
-          - "cvss_distribution"
-          
-      - name: "forecasting"
-        methods:
-          - "time_series_extrapolation"
-          - "seasonal_adjustment"
-          - "leading_indicator_analysis"
-        confidence_intervals: true
+  trend_analysis:
+    timeframes: [weekly, monthly, quarterly, yearly]
+    forecasting: true
 
 # =============================================================================
 # OUTPUT TEMPLATES
@@ -918,226 +317,90 @@ analysis_modules:
 output_templates:
 
   executive_brief:
-    sections:
-      - name: "threat_alert_banner"
-        condition: "critical_threats_exist"
-        
-      - name: "executive_summary"
-        max_bullets: 5
-        focus: "business_impact"
-        
-      - name: "risk_dashboard"
-        visualizations:
-          - "risk_heatmap"
-          - "trend_arrows"
-          - "peer_comparison"
-          
-      - name: "key_metrics"
-        metrics:
-          - "threats_by_severity"
-          - "sector_targeting_trend"
-          - "time_to_patch_average"
-          
-      - name: "investment_recommendations"
-        max_items: 3
-        include_roi: true
-        
-      - name: "appendix"
-        condition: "detailed_data_requested"
+    sections: [threat_alert_banner, executive_summary, risk_dashboard, key_metrics, investment_recommendations, appendix_coverage_ledger]
+    max_pages: 2
 
   technical_report:
-    sections:
-      - name: "executive_summary"
-      - name: "threat_landscape_analysis"
-      - name: "vulnerability_analysis"
-      - name: "ioc_summary"
-      - name: "ttp_mapping"
-      - name: "threat_actor_profiles"
-      - name: "detection_recommendations"
-      - name: "mitigation_priorities"
-      - name: "technical_appendix"
+    sections: [header_with_coverage_badge, executive_summary, threat_landscape, vulnerability_analysis, ioc_summary, ttp_mapping, threat_actor_profiles, detection_recommendations, mitigation_priorities, technical_appendix, appendix_coverage_ledger]
 
   personal_security_guide:
-    sections:
-      - name: "current_threats_affecting_you"
-        tone: "friendly"
-        
-      - name: "simple_action_checklist"
-        format: "checkbox_list"
-        max_items: 10
-        
-      - name: "why_this_matters"
-        include_examples: true
-        
-      - name: "step_by_step_guides"
-        condition: "actions_require_guidance"
-        
-      - name: "resources_for_learning"
-        condition: "user_wants_to_learn"
+    sections: [current_threats_affecting_you, simple_action_checklist, why_this_matters, step_by_step_guides, resources_for_learning, appendix_coverage_ledger]
+    tone: friendly
 
   soc_ioc_package:
-    sections:
-      - name: "deployment_priority"
-      - name: "high_confidence_iocs"
-        format: "structured_table"
-      - name: "detection_rules"
-        formats: ["sigma", "yara", "snort"]
-      - name: "hunting_queries"
-        formats: ["kql", "spl"]
-      - name: "response_playbooks"
-      - name: "false_positive_guidance"
+    sections: [header_with_coverage_badge, deployment_priority, high_confidence_iocs, detection_rules, hunting_queries, response_playbooks, false_positive_guidance, appendix_coverage_ledger]
+    ioc_formats: [csv, stix_2.1, pipe_delimited, yara, sigma, snort]
+    query_formats: [kql, spl]
 
   doze_sec_integration:
-    description: "Pipe-delimited IOC format for doze_sec batch audit tool"
+    description: "Pipe-delimited IOC format for doze_sec batch audit"
     schema: "MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor"
-    detection_methods:
-      - "registry_key"
-      - "event_id"
-      - "file_path"
-      - "process_name"
-      - "named_pipe"
-      - "wmi_query"
-      - "scheduled_task"
-      - "service_name"
-      - "command_line"
-      - "mutex"
-    severity_levels: ["critical", "high", "medium", "low", "info"]
-    notes: "Output only new TTPs not in the provided existing IOC list. One line per indicator. No headers in output."
-    example: |
-      T1547.001|Boot Autostart Execution|registry_key|HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\MalService|critical|APT29
-      T1059.001|PowerShell Execution|event_id|4104|high|LockBit
-      T1055.012|Process Hollowing|process_name|svchost_update.exe|critical|BlackCat
-      T1021.002|SMB Lateral Movement|named_pipe|\\.\pipe\atsvc|high|APT29
-      T1053.005|Scheduled Task Persistence|scheduled_task|\Microsoft\Windows\Maintenance\WinUpdate|critical|LockBit
-      T1047|WMI Execution|wmi_query|SELECT * FROM Win32_Process WHERE Name='cmd.exe'|medium|Unknown
+    detection_methods: [registry_key, event_id, file_path, process_name, named_pipe, wmi_query, scheduled_task, service_name, command_line, mutex]
+    severity_levels: [critical, high, medium, low, info]
+    rules:
+      - "New TTPs only (not in provided existing IOC list)"
+      - "One indicator per line, no header row"
 
 # =============================================================================
-# COMPLIANCE & REGULATORY MAPPING
+# COMPLIANCE MAPPING
 # =============================================================================
 compliance_mapping:
-  
   frameworks:
-    - name: "NIST CSF 2.0"
-      mapping:
-        threat_intel: ["ID.RA-1", "ID.RA-2", "ID.RA-3"]
-        vulnerability_mgmt: ["ID.RA-1", "PR.IP-12"]
-        incident_response: ["RS.AN-1", "RS.AN-2"]
-        
-    - name: "ISO 27001:2022"
-      mapping:
-        threat_intel: ["A.5.7", "A.8.8"]
-        vulnerability_mgmt: ["A.8.8", "A.8.9"]
-        
-    - name: "PCI DSS 4.0"
-      mapping:
-        threat_intel: ["5.2", "6.3", "11.3"]
-        vulnerability_mgmt: ["6.3", "11.3"]
-        
-    - name: "DORA (EU)"
-      mapping:
-        threat_intel: ["Article 13"]
-        incident_response: ["Article 17", "Article 19"]
-        
-    - name: "NYDFS 23 NYCRR 500"
-      mapping:
-        threat_intel: ["500.05", "500.09"]
-        vulnerability_mgmt: ["500.05", "500.07"]
-
-  auto_evidence_generation:
-    enabled: true
-    outputs:
-      - "threat_intelligence_program_evidence"
-      - "vulnerability_management_evidence"
-      - "risk_assessment_documentation"
-      - "incident_response_capability_evidence"
+    NIST_CSF_2:
+      threat_intel: [ID.RA-1, ID.RA-2, ID.RA-3]
+      vulnerability_mgmt: [ID.RA-1, PR.IP-12]
+      incident_response: [RS.AN-1, RS.AN-2]
+    ISO_27001_2022:
+      threat_intel: [A.5.7, A.8.8]
+      vulnerability_mgmt: [A.8.8, A.8.9]
+    PCI_DSS_4:
+      threat_intel: ["5.2", "6.3", "11.3"]
+      vulnerability_mgmt: ["6.3", "11.3"]
+    DORA_EU:
+      threat_intel: [Article_13]
+      incident_response: [Article_17, Article_19]
+    NYDFS_23_NYCRR_500:
+      threat_intel: ["500.05", "500.09"]
+      vulnerability_mgmt: ["500.05", "500.07"]
 
 # =============================================================================
-# EXECUTION ENGINE
+# EXECUTION
 # =============================================================================
 execution:
-
   workflow_modes:
-    quick_scan:
-      description: "Fast assessment of current threats"
-      duration_target: "60 seconds"
-      sources: ["critical_only"]
-      depth: "shallow"
-      
-    standard_analysis:
-      description: "Balanced analysis for daily operations"
-      duration_target: "5 minutes"
-      sources: ["critical", "high"]
-      depth: "moderate"
-      
-    deep_research:
-      description: "Comprehensive investigation"
-      duration_target: "30 minutes"
-      sources: ["all"]
-      depth: "deep"
-      
-    continuous:
-      description: "Ongoing monitoring"
-      duration: "indefinite"
-      sources: ["feeds", "real_time"]
-      depth: "adaptive"
-
-  error_handling:
-    retry_strategy:
-      max_retries: 3
-      backoff: "exponential"
-      initial_delay_ms: 1000
-      max_delay_ms: 30000
-      
-    fallback_strategy:
-      - condition: "primary_source_unavailable"
-        action: "use_cached_data"
-        max_cache_age_hours: 24
-        
-      - condition: "all_sources_unavailable"
-        action: "notify_and_degrade"
-        
-    graceful_degradation:
-      enabled: true
-      minimum_viable_output: true
+    quick_scan:      { sources: critical_only, depth: shallow }
+    standard:        { sources: [critical, high], depth: moderate }
+    deep_research:   { sources: all, depth: deep }
+    continuous:      { sources: [feeds, real_time], depth: adaptive }
 
   quality_assurance:
-    - check: "ioc_validation"
-      description: "Validate IOC format and structure"
-      
-    - check: "duplicate_detection"
-      description: "Remove duplicate findings"
-      
-    - check: "false_positive_filtering"
-      description: "Apply known FP filters"
-      
-    - check: "confidence_calibration"
-      description: "Ensure confidence scores are calibrated"
-      
-    - check: "output_completeness"
-      description: "Verify all required sections present"
+    - coverage_ledger_present
+    - coverage_badge_stamped
+    - every_ioc_has_source_field
+    - no_fabricated_values
+    - ioc_format_validation
+    - duplicate_detection
+    - confidence_calibration
 
 # =============================================================================
-# METADATA & VERSIONING
+# METADATA
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-03-31"
-  
+  last_updated: "2026-04-23"
+
   version_history:
     - version: "1.0.0"
       date: "2026-03-30"
       changes: "Initial release with 150+ sources, 6 personas, structured IOC/TTP extraction"
-
-  capability_summary:
-    total_sources: 150
-    supported_personas: 6
-    source_tiers: 9
-    compliance_frameworks: 7
+    - version: "1.1.0"
+      date: "2026-04-23"
+      changes: "Add source coverage protocol (R1-R5), dedupe source list (now single-source-of-truth in prompt.md), trim aspirational sections for token efficiency"
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/DOCS.md"
     issues: "https://github.com/kj299/threat-intel/issues"
 
   licensing:
-    type: "MIT"
+    type: MIT
     details: "See LICENSE file"

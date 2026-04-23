@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Prompt Toolkit -- Skill Documentation
 
-**Version:** 1.0.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-03-31
+**Version:** 1.1.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-04-23
 
 **Supported Platforms:** Microsoft Copilot, ChatGPT, Claude, other LLM-based assistants
 
@@ -16,6 +16,19 @@ This is a structured prompt toolkit that guides AI assistants to produce profess
 2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly
 3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days, network edge/endpoints/mobile/APIs/payment systems, full technical detail
 4. The AI generates a structured threat intelligence report with actionable IOCs, detection rules, and TTPs
+5. Every report is stamped with a **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) and includes a **Source Coverage Ledger** in Appendix A
+
+## Source Coverage Protocol
+
+The prompt enforces five rules (R1–R5) to prevent shallow output drawn only from general knowledge:
+
+- **R1 — Per-tier minimums.** Each tier has a minimum number of sources the AI must consult: Tier 1 (≥5), Tier 2 (≥4), Tier 3 (≥3), Tier 4 (≥2), Tier 5 (≥2), Tier 6 (≥3), Tier 8 (≥3), Tier 9 (≥3). Tier 7 (dark web) is best-effort because most sources are paywalled. Total MUST-minimum: 25 sources.
+- **R2 — Source citation on every claim.** Every IOC, TTP, threat actor profile, and detection rule must carry a `source:` field naming a specific entry from the Matrix. `source: unknown` or `source: general knowledge` is rejected.
+- **R3 — No fabrication.** Paywalled or inaccessible sources must be marked `status: unverified (source inaccessible)` — never substituted with invented IPs, hashes, or CVEs.
+- **R4 — Coverage badge.** Every report header is stamped `COVERAGE: FULL` (≥25 MUST-sources), `PARTIAL` (13–24), or `MINIMAL` (<13).
+- **R5 — Coverage Ledger.** Appendix A of every report is a table listing consulted vs skipped sources per tier, with reasons for skips.
+
+Sources in the Matrix are tagged `[MUST]` (counts toward tier minimum) or `[SHOULD]` (counts only after MUST-quota is met).
 
 ## Personas
 

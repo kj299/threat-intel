@@ -37,11 +37,15 @@ This is the core of the toolkit. Copy and paste the entire contents into any AI 
    - **Detail level** -- request executive-level or technical summary instead of full technical
 
 **What you get back:**
-- Prioritized threat list with MITRE ATT&CK mappings
+- A **Coverage badge** in the report header (`FULL`, `PARTIAL`, or `MINIMAL`) indicating how many of the mandatory source tiers were actually consulted
+- A **Source Coverage Ledger** in Appendix A listing which sources were queried per tier, which were skipped, and why
+- Prioritized threat list with MITRE ATT&CK mappings — every item carries a `source` field (no unsourced claims)
 - IOCs (IPs, domains, hashes, behavioral indicators) formatted for SIEM/EDR import
 - Detection rules in YARA, Sigma, KQL, SPL, and Snort/Suricata formats
 - CSV and STIX 2.1 exports ready for ingestion
 - Recommended actions matrix with owners and timelines
+
+**Source coverage enforcement:** The prompt compels the AI to consult a minimum number of sources per tier (e.g., ≥5 vulnerability databases, ≥4 commercial threat intel providers, ≥3 government advisories) before producing output. Items it cannot verify are marked `unverified (source inaccessible)` rather than fabricated. See `cyber_threat_prompt.md` → **Source Coverage Protocol** for the full rules.
 
 **Example queries to add after pasting the prompt:**
 ```
