@@ -372,6 +372,10 @@ compliance_mapping:
     NYDFS_23_NYCRR_500:
       threat_intel: ["500.05", "500.09"]
       vulnerability_mgmt: ["500.05", "500.07"]
+    SOX:
+      it_controls: ["Section_404"]
+    GDPR:
+      incident_response: [breach_notification]
 
 # =============================================================================
 # EXECUTION

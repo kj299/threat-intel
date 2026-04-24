@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/schema_json.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "object",
   
   "definitions": {
@@ -561,6 +561,38 @@
             "persona_used": { "$ref": "#/definitions/persona" },
             "sources_referenced": {
               "type": "integer"
+            },
+            "coverage_badge": {
+              "type": "string",
+              "enum": ["FULL", "PARTIAL", "MINIMAL"],
+              "description": "Source coverage badge per R4. FULL >=25 MUST-sources, PARTIAL 13-24, MINIMAL <13."
+            }
+          }
+        },
+        "coverage_ledger": {
+          "type": "array",
+          "description": "Source Coverage Ledger per R5 (Appendix A of every report)",
+          "items": {
+            "type": "object",
+            "required": ["tier", "required_min", "consulted", "met"],
+            "properties": {
+              "tier": { "type": "integer", "minimum": 1, "maximum": 9 },
+              "required_min": { "type": ["integer", "string"] },
+              "consulted": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "skipped": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              },
+              "met": { "type": "boolean" }
             }
           }
         },
