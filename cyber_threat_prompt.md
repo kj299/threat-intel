@@ -333,11 +333,29 @@ ioc_type,ioc_value,confidence,threat_name,threat_actor,mitre_technique,source,fi
 
 **STIX 2.1 bundle:** emit a `bundle` object with `indicator` objects (one per IOC) carrying `pattern`, `pattern_type=stix`, `valid_from`, `indicator_types`, `confidence`, `description`, and an `external_references` entry for the source.
 
-**Pipe-delimited for doze_sec batch audit** (new TTPs only, no header row):
+**Pipe-delimited for doze_sec batch audit** (new TTPs only). The doze_sec `-updateTTP` sanitizer drops any row that doesn't match ALL of these rules — output that ignores them is silently discarded:
+
 ```
 MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor
 ```
-Valid `Detection_Method` values: `registry_key`, `event_id`, `file_path`, `process_name`, `named_pipe`, `wmi_query`, `scheduled_task`, `service_name`, `command_line`, `mutex`. Severities: `critical`, `high`, `medium`, `low`, `info`.
+
+- **No header row, no preamble, no markdown fences, no commentary** — emit only data rows.
+- **Exactly 5 pipe separators per row** (6 fields total). No trailing pipe.
+- **`Detection_Method`** MUST be one of exactly these values (lowercase, space-separated, not underscores):
+  `registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`
+  (methods like `scheduled_task`, `service_name`, `command_line`, `mutex` have no handler and will be dropped.)
+- **`Severity`** MUST be one of exactly: `CRITICAL`, `WARNING`, `INFO` (uppercase, no other values).
+- **`Detection_Value`** MUST be ASCII-only, ≤260 characters, and must NOT contain any of these characters: `"` `'` `` ` `` `$` `;` `|` `&` `<` `>` `(` `)` `{` `}` `^`
+- **Every row must end with a newline** — no CRLF-only, no blank lines between rows.
+
+Example rows that pass the sanitizer:
+```
+T1547.001|Boot Autostart Execution|registry key|HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\MalService|CRITICAL|APT29
+T1059.001|PowerShell Script Block Logging|event id|4104|WARNING|LockBit
+T1055.012|Process Hollowing|process name|svchost_update.exe|CRITICAL|BlackCat
+T1021.002|SMB Admin Share|named pipe|\\.\pipe\atsvc|WARNING|APT29
+T1047|WMI Process Creation|wmi query|SELECT Name FROM Win32_Process WHERE Name=cmd.exe|INFO|Unknown
+```
 
 ### 7. Detection Rules
 Provide rules in formats applicable to the threats found:

@@ -719,14 +719,19 @@
               },
               "detection_method": {
                 "type": "string",
-                "enum": ["registry_key", "event_id", "file_path", "process_name", "named_pipe", "wmi_query", "scheduled_task", "service_name", "command_line", "mutex"]
+                "description": "Must match doze_sec sanitizer allowlist: lowercase, space-separated",
+                "enum": ["registry key", "event id", "process name", "file path", "named pipe", "wmi query"]
               },
               "detection_value": {
-                "type": "string"
+                "type": "string",
+                "description": "ASCII only, max 260 chars, must not contain: \" ' ` $ ; | & < > ( ) { } ^",
+                "maxLength": 260,
+                "pattern": "^[^\"'`$;|&<>(){}^]+$"
               },
               "severity": {
                 "type": "string",
-                "enum": ["critical", "high", "medium", "low", "info"]
+                "description": "Must be uppercase: CRITICAL, WARNING, or INFO",
+                "enum": ["CRITICAL", "WARNING", "INFO"]
               },
               "actor": {
                 "type": "string"
