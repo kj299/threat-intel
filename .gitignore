@@ -18,3 +18,7 @@ credentials.*
 # Temp files
 *.tmp
 *.bak
+
+# Claude Code scratch files (PR/issue body drafts)
+.pr-body.md
+.issue-comment.md
