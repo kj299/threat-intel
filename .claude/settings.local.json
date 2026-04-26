@@ -5,9 +5,9 @@
       "Bash(python -c \"import json; json.load\\(open\\(''schema_json.json''\\)\\); print\\(''schema_json.json: valid JSON''\\)\")",
       "Bash(python -c \"import json; json.load\\(open\\(''examples_outputs.json''\\)\\); print\\(''examples_outputs.json: valid JSON''\\)\")",
       "Bash(python -c \"import json; json.load\\(open\\('schema_json.json'\\)\\); print\\('schema OK'\\); json.load\\(open\\('examples_outputs.json'\\)\\); print\\('examples OK'\\)\")",
-      "PowerShell(Get-ChildItem cyber_threat_prompt.md, cyber_threat_skill.yaml, README.md, DOCS.md, CHANGELOG.md | ForEach-Object { \"{0,-30} {1,6} lines  {2,6} bytes\" -f $_.Name, \\(Get-Content $_.FullName\\).Count, $_.Length })",
-      "PowerShell(Get-ChildItem cyber_threat_prompt.md, cyber_threat_skill.yaml | ForEach-Object { \"{0,-30} {1,6} lines  {2,6} bytes\" -f $_.Name, \\(Get-Content $_.FullName\\).Count, $_.Length }; git diff --stat HEAD -- cyber_threat_prompt.md cyber_threat_skill.yaml README.md DOCS.md changelog.md)",
-      "PowerShell(git add cyber_threat_prompt.md cyber_threat_skill.yaml README.md DOCS.md changelog.md)",
+      "PowerShell(Get-ChildItem cyber_threat_prompt.md, cyber_threat_skill.yaml, README.md, docs.md, changelog.md | ForEach-Object { \"{0,-30} {1,6} lines  {2,6} bytes\" -f $_.Name, \\(Get-Content $_.FullName\\).Count, $_.Length })",
+      "PowerShell(Get-ChildItem cyber_threat_prompt.md, cyber_threat_skill.yaml | ForEach-Object { \"{0,-30} {1,6} lines  {2,6} bytes\" -f $_.Name, \\(Get-Content $_.FullName\\).Count, $_.Length }; git diff --stat HEAD -- cyber_threat_prompt.md cyber_threat_skill.yaml README.md docs.md changelog.md)",
+      "PowerShell(git add cyber_threat_prompt.md cyber_threat_skill.yaml README.md docs.md changelog.md)",
       "PowerShell(git push origin main)"
     ]
   }

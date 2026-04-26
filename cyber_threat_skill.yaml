@@ -412,7 +412,7 @@ metadata:
       changes: "Add source coverage protocol (R1-R5), dedupe source list (now single-source-of-truth in prompt.md), trim aspirational sections for token efficiency"
 
   support:
-    documentation: "https://github.com/kj299/threat-intel/blob/main/DOCS.md"
+    documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
     issues: "https://github.com/kj299/threat-intel/issues"
 
   licensing:
