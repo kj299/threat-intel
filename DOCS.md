@@ -94,6 +94,8 @@ The prompt references sources organized by priority:
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 
+> The table above shows examples per tier for orientation. **The complete source matrix used for coverage enforcement (R1-R5) lives in [cyber_threat_prompt.md](cyber_threat_prompt.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document.
+
 ## Threat Scoring
 
 Multi-dimensional scoring for prioritization:
@@ -163,6 +165,28 @@ Use [schema_json.json](schema_json.json) to validate structured output:
 pip install jsonschema
 jsonschema -i output.json schema_json.json
 ```
+
+### Valid Output Shape
+
+A conforming threat intelligence report includes:
+
+- `metadata` — `generated_at`, `skill_version`, `sources_referenced`
+- `alert_level` — `level`, `icon`, `color`, `message`
+- `executive_summary` — `headline`, `key_points`, `critical_actions`
+- `threats[]` — each entry carries `technique_name`, `mitre_id`, `cves`, `exploit_maturity`, `source`
+- IOC blocks (network, host, email) — each indicator carries `type`, `value`, `confidence`, `source`
+
+See [examples_outputs.json](examples_outputs.json) for complete valid examples across all 6 personas.
+
+### Common Validation Errors
+
+| Error message | Cause | Fix |
+|---|---|---|
+| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [cyber_threat_prompt.md](cyber_threat_prompt.md) |
+| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [schema_json.json](schema_json.json) |
+| `'high' is not one of ['High', 'Medium', 'Low']` | Confidence value uses wrong case | Use capitalized values: `High`, `Medium`, `Low` |
+| `'<value>' is not one of [...]` on `exploit_maturity` | Invalid enum value | Use one of: `None`, `PoC`, `Weaponized`, `In-The-Wild` |
+| `'<value>' is not one of [...]` on `priority` | Invalid priority value | Use one of: `P1-CRITICAL`, `P2-HIGH`, `P3-MEDIUM`, `P4-LOW`, `P5-INFO` |
 
 ## Examples
 

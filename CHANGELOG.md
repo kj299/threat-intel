@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [1.1.0] - 2026-04-23
+## [1.1.0] - 2026-04-26
 
 ### Added
 
@@ -17,12 +17,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Mandatory `source:` field on every IOC, TTP, threat actor profile, and detection rule
 - No-fabrication rule: unverifiable findings marked `status: unverified (source inaccessible)`, never invented
 - `source_coverage_protocol` section in `cyber_threat_skill.yaml` formalizing R1–R5
+- **Quick Start section** in `README.md` — 3-step onboarding (choose AI → copy prompt → paste & ask) so new users can produce a first report in under 2 minutes
+- **Schema Validation Examples** in `DOCS.md` — valid-output shape reference plus a table of common validation errors with causes and fixes (sourced from actual `schema_json.json` enums)
+- **Contributor guidance** in `contributing.md` — `Testing Your Changes Locally` (YAML/JSON validation commands), `Commit Message Examples` (good vs bad), and `What Makes a Good Contribution` (accepted vs rejected change types)
+- `docs/releases/` folder containing the v1.1.0 review and release-readiness records
 
 ### Changed
 
-- **Token optimization**: `cyber_threat_prompt.md` reduced ~45% (738 → 406 lines) by collapsing verbose source descriptions to single-line entries, removing blank template rows from IOC tables, consolidating six output-format code blocks into one structured spec, and removing three duplicate "begin immediately" instructions — all original source entries preserved
-- **Token optimization**: `cyber_threat_skill.yaml` reduced ~64% (1143 → 406 lines) by deduplicating the source list (now single-source-of-truth in `cyber_threat_prompt.md`), tightening persona definitions, and trimming aspirational sections
+- **Token optimization**: `cyber_threat_prompt.md` reduced ~54% (738 → 339 lines) by collapsing verbose source descriptions to single-line entries, removing blank template rows from IOC tables, consolidating six output-format code blocks into one structured spec, and removing three duplicate "begin immediately" instructions — all original source entries preserved
+- **Token optimization**: `cyber_threat_skill.yaml` reduced ~67% (1143 → 372 lines) by deduplicating the source list (now single-source-of-truth in `cyber_threat_prompt.md`), tightening persona definitions, and trimming aspirational sections
 - Source Matrix entries now tagged `[MUST]` or `[SHOULD]` so agents can prioritize quota-bearing sources
+- **Limitations section** in `README.md` expanded with explicit warnings: AI knowledge cutoff (no last-24/48h threats), illustrative IOCs (validate before deploying), no live feeds (Matrix entries are training-data references, not API integrations)
+- **Source-tier table** in `DOCS.md` now annotated as orientation-only, with `cyber_threat_prompt.md` called out as the canonical source matrix used for R1–R5 enforcement (prevents future duplication drift)
+
+### Fixed
+
+- Documentation link to `contributing.md` in `README.md` (`[CONTRIBUTING.md](CONTRIBUTING.md)` was broken on case-sensitive filesystems since the actual file is lowercase)
+- Repository directory tree in `README.md` now reflects the actual filenames (`CHANGELOG.md` uppercase, `contributing.md` lowercase)
 
 ### Removed
 

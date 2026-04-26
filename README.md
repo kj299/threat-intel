@@ -17,6 +17,38 @@ This is **not** a standalone product or platform. It is a prompt engineering too
 
 ---
 
+## Quick Start
+
+Get started in 30 seconds:
+
+### Step 1: Choose Your AI Assistant
+Use Microsoft Copilot, ChatGPT, Claude, or any LLM-based AI assistant.
+
+### Step 2: Copy the Prompt
+Open [cyber_threat_prompt.md](cyber_threat_prompt.md) and copy all content.
+
+### Step 3: Paste and Ask
+Paste into your AI assistant, then ask:
+```
+What ransomware groups are currently targeting financial services?
+```
+or
+```
+Generate a threat intelligence briefing for our AWS cloud infrastructure.
+```
+
+### What You Get
+- **Coverage badge** (FULL/PARTIAL/MINIMAL) — confidence indicator
+- **Threat list** with source citations on every claim
+- **IOCs** ready to block (IPs, domains, file hashes, behavioral indicators)
+- **Detection rules** in YARA, Sigma, KQL, SPL, Snort/Suricata formats
+- **Actions matrix** with priorities and timelines
+- **Appendix A** (Source Coverage Ledger) showing which sources were consulted
+
+For **advanced options** (custom time range, specific sectors, detailed formats), see "How to Use Each File" below.
+
+---
+
 ## How to Use Each File
 
 ### 1. The Prompt Template -- `cyber_threat_prompt.md`
@@ -161,7 +193,7 @@ threat-intel/
 ├── schema_json.json           # JSON Schema for output validation
 ├── examples_outputs.json      # Example outputs for all personas
 ├── CHANGELOG.md               # Version history
-├── CONTRIBUTING.md            # Contribution guidelines
+├── contributing.md            # Contribution guidelines
 ├── LICENSE                    # MIT License
 ├── CLAUDE.md                  # AI assistant project context
 └── .gitignore                 # Git ignore rules
@@ -244,17 +276,19 @@ The prompt can map findings to common frameworks:
 
 ## Limitations
 
+- **Knowledge cutoff.** AI output reflects the model's training data. For current-day threats (last 24-48 hours), consult professional threat intelligence services -- this toolkit cannot surface intelligence newer than the model behind it.
+- **Illustrative IOCs.** Generated IOCs (IPs, hashes, domains) are examples drawn from known patterns in training data, not real-time indicators. Validate every IOC against trusted feeds before deploying to detection or blocking systems.
+- **No live feeds.** This toolkit does not integrate with live threat feeds. Sources listed in the Matrix are references the AI draws from based on training data, not API integrations.
 - This toolkit guides AI output structure; it does not guarantee accuracy. Always verify critical findings.
-- Source references are for the AI to draw from -- there are no live API integrations.
 - Output quality depends on the AI model used and its training data.
-- Detection rules and IOCs generated should be reviewed before deployment.
+- Detection rules should be tested in a lab environment before production deployment.
 - This is not a replacement for professional threat intelligence services or incident response.
 
 ---
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome. See [contributing.md](contributing.md) for guidelines.
 
 ---
 
