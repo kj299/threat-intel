@@ -29,6 +29,8 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Pro
 
 ### Testing Your Changes Locally
 
+> A GitHub Actions workflow ([`validate`](.github/workflows/validate.yml)) runs the same JSON/YAML/schema-conformance checks on every PR. Catching errors locally is faster, but the server check is the source of truth.
+
 Before submitting a PR, validate your changes:
 
 **If you edited YAML:**
