@@ -23,10 +23,96 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Pro
 1. Fork the repository
 2. Create a branch (`git checkout -b feature/your-change`)
 3. Make your changes
-4. Validate YAML syntax if you edited the skill file (`yamllint cyber_threat_skill.yaml`)
-5. Validate JSON if you edited the schema (`jsonschema -i examples_outputs.json schema_json.json`)
-6. Commit with a clear message (`git commit -m "Add new intelligence source tier"`)
-7. Push and open a Pull Request
+4. **Validate locally** (see Testing Changes section below)
+5. Commit with a clear message (see Commit Message Examples section below)
+6. Push and open a Pull Request
+
+### Testing Your Changes Locally
+
+Before submitting a PR, validate your changes:
+
+**If you edited YAML:**
+```bash
+python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml'))"
+# No output = success. If error appears, fix it before committing.
+```
+
+**If you edited JSON:**
+```bash
+python -m json.tool schema_json.json > /dev/null
+python -m json.tool examples_outputs.json > /dev/null
+# If no error output appears, JSON is valid.
+```
+
+**If you edited markdown files:**
+```bash
+# Check for broken links (case-sensitive)
+grep -r "\[.*\](.*\.md)" *.md | grep -i CONTRIBUTING
+grep -r "\[.*\](.*\.md)" *.md | grep -i CHANGELOG
+# Both should return lowercase filenames: contributing.md, changelog.md
+```
+
+**After editing the prompt or skill file:**
+- Read through the full file to ensure changes are reflected consistently
+- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]`
+- If you modify source coverage rules (R1-R5), update all references
+
+### Commit Message Examples
+
+**❌ Bad commit messages:**
+```
+update
+fix stuff
+changes
+```
+
+**✅ Good commit messages:**
+```
+feat: add Tor Project to Tier 3 search engines
+
+Adds Tor Project directory as SHOULD-source for anonymous infrastructure reconnaissance.
+Aligns with existing coverage tier requirements and improves search engine diversity.
+
+feat: add KQL detection rule for Cobalt Strike beacon patterns
+
+Adds new detection rule for identifying Cobalt Strike beacon C2 communication.
+Includes behavioral IOC for beacon metadata structure.
+Applies to enterprise_soc and red_team personas.
+
+fix: correct NIST CSF mapping for incident response section
+
+Updates compliance mapping reference from ID.RA-1 to RS.AN-2 per NIST CSF 2.0 specification.
+
+docs: clarify source coverage protocol in README
+
+Expands explanation of R1-R5 enforcement rules with examples.
+Adds note about MUST vs SHOULD source priorities.
+```
+
+Format: `<type>: <description>` where type is one of:
+- `feat` — new feature, source, or persona
+- `fix` — bug fix or correction
+- `docs` — documentation improvements
+- `refactor` — code structure improvement (rarely needed)
+- `chore` — maintenance task
+
+### What Makes a Good Contribution
+
+**✅ Accepted:**
+- Adding new intelligence sources (with verification they exist)
+- Improving persona definitions or output templates
+- New detection rule formats or examples
+- Documentation corrections and clarity improvements
+- Typo fixes
+- Expanding compliance framework mappings
+- Translations or localization efforts
+
+**❌ Not Accepted:**
+- Changes that weaken source coverage enforcement (R1-R5)
+- Unsourced IOCs, CVEs, or threat actor attributions
+- Modifications to source coverage thresholds without clear justification
+- Removal of established personas or breaking changes to the output schema
+- Active exploit code or other content that violates security guidelines (see Security section)
 
 ### What We Welcome
 
