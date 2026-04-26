@@ -1,0 +1,52 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    name: JSON, YAML, and schema conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install jsonschema pyyaml
+
+      - name: Validate JSON syntax
+        run: |
+          python -c "import json; json.load(open('schema_json.json', encoding='utf-8'))"
+          python -c "import json; json.load(open('examples_outputs.json', encoding='utf-8'))"
+
+      - name: Validate YAML syntax
+        run: |
+          python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))"
+
+      - name: Validate examples conform to schema
+        run: |
+          python <<'PY'
+          import json, sys, jsonschema
+          with open('schema_json.json', encoding='utf-8') as f:
+              schema = json.load(f)
+          with open('examples_outputs.json', encoding='utf-8') as f:
+              data = json.load(f)
+          examples = data.get('examples', data)
+          items = list(examples.items()) if isinstance(examples, dict) else list(enumerate(examples))
+          fails = []
+          for k, v in items:
+              try:
+                  jsonschema.validate(instance=v, schema=schema)
+              except jsonschema.ValidationError as e:
+                  fails.append(f"  [{k}] path={list(e.absolute_path)} :: {e.message[:240]}")
+          if fails:
+              print("FAIL: examples do not validate against schema:")
+              print(*fails, sep="\n")
+              sys.exit(1)
+          print(f"OK: all {len(items)} examples validate against schema")
+          PY

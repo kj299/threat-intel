@@ -33,7 +33,7 @@ Before submitting a PR, validate your changes:
 
 **If you edited YAML:**
 ```bash
-python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml'))"
+python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))"
 # No output = success. If error appears, fix it before committing.
 ```
 
