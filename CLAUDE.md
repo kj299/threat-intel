@@ -10,7 +10,7 @@ This is NOT a product, platform, or service. It is a prompt engineering project.
 
 - `cyber_threat_prompt.md` -- The main prompt template users paste into an AI assistant
 - `cyber_threat_skill.yaml` -- Skill specification defining personas, scoring, and workflows
-- `DOCS.md` -- Detailed documentation for the skill specification
+- `docs.md` -- Detailed documentation for the skill specification
 - `schema_json.json` -- JSON Schema for validating structured output
 - `examples_outputs.json` -- Example outputs for all 6 personas
 

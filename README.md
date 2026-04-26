@@ -106,7 +106,7 @@ This YAML file is a reference specification, not something you paste into an AI.
 - To understand the scoring weights and how priorities are assigned
 - To see the full list of persona-specific output adaptations
 
-See [DOCS.md](DOCS.md) for the full human-readable documentation of this specification.
+See [docs.md](docs.md) for the full human-readable documentation of this specification.
 
 ### 3. The JSON Schema -- `schema_json.json`
 
@@ -189,10 +189,10 @@ threat-intel/
 ├── README.md                  # This file
 ├── cyber_threat_prompt.md     # Main prompt template
 ├── cyber_threat_skill.yaml    # Skill specification (personas, scoring, workflows)
-├── DOCS.md                    # Detailed documentation
+├── docs.md                    # Detailed documentation
 ├── schema_json.json           # JSON Schema for output validation
 ├── examples_outputs.json      # Example outputs for all personas
-├── CHANGELOG.md               # Version history
+├── changelog.md               # Version history
 ├── contributing.md            # Contribution guidelines
 ├── LICENSE                    # MIT License
 ├── CLAUDE.md                  # AI assistant project context
@@ -302,4 +302,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 - [Repository](https://github.com/kj299/threat-intel)
 - [Issues](https://github.com/kj299/threat-intel/issues)
-- [Changelog](CHANGELOG.md)
+- [Changelog](changelog.md)
