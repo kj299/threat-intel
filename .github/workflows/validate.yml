@@ -206,6 +206,117 @@ jobs:
           print(f"OK: {checked} example(s) with coverage data are internally consistent")
           PY
 
+      - name: Source-matrix tier parity (prompt vs skill vs schema)
+        run: |
+          python <<'PY'
+          import json, pathlib, re, sys, yaml
+
+          STOPWORDS = {
+              'and', 'or', 'of', 'the', 'a', 'an', 'in', 'on', 'for', 'to', 'with',
+              'mostly', 'paywalled', 'mark', 'unverified', 'if', 'inaccessible',
+          }
+
+          def slugify(s):
+              s = s.lower()
+              s = re.sub(r'\([^)]*\)', '', s)
+              s = s.replace('&', ' and ')
+              tokens = re.split(r'[^a-z0-9]+', s)
+              return {t for t in tokens if t and t not in STOPWORDS and len(t) > 1}
+
+          def tier_num_from_key(key):
+              m = re.match(r'tier_?(\d+)', key)
+              return int(m.group(1)) if m else None
+
+          # 1. Prompt headings: ### Tier N <sep> <name>
+          prompt_text = pathlib.Path('cyber_threat_prompt.md').read_text(encoding='utf-8')
+          heading_re = re.compile(r'^#{1,6}\s*Tier\s*(\d+)\s*[:\-–—]\s*(.+?)\s*$', re.MULTILINE)
+          prompt_tiers = {}
+          for m in heading_re.finditer(prompt_text):
+              n = int(m.group(1))
+              if n in prompt_tiers:
+                  print(f"FAIL: duplicate Tier {n} heading in cyber_threat_prompt.md")
+                  sys.exit(1)
+              prompt_tiers[n] = m.group(2)
+
+          # 2. YAML source_coverage_protocol.tier_minimums and source_tiers
+          skill = yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))
+          tier_min_keys = list(skill['source_coverage_protocol']['tier_minimums'].keys())
+          source_tier_keys = list(skill['source_tiers'].keys())
+          yaml_tier_min = {}
+          for k in tier_min_keys:
+              n = tier_num_from_key(k)
+              if n is None:
+                  print(f"FAIL: tier_minimums key {k!r} does not start with tier_<N>")
+                  sys.exit(1)
+              yaml_tier_min[n] = k
+          yaml_source_tiers = {}
+          for k in source_tier_keys:
+              n = tier_num_from_key(k)
+              if n is None:
+                  print(f"FAIL: source_tiers key {k!r} does not start with tier_<N>")
+                  sys.exit(1)
+              entry = skill['source_tiers'][k]
+              name = entry.get('name', '') if isinstance(entry, dict) else ''
+              yaml_source_tiers[n] = name
+
+          # 3. Schema range from coverage_ledger.items.properties.tier
+          schema = json.load(open('schema_json.json', encoding='utf-8'))
+          tier_prop = schema['properties']['skill_output']['properties']['coverage_ledger']['items']['properties']['tier']
+          schema_min = tier_prop.get('minimum')
+          schema_max = tier_prop.get('maximum')
+          if schema_min is None or schema_max is None:
+              print("FAIL: schema coverage_ledger.items.properties.tier is missing minimum/maximum")
+              sys.exit(1)
+          schema_tiers = set(range(schema_min, schema_max + 1))
+
+          # Compare tier sets
+          prompt_set = set(prompt_tiers)
+          tmin_set = set(yaml_tier_min)
+          stier_set = set(yaml_source_tiers)
+          all_sources = {
+              'cyber_threat_prompt.md headings': prompt_set,
+              'cyber_threat_skill.yaml tier_minimums': tmin_set,
+              'cyber_threat_skill.yaml source_tiers': stier_set,
+              'schema coverage_ledger.tier range': schema_tiers,
+          }
+          reference = prompt_set
+          mismatches = []
+          for label, s in all_sources.items():
+              if s != reference:
+                  mismatches.append(f"  {label}: {sorted(s)}")
+          if mismatches:
+              print("FAIL: tier numbering disagreement.")
+              print(f"  cyber_threat_prompt.md headings: {sorted(reference)}")
+              for line in mismatches:
+                  print(line)
+              sys.exit(1)
+
+          # Name-overlap check per tier
+          name_errors = []
+          for n in sorted(reference):
+              prompt_slug = slugify(prompt_tiers[n])
+              tmin_slug = slugify(yaml_tier_min[n].split('_', 2)[-1] if '_' in yaml_tier_min[n] else yaml_tier_min[n])
+              stier_slug = slugify(yaml_source_tiers[n])
+              checks = [
+                  ('prompt heading vs skill source_tiers.name', prompt_slug, stier_slug),
+                  ('skill tier_minimums slug vs source_tiers.name', tmin_slug, stier_slug),
+              ]
+              for label, a, b in checks:
+                  if not (a & b):
+                      name_errors.append(
+                          f"  Tier {n}: {label} share no token. "
+                          f"prompt={prompt_tiers[n]!r} tmin={yaml_tier_min[n]!r} "
+                          f"source_tiers.name={yaml_source_tiers[n]!r}"
+                      )
+          if name_errors:
+              print("FAIL: tier name drift (no shared significant token):")
+              for e in name_errors:
+                  print(e)
+              sys.exit(1)
+
+          print(f"OK: {len(reference)} tiers numbered consistently across prompt, skill, and schema, with overlapping names")
+          PY
+
       - name: Negative schema fixtures (tests/invalid)
         run: |
           python <<'PY'

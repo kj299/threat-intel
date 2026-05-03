@@ -76,6 +76,14 @@ CI also runs negative fixtures from `tests/invalid/` to prove the schema still r
 **If you added a new IOC value:**
 Hashes (`MD5`, `SHA1`, `SHA256`, `SHA512`) are length-pinned hex -- placeholders like `"a1b2c3d4...[truncated]"` will fail validation. Use a full-length illustrative value (e.g. 64 hex chars for SHA256). For network IOCs, defanged forms (`update-service[.]cloud`, `185[.]220[.]101[.]50`) and `xxx`-redacted IPs are accepted; pure type/value mismatches (e.g. `IPv4` carrying `"example.com"`, `Domain` carrying `"12345"`) are rejected. URL pattern enforcement is out of scope -- defanged URL forms vary too much to encode reliably.
 
+**If you added, removed, or renamed a source tier:**
+Three files describe the nine-tier source matrix and CI requires they stay in sync:
+1. `cyber_threat_prompt.md` -- one `### Tier N: <name>` heading per tier
+2. `cyber_threat_skill.yaml` -- `source_coverage_protocol.tier_minimums` keys and `source_tiers` keys (both prefixed `tier_<N>_...`)
+3. `schema_json.json` -- the `coverage_ledger.items.properties.tier` `minimum`/`maximum` range
+
+CI fails if the set of tier numbers disagrees across these four sources, or if a prompt heading and the corresponding `source_tiers.<name>` share no significant word. The name-overlap check is intentionally lenient (token intersection, not string equality) so different abbreviations of the same domain across files are fine.
+
 **If you edited an example's `coverage_ledger` or coverage metadata:**
 CI cross-checks each example with coverage data. If any of `coverage_ledger`, `metadata.sources_referenced`, or `metadata.coverage_badge` is present, all three must be, and the following must hold:
 - `sources_referenced` equals the sum of `len(entry.consulted)` across the ledger
