@@ -57,3 +57,66 @@ jobs:
               sys.exit(1)
           print(f"OK: all {len(items)} examples validate against schema")
           PY
+
+      - name: Cross-file version consistency
+        run: |
+          python <<'PY'
+          import json, re, sys, pathlib, yaml
+          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+              truth = yaml.safe_load(f)['skill']['version']
+          mismatches = []
+          with open('schema_json.json', encoding='utf-8') as f:
+              v = json.load(f).get('version')
+          if v != truth:
+              mismatches.append(f"schema_json.json :: version={v!r}")
+          with open('examples_outputs.json', encoding='utf-8') as f:
+              examples = json.load(f)['examples']
+          for i, ex in enumerate(examples):
+              sv = ex.get('output', {}).get('metadata', {}).get('skill_version')
+              if sv != truth:
+                  mismatches.append(
+                      f"examples_outputs.json[{i}] persona={ex.get('persona')!r} :: skill_version={sv!r}"
+                  )
+          text = pathlib.Path('changelog.md').read_text(encoding='utf-8')
+          m = re.search(r'^##\s*\[(\d+\.\d+\.\d+)\]', text, re.MULTILINE)
+          if m is None:
+              mismatches.append("changelog.md :: no '## [X.Y.Z]' section header found")
+          elif m.group(1) != truth:
+              mismatches.append(f"changelog.md :: top entry is {m.group(1)!r}")
+          if mismatches:
+              print(f"FAIL: version mismatch -- source of truth (cyber_threat_skill.yaml skill.version) = {truth!r}")
+              for line in mismatches:
+                  print(f"  {line}")
+              sys.exit(1)
+          print(f"OK: version {truth!r} consistent across skill yaml, schema, examples, and changelog")
+          PY
+
+      - name: Persona parity (skill yaml vs examples)
+        run: |
+          python <<'PY'
+          import json, sys, yaml
+          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+              skill = yaml.safe_load(f)
+          profiles = skill['persona_profiles']
+          yaml_personas = {k for k in profiles if k != 'description'}
+          with open('examples_outputs.json', encoding='utf-8') as f:
+              examples = json.load(f)['examples']
+          example_personas = [ex.get('persona') for ex in examples]
+          example_set = set(example_personas)
+          errors = []
+          missing = yaml_personas - example_set
+          if missing:
+              errors.append(f"defined in skill yaml but missing from examples: {sorted(missing)}")
+          extra = example_set - yaml_personas
+          if extra:
+              errors.append(f"present in examples but not defined in skill yaml: {sorted(extra)}")
+          dups = sorted({p for p in example_personas if example_personas.count(p) > 1})
+          if dups:
+              errors.append(f"persona has multiple examples: {dups}")
+          if errors:
+              print("FAIL: persona parity:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          print(f"OK: {len(yaml_personas)} personas in skill yaml each have exactly one example")
+          PY

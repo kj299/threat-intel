@@ -59,6 +59,17 @@ grep -r "\[.*\](.*\.md)" *.md | grep -i CHANGELOG
 - If you add a source, verify it's tagged `[MUST]` or `[SHOULD]`
 - If you modify source coverage rules (R1-R5), update all references
 
+**If you bumped the version:**
+The version string lives in four places. CI fails if they disagree. Bump all four together (source of truth: `cyber_threat_skill.yaml` -> `skill.version`):
+
+1. `cyber_threat_skill.yaml` -> `skill.version`
+2. `schema_json.json` -> `version`
+3. `changelog.md` -> add a new `## [X.Y.Z] - YYYY-MM-DD` section above existing entries
+4. `examples_outputs.json` -> every example's `metadata.skill_version`
+
+**If you added or removed a persona:**
+The set of personas in `cyber_threat_skill.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `examples_outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift.
+
 ### Commit Message Examples
 
 **❌ Bad commit messages:**
