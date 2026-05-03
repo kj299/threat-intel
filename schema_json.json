@@ -26,7 +26,9 @@
           "enum": ["High", "Medium", "Low"]
         },
         "source": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["unknown", "general knowledge", "n/a"] }
         },
         "first_seen": {
           "type": "string",
@@ -82,7 +84,9 @@
           "enum": ["High", "Medium", "Low"]
         },
         "source": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["unknown", "general knowledge", "n/a"] }
         },
         "associated_threat": {
           "type": "string"

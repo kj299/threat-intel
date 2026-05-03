@@ -70,6 +70,9 @@ The version string lives in four places. CI fails if they disagree. Bump all fou
 **If you added or removed a persona:**
 The set of personas in `cyber_threat_skill.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `examples_outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift.
 
+**If you changed `schema_json.json`:**
+CI also runs negative fixtures from `tests/invalid/` to prove the schema still rejects malformed input (missing required fields, bad enums, R2 placeholder source values like `"unknown"` / `"general knowledge"` / `"n/a"`, malformed `date-time`, bad `coverage_badge`). Layout: `tests/invalid/<def_name>/<case>.json`, where `<def_name>` matches a key in `schema_json.json` `definitions/` (or `skill_output_metadata` for the metadata block). When loosening a constraint, also remove or update the corresponding fixture; when tightening one, add a fixture for the new rejection.
+
 ### Commit Message Examples
 
 **❌ Bad commit messages:**

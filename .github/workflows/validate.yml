@@ -24,7 +24,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        run: pip install jsonschema pyyaml
+        run: pip install jsonschema pyyaml rfc3339-validator
 
       - name: Validate JSON syntax
         run: |
@@ -119,4 +119,61 @@ jobs:
                   print(f"  {e}")
               sys.exit(1)
           print(f"OK: {len(yaml_personas)} personas in skill yaml each have exactly one example")
+          PY
+
+      - name: Negative schema fixtures (tests/invalid)
+        run: |
+          python <<'PY'
+          import json, pathlib, sys, jsonschema
+          schema = json.load(open('schema_json.json', encoding='utf-8'))
+          def resolve_subschema(def_name):
+              if def_name in schema.get('definitions', {}):
+                  return schema['definitions'][def_name]
+              if def_name == 'skill_output_metadata':
+                  return schema['properties']['skill_output']['properties']['metadata']
+              return None
+          resolver = jsonschema.RefResolver.from_schema(schema)
+          fmt = jsonschema.FormatChecker()
+          if 'date-time' not in fmt.checkers:
+              print("FAIL: rfc3339-validator missing; date-time format will not be checked")
+              sys.exit(1)
+          root = pathlib.Path('tests/invalid')
+          if not root.exists():
+              print(f"OK: no {root} directory; nothing to check")
+              sys.exit(0)
+          errors, wrong_pass, checked = [], [], 0
+          for fixture in sorted(root.rglob('*.json')):
+              rel = fixture.relative_to(root)
+              if len(rel.parts) < 2:
+                  errors.append(f"{rel}: must be under a subdirectory naming the subschema")
+                  continue
+              def_name = rel.parts[0]
+              subschema = resolve_subschema(def_name)
+              if subschema is None:
+                  errors.append(f"{rel}: unknown subschema {def_name!r}")
+                  continue
+              try:
+                  instance = json.loads(fixture.read_text(encoding='utf-8'))
+              except Exception as e:
+                  errors.append(f"{rel}: parse error: {e}")
+                  continue
+              try:
+                  jsonschema.validate(
+                      instance=instance, schema=subschema,
+                      resolver=resolver, format_checker=fmt,
+                  )
+                  wrong_pass.append(f"{rel}: should have been rejected, but passed")
+              except jsonschema.ValidationError:
+                  checked += 1
+          if errors:
+              print("FAIL: malformed fixtures:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          if wrong_pass:
+              print("FAIL: fixtures wrongly accepted (schema regressed):")
+              for w in wrong_pass:
+                  print(f"  {w}")
+              sys.exit(1)
+          print(f"OK: all {checked} invalid fixtures correctly rejected")
           PY
