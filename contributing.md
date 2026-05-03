@@ -73,6 +73,14 @@ The set of personas in `cyber_threat_skill.yaml` (`persona_profiles` keys) must 
 **If you changed `schema_json.json`:**
 CI also runs negative fixtures from `tests/invalid/` to prove the schema still rejects malformed input (missing required fields, bad enums, R2 placeholder source values like `"unknown"` / `"general knowledge"` / `"n/a"`, malformed `date-time`, bad `coverage_badge`). Layout: `tests/invalid/<def_name>/<case>.json`, where `<def_name>` matches a key in `schema_json.json` `definitions/` (or `skill_output_metadata` for the metadata block). When loosening a constraint, also remove or update the corresponding fixture; when tightening one, add a fixture for the new rejection.
 
+**If you edited an example's `coverage_ledger` or coverage metadata:**
+CI cross-checks each example with coverage data. If any of `coverage_ledger`, `metadata.sources_referenced`, or `metadata.coverage_badge` is present, all three must be, and the following must hold:
+- `sources_referenced` equals the sum of `len(entry.consulted)` across the ledger
+- `coverage_badge` matches the badge derived from that total against `cyber_threat_skill.yaml` (`must_minimum_total` for FULL, half of it for PARTIAL/MINIMAL)
+- Each ledger entry's `required_min` matches the YAML `tier_minimums` value for that tier (with `best-effort`/`best_effort` treated as equivalent)
+- For numeric `required_min`, `met` equals `len(consulted) >= required_min`
+- Every numeric tier defined in YAML appears in the ledger
+
 ### Commit Message Examples
 
 **❌ Bad commit messages:**

@@ -121,6 +121,91 @@ jobs:
           print(f"OK: {len(yaml_personas)} personas in skill yaml each have exactly one example")
           PY
 
+      - name: Coverage ledger consistency
+        run: |
+          python <<'PY'
+          import json, math, re, sys, yaml
+          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+              skill = yaml.safe_load(f)
+          tier_mins_yaml = skill['source_coverage_protocol']['tier_minimums']
+          must_total = skill['source_coverage_protocol']['must_minimum_total']
+          partial_floor = math.ceil(must_total / 2)
+
+          def tier_num(key):
+              m = re.match(r'tier_(\d+)_', key)
+              return int(m.group(1)) if m else None
+          yaml_tier_min = {tier_num(k): v for k, v in tier_mins_yaml.items() if tier_num(k)}
+
+          def norm(v):
+              if isinstance(v, str):
+                  return v.lower().replace('-', '_')
+              return v
+
+          def expected_badge(total):
+              if total >= must_total: return 'FULL'
+              if total >= partial_floor: return 'PARTIAL'
+              return 'MINIMAL'
+
+          with open('examples_outputs.json', encoding='utf-8') as f:
+              examples = json.load(f)['examples']
+
+          all_errors = []
+          checked = 0
+          for ex in examples:
+              persona = ex.get('persona', '?')
+              meta = ex.get('output', {}).get('metadata', {})
+              ledger = ex.get('output', {}).get('coverage_ledger', [])
+              src_ref = meta.get('sources_referenced')
+              badge = meta.get('coverage_badge')
+              if not ledger and src_ref is None and badge is None:
+                  continue
+              errs = []
+              if not ledger: errs.append('coverage_ledger missing')
+              if src_ref is None: errs.append('metadata.sources_referenced missing')
+              if badge is None: errs.append('metadata.coverage_badge missing')
+              if errs:
+                  all_errors.append((persona, errs))
+                  continue
+              total = sum(len(e.get('consulted', [])) for e in ledger)
+              if total != src_ref:
+                  errs.append(f"sources_referenced={src_ref} but sum(consulted)={total}")
+              eb = expected_badge(total)
+              if eb != badge:
+                  errs.append(f"coverage_badge={badge!r} but expected {eb!r} for total={total}")
+              ledger_tiers = {e.get('tier') for e in ledger}
+              missing = sorted(set(yaml_tier_min) - ledger_tiers)
+              if missing:
+                  errs.append(f"tiers in YAML but missing from ledger: {missing}")
+              for e in ledger:
+                  t = e.get('tier')
+                  rm = e.get('required_min')
+                  expected_rm = yaml_tier_min.get(t)
+                  if expected_rm is None:
+                      errs.append(f"tier {t}: not declared in YAML tier_minimums")
+                      continue
+                  if norm(rm) != norm(expected_rm):
+                      errs.append(f"tier {t}: required_min={rm!r} but YAML says {expected_rm!r}")
+                  c = len(e.get('consulted', []))
+                  met_actual = e.get('met')
+                  if isinstance(rm, int):
+                      met_expected = c >= rm
+                      if met_expected != met_actual:
+                          errs.append(f"tier {t}: met={met_actual} but consulted={c} required_min={rm}")
+              if errs:
+                  all_errors.append((persona, errs))
+              else:
+                  checked += 1
+
+          if all_errors:
+              print("FAIL: coverage ledger consistency:")
+              for persona, errs in all_errors:
+                  print(f"  [{persona}]")
+                  for e in errs:
+                      print(f"    - {e}")
+              sys.exit(1)
+          print(f"OK: {checked} example(s) with coverage data are internally consistent")
+          PY
+
       - name: Negative schema fixtures (tests/invalid)
         run: |
           python <<'PY'

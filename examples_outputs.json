@@ -22,7 +22,7 @@
           "generated_at": "2026-03-29T14:32:00Z",
           "skill_version": "1.1.0",
           "persona_used": "enterprise_soc",
-          "sources_referenced": 28,
+          "sources_referenced": 27,
           "coverage_badge": "FULL"
         },
         "coverage_ledger": [
@@ -222,8 +222,7 @@
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
           "skill_version": "1.1.0",
-          "persona_used": "enterprise_executive",
-          "sources_referenced": 52
+          "persona_used": "enterprise_executive"
         },
         "alert_level": {
           "level": "elevated",
