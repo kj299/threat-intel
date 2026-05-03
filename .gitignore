@@ -22,3 +22,6 @@ credentials.*
 # Claude Code scratch files (PR/issue body drafts)
 .pr-body.md
 .issue-comment.md
+
+# Claude Code runtime state (settings.local.json is tracked; locks are not)
+.claude/*.lock
