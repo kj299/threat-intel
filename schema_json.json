@@ -12,6 +12,20 @@
       "type": "object",
       "description": "Network-based Indicator of Compromise",
       "required": ["type", "value", "confidence", "source"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "IPv4" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^(?:[0-9xX]{1,3}(?:\\.|\\[\\.\\])){3}[0-9xX]{1,3}$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "IPv6" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^(?=.*:)[0-9a-fA-F:.\\[\\]xX]+$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "Domain" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^(?=.*[a-zA-Z])[a-zA-Z0-9.\\-\\[\\]]+$" } } }
+        }
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -70,6 +84,24 @@
       "type": "object",
       "description": "Host-based Indicator of Compromise",
       "required": ["type", "value", "confidence", "source"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "MD5" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{32}$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "SHA1" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{40}$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "SHA256" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{64}$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "SHA512" } }, "required": ["type"] },
+          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{128}$" } } }
+        }
+      ],
       "properties": {
         "type": {
           "type": "string",

@@ -1,0 +1,6 @@
+{
+  "type": "IPv4",
+  "value": "example.com",
+  "confidence": "High",
+  "source": "NVD"
+}

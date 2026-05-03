@@ -99,7 +99,7 @@
           "host": [
             {
               "type": "SHA256",
-              "value": "a1b2c3d4e5f6...[truncated]",
+              "value": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
               "confidence": "High",
               "source": "MalwareBazaar",
               "associated_threat": "LockBit 3.0 Encryptor",
