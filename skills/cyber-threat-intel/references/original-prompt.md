@@ -44,7 +44,7 @@ Answer the questions below to scope the analysis. If any field is blank, use the
 5. **Detail level** — default: full technical (IOCs + TTPs + detection rules)
 6. **Output format** — default: Technical IOC Package
 
-Full input options and persona mappings live in `cyber_threat_skill.yaml`.
+Full input options and persona mappings live in [`../spec.yaml`](../spec.yaml).
 
 ---
 

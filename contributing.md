@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to the Cyber Threat Intelligence Prompt Toolkit.
+Thank you for your interest in contributing to the Cyber Threat Intelligence Skill.
 
 ---
 
@@ -10,7 +10,7 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Pro
 
 - Check [existing issues](https://github.com/kj299/threat-intel/issues) first
 - Include: what you tried, what you expected, what happened
-- Mention which AI assistant you used (Copilot, ChatGPT, Claude, etc.)
+- Mention which AI assistant you used (Claude, Copilot, ChatGPT, etc.)
 
 ### Suggesting Improvements
 
@@ -35,73 +35,79 @@ Before submitting a PR, validate your changes:
 
 **If you edited YAML:**
 ```bash
-python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))"
+python -c "import yaml; yaml.safe_load(open('skills/cyber-threat-intel/spec.yaml', encoding='utf-8'))"
 # No output = success. If error appears, fix it before committing.
 ```
 
 **If you edited JSON:**
 ```bash
-python -m json.tool schema_json.json > /dev/null
-python -m json.tool examples_outputs.json > /dev/null
+python -m json.tool skills/cyber-threat-intel/schemas/output.schema.json > /dev/null
+python -m json.tool skills/cyber-threat-intel/examples/outputs.json > /dev/null
 # If no error output appears, JSON is valid.
 ```
 
 **If you edited markdown files:**
 ```bash
 # Check for broken links (case-sensitive)
-grep -r "\[.*\](.*\.md)" *.md | grep -i CONTRIBUTING
-grep -r "\[.*\](.*\.md)" *.md | grep -i CHANGELOG
+grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CONTRIBUTING
+grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CHANGELOG
 # Both should return lowercase filenames: contributing.md, changelog.md
 ```
 
+**If you edited `SKILL.md`:**
+- Frontmatter must remain valid YAML between `---` fences with `name: cyber-threat-intel` and a `description` ≤1024 chars
+- Body should stay under 500 lines (offload detail to `references/`); CI enforces both
+- Every Markdown link (e.g. `[label](relative/path)`) should resolve to a file under `skills/cyber-threat-intel/`
+
 **After editing the prompt or skill file:**
 - Read through the full file to ensure changes are reflected consistently
-- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]`
-- If you modify source coverage rules (R1-R5), update all references
+- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` in `skills/cyber-threat-intel/references/source-matrix.md` *and* `skills/cyber-threat-intel/references/original-prompt.md`
+- If you modify source coverage rules (R1-R5), update all references in `SKILL.md`, `references/`, `original-prompt.md`, and `spec.yaml`
 
 **If you bumped the version:**
-The version string lives in four places. CI fails if they disagree. Bump all four together (source of truth: `cyber_threat_skill.yaml` -> `skill.version`):
+The version string lives in four places. CI fails if they disagree. Bump all four together (source of truth: `skills/cyber-threat-intel/spec.yaml` -> `skill.version`):
 
-1. `cyber_threat_skill.yaml` -> `skill.version`
-2. `schema_json.json` -> `version`
+1. `skills/cyber-threat-intel/spec.yaml` -> `skill.version`
+2. `skills/cyber-threat-intel/schemas/output.schema.json` -> `version`
 3. `changelog.md` -> add a new `## [X.Y.Z] - YYYY-MM-DD` section above existing entries
-4. `examples_outputs.json` -> every example's `metadata.skill_version`
+4. `skills/cyber-threat-intel/examples/outputs.json` -> every example's `metadata.skill_version`
 
 **If you added or removed a persona:**
-The set of personas in `cyber_threat_skill.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `examples_outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift.
+The set of personas in `skills/cyber-threat-intel/spec.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `skills/cyber-threat-intel/examples/outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift. Update `skills/cyber-threat-intel/references/personas.md` to match.
 
-**If you changed `schema_json.json`:**
-CI also runs negative fixtures from `tests/invalid/` to prove the schema still rejects malformed input (missing required fields, bad enums, R2 placeholder source values like `"unknown"` / `"general knowledge"` / `"n/a"`, malformed `date-time`, bad `coverage_badge`, type/value mismatches, malformed hashes). Layout: `tests/invalid/<def_name>/<case>.json`, where `<def_name>` matches a key in `schema_json.json` `definitions/` (or `skill_output_metadata` for the metadata block). When loosening a constraint, also remove or update the corresponding fixture; when tightening one, add a fixture for the new rejection.
+**If you changed `output.schema.json`:**
+CI also runs negative fixtures from `tests/invalid/` to prove the schema still rejects malformed input (missing required fields, bad enums, R2 placeholder source values like `"unknown"` / `"general knowledge"` / `"n/a"`, malformed `date-time`, bad `coverage_badge`, type/value mismatches, malformed hashes). Layout: `tests/invalid/<def_name>/<case>.json`, where `<def_name>` matches a key in `output.schema.json` `definitions/` (or `skill_output_metadata` for the metadata block). When loosening a constraint, also remove or update the corresponding fixture; when tightening one, add a fixture for the new rejection.
 
 **If you added a new IOC value:**
 Hashes (`MD5`, `SHA1`, `SHA256`, `SHA512`) are length-pinned hex -- placeholders like `"a1b2c3d4...[truncated]"` will fail validation. Use a full-length illustrative value (e.g. 64 hex chars for SHA256). For network IOCs, defanged forms (`update-service[.]cloud`, `185[.]220[.]101[.]50`) and `xxx`-redacted IPs are accepted; pure type/value mismatches (e.g. `IPv4` carrying `"example.com"`, `Domain` carrying `"12345"`) are rejected. URL pattern enforcement is out of scope -- defanged URL forms vary too much to encode reliably.
 
 **If you added, removed, or renamed a source tier:**
-Three files describe the nine-tier source matrix and CI requires they stay in sync:
-1. `cyber_threat_prompt.md` -- one `### Tier N: <name>` heading per tier
-2. `cyber_threat_skill.yaml` -- `source_coverage_protocol.tier_minimums` keys and `source_tiers` keys (both prefixed `tier_<N>_...`)
-3. `schema_json.json` -- the `coverage_ledger.items.properties.tier` `minimum`/`maximum` range
+Four files describe the nine-tier source matrix and CI requires they stay in sync:
+1. `skills/cyber-threat-intel/references/original-prompt.md` -- one `### Tier N: <name>` heading per tier (canonical for tier-name parity check)
+2. `skills/cyber-threat-intel/references/source-matrix.md` -- mirrored source list with `## Tier N: <name>` headings
+3. `skills/cyber-threat-intel/spec.yaml` -- `source_coverage_protocol.tier_minimums` keys and `source_tiers` keys (both prefixed `tier_<N>_...`)
+4. `skills/cyber-threat-intel/schemas/output.schema.json` -- the `coverage_ledger.items.properties.tier` `minimum`/`maximum` range
 
-CI fails if the set of tier numbers disagrees across these four sources, or if a prompt heading and the corresponding `source_tiers.<name>` share no significant word. The name-overlap check is intentionally lenient (token intersection, not string equality) so different abbreviations of the same domain across files are fine.
+CI fails if the set of tier numbers disagrees across these sources, or if a prompt heading and the corresponding `source_tiers.<name>` share no significant word. The name-overlap check is intentionally lenient (token intersection, not string equality) so different abbreviations of the same domain across files are fine.
 
 **If you edited an example's `coverage_ledger` or coverage metadata:**
 CI cross-checks each example with coverage data. If any of `coverage_ledger`, `metadata.sources_referenced`, or `metadata.coverage_badge` is present, all three must be, and the following must hold:
 - `sources_referenced` equals the sum of `len(entry.consulted)` across the ledger
-- `coverage_badge` matches the badge derived from that total against `cyber_threat_skill.yaml` (`must_minimum_total` for FULL, half of it for PARTIAL/MINIMAL)
+- `coverage_badge` matches the badge derived from that total against `skills/cyber-threat-intel/spec.yaml` (`must_minimum_total` for FULL, half of it for PARTIAL/MINIMAL)
 - Each ledger entry's `required_min` matches the YAML `tier_minimums` value for that tier (with `best-effort`/`best_effort` treated as equivalent)
 - For numeric `required_min`, `met` equals `len(consulted) >= required_min`
 - Every numeric tier defined in YAML appears in the ledger
 
 ### Commit Message Examples
 
-**❌ Bad commit messages:**
+**Bad commit messages:**
 ```
 update
 fix stuff
 changes
 ```
 
-**✅ Good commit messages:**
+**Good commit messages:**
 ```
 feat: add Tor Project to Tier 3 search engines
 
@@ -133,7 +139,7 @@ Format: `<type>: <description>` where type is one of:
 
 ### What Makes a Good Contribution
 
-**✅ Accepted:**
+**Accepted:**
 - Adding new intelligence sources (with verification they exist)
 - Improving persona definitions or output templates
 - New detection rule formats or examples
@@ -142,7 +148,7 @@ Format: `<type>: <description>` where type is one of:
 - Expanding compliance framework mappings
 - Translations or localization efforts
 
-**❌ Not Accepted:**
+**Not Accepted:**
 - Changes that weaken source coverage enforcement (R1-R5)
 - Unsourced IOCs, CVEs, or threat actor attributions
 - Modifications to source coverage thresholds without clear justification

@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Repository restructured to follow the [Anthropic Agent Skills](https://code.claude.com/docs/en/skills) convention** (closes #12). The skill now lives at `skills/cyber-threat-intel/` with a proper `SKILL.md` entrypoint (YAML frontmatter `name` + `description`), and supporting files split into `references/`, `schemas/`, and `examples/` subdirectories. The skill can now be installed into `~/.claude/skills/cyber-threat-intel/` and invoked as `/cyber-threat-intel`.
+- **Renamed/relocated files** (history preserved via `git mv`):
+  - `cyber_threat_skill.yaml` -> `skills/cyber-threat-intel/spec.yaml`
+  - `cyber_threat_prompt.md` -> `skills/cyber-threat-intel/references/original-prompt.md`
+  - `schema_json.json` -> `skills/cyber-threat-intel/schemas/output.schema.json`
+  - `examples_outputs.json` -> `skills/cyber-threat-intel/examples/outputs.json`
+- **New supporting files** under `skills/cyber-threat-intel/references/`: `source-matrix.md`, `extraction-framework.md`, `scoring.md`, `personas.md`, `output-templates.md`, `compliance-frameworks.md`.
+- **CI workflow** (`.github/workflows/validate.yml`) updated: uses env-var paths, adds an explicit "Validate skill directory layout" step that enforces `SKILL.md` frontmatter conformance to the Agent Skills spec (name regex, description length, body line cap).
+- **Documentation** (`README.md`, `docs.md`, `CLAUDE.md`) rewritten to reference the new layout and describe `/cyber-threat-intel` install instructions (with both POSIX and PowerShell variants).
+- **`contributing.md` fully rewritten** to reflect the new file layout: every validation/version-bump/persona-parity/tier-parity/coverage-ledger instruction now points at the new paths under `skills/cyber-threat-intel/`.
+
+### Added
+
+- **`.gitattributes`** at repo root enforcing LF line endings for text files (`.md`, `.yaml`, `.yml`, `.json`, `.py`, `LICENSE`, `.gitignore`). Required so the CI layout check (which parses `SKILL.md` frontmatter with `text.startswith('---\n')`) does not break on Linux runners when contributors commit from Windows with `core.autocrlf=true`.
+
+---
+
 ## [1.1.0] - 2026-04-26
 
 ### Added

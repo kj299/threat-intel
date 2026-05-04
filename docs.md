@@ -1,26 +1,28 @@
-# Cyber Threat Intelligence Prompt Toolkit -- Skill Documentation
+# Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.1.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-04-23
+**Version:** 1.1.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-05-03
 
-**Supported Platforms:** Microsoft Copilot, ChatGPT, Claude, other LLM-based assistants
+**Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
 
 **Personas:** enterprise_soc, enterprise_executive, smb_security, individual_researcher, individual_privacy, red_team
 
 ## Overview
 
-This is a structured prompt toolkit that guides AI assistants to produce professional-grade threat intelligence reports. It references 150+ intelligence sources, supports 6 user personas, and outputs structured analysis including IOCs, TTPs, detection rules, and executive summaries.
+This is an [Anthropic Agent Skill](https://code.claude.com/docs/en/skills) that guides AI assistants to produce professional-grade threat intelligence reports. It references 150+ intelligence sources, supports 6 user personas, and outputs structured analysis including IOCs, TTPs, detection rules, and executive summaries.
+
+For the long-form prompt (suitable for non-Claude assistants like ChatGPT or Copilot), see [skills/cyber-threat-intel/references/original-prompt.md](skills/cyber-threat-intel/references/original-prompt.md).
 
 ## How It Works
 
-1. The user pastes the prompt template into their AI assistant
-2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly
-3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days, network edge/endpoints/mobile/APIs/payment systems, full technical detail
-4. The AI generates a structured threat intelligence report with actionable IOCs, detection rules, and TTPs
-5. Every report is stamped with a **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) and includes a **Source Coverage Ledger** in Appendix A
+1. The user invokes the skill with `/cyber-threat-intel` (Claude Code) or pastes the long-form prompt into another AI assistant.
+2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly.
+3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days, network edge/endpoints/mobile/APIs/payment systems, full technical detail.
+4. The AI generates a structured threat intelligence report with actionable IOCs, detection rules, and TTPs.
+5. Every report is stamped with a **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) and includes a **Source Coverage Ledger** in Appendix A.
 
 ## Source Coverage Protocol
 
-The prompt enforces five rules (R1–R5) to prevent shallow output drawn only from general knowledge:
+The skill enforces five rules (R1–R5) to prevent shallow output drawn only from general knowledge:
 
 - **R1 — Per-tier minimums.** Each tier has a minimum number of sources the AI must consult: Tier 1 (≥5), Tier 2 (≥4), Tier 3 (≥3), Tier 4 (≥2), Tier 5 (≥2), Tier 6 (≥3), Tier 8 (≥3), Tier 9 (≥3). Tier 7 (dark web) is best-effort because most sources are paywalled. Total MUST-minimum: 25 sources.
 - **R2 — Source citation on every claim.** Every IOC, TTP, threat actor profile, and detection rule must carry a `source:` field naming a specific entry from the Matrix. `source: unknown` or `source: general knowledge` is rejected.
@@ -78,7 +80,7 @@ The toolkit adapts output style and depth based on who is asking:
 
 ## Intelligence Source Tiers
 
-The prompt references sources organized by priority:
+The skill references sources organized by priority:
 
 | Tier | Category | Example Sources |
 |------|----------|----------------|
@@ -94,7 +96,7 @@ The prompt references sources organized by priority:
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 
-> The table above shows examples per tier for orientation. **The complete source matrix used for coverage enforcement (R1-R5) lives in [cyber_threat_prompt.md](cyber_threat_prompt.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document.
+> The table above shows examples per tier for orientation. **The complete source matrix used for coverage enforcement (R1–R5) lives in [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
 
 ## Threat Scoring
 
@@ -129,7 +131,7 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 
 ## Compliance Mapping
 
-The prompt can map findings to:
+The skill can map findings to:
 
 | Framework | Coverage Areas |
 |-----------|---------------|
@@ -155,15 +157,15 @@ The prompt can map findings to:
 - The AI draws from training data, not live feeds. Results reflect knowledge up to the model's cutoff date.
 - Generated IOCs are illustrative examples based on known patterns, not real-time indicators.
 - Detection rules should be tested in a lab environment before production deployment.
-- This toolkit does not replace professional threat intelligence services or incident response capabilities.
+- This skill does not replace professional threat intelligence services or incident response capabilities.
 
 ## Schema Validation
 
-Use [schema_json.json](schema_json.json) to validate structured output:
+Use [skills/cyber-threat-intel/schemas/output.schema.json](skills/cyber-threat-intel/schemas/output.schema.json) to validate structured output:
 
 ```bash
-pip install jsonschema
-jsonschema -i output.json schema_json.json
+pip install jsonschema rfc3339-validator
+jsonschema -i output.json skills/cyber-threat-intel/schemas/output.schema.json
 ```
 
 ### Valid Output Shape
@@ -176,18 +178,18 @@ A conforming threat intelligence report includes:
 - `threats[]` — each entry carries `technique_name`, `mitre_id`, `cves`, `exploit_maturity`, `source`
 - IOC blocks (network, host, email) — each indicator carries `type`, `value`, `confidence`, `source`
 
-See [examples_outputs.json](examples_outputs.json) for complete valid examples across all 6 personas.
+See [skills/cyber-threat-intel/examples/outputs.json](skills/cyber-threat-intel/examples/outputs.json) for complete valid examples across all 6 personas.
 
 ### Common Validation Errors
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [cyber_threat_prompt.md](cyber_threat_prompt.md) |
-| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [schema_json.json](schema_json.json) |
+| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) |
+| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [output.schema.json](skills/cyber-threat-intel/schemas/output.schema.json) |
 | `'high' is not one of ['High', 'Medium', 'Low']` | Confidence value uses wrong case | Use capitalized values: `High`, `Medium`, `Low` |
 | `'<value>' is not one of [...]` on `exploit_maturity` | Invalid enum value | Use one of: `None`, `PoC`, `Weaponized`, `In-The-Wild` |
 | `'<value>' is not one of [...]` on `priority` | Invalid priority value | Use one of: `P1-CRITICAL`, `P2-HIGH`, `P3-MEDIUM`, `P4-LOW`, `P5-INFO` |
 
 ## Examples
 
-See [examples_outputs.json](examples_outputs.json) for complete example outputs across all 6 personas.
+See [skills/cyber-threat-intel/examples/outputs.json](skills/cyber-threat-intel/examples/outputs.json) for complete example outputs across all 6 personas.
