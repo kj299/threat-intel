@@ -88,7 +88,7 @@ The skill references sources organized by priority:
 | 2 | Commercial Threat Intel | Recorded Future, Mandiant, CrowdStrike, Microsoft, Cisco Talos |
 | 3 | Search Engines & Aggregators | Shodan, Censys, VirusTotal, GreyNoise, Nuclei Templates |
 | 4 | Bug Bounty Platforms | HackerOne, Bugcrowd, Synack, Intigriti |
-| 5 | Offensive Security Resources | OffSec, ExploitPack, HackTheBox, TryHackMe, PortSwigger |
+| 5 | Offensive Security Research | OffSec, ExploitPack, HackTheBox, TryHackMe, PortSwigger |
 | 6 | Community & Blogs | r/netsec, r/hacking, r/bugbounty, r/ExploitDev, r/sysadmin, Krebs on Security |
 | 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl, Cybersixgill, SOCRadar |
 | 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC, JPCERT/CC |
