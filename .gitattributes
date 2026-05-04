@@ -1,0 +1,12 @@
+# Normalize line endings to LF for text files. The CI layout check parses
+# SKILL.md frontmatter with `text.startswith('---\n')`, so SKILL.md being
+# checked in with CRLF (which Windows + core.autocrlf=true would do) would
+# break validation on Linux runners.
+*           text=auto eol=lf
+*.md        text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.py        text eol=lf
+LICENSE     text eol=lf
+.gitignore  text eol=lf

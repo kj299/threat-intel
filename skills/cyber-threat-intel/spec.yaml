@@ -1,13 +1,20 @@
 # =============================================================================
-# CYBER THREAT INTELLIGENCE PROMPT TOOLKIT - SKILL SPECIFICATION
+# CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
 # Version: 1.1.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage enforcement, and output
-# templates for the threat intelligence prompt. Full source matrix lives in
-# cyber_threat_prompt.md (single source of truth — do not duplicate here).
+# templates. Consumed by CI validators (version/persona/coverage-ledger/tier
+# parity checks). The Anthropic Agent Skill identifier ("cyber-threat-intel")
+# and machine-readable description live in SKILL.md frontmatter, NOT here.
+#
+# Full source matrix (canonical for tier-name parity): references/source-matrix.md
+# Long-form prompt (used by tier-parity check, also for non-Claude assistants):
+#   references/original-prompt.md
 # =============================================================================
 
 skill:
+  # Display label only -- this is human prose, not the Agent Skill identifier.
+  # The skill identifier ("cyber-threat-intel") lives in SKILL.md frontmatter.
   name: "Cyber Threat Intelligence Prompt Toolkit"
   description: |
     Structured prompt specification that guides AI assistants to produce
@@ -272,7 +279,9 @@ threat_scoring_engine:
     - { range: [0, 24],   priority: P5-INFO,     response: "Awareness only" }
 
 # =============================================================================
-# SOURCE TIER PRIORITIES (full source list lives in cyber_threat_prompt.md)
+# SOURCE TIER PRIORITIES
+# Full source list lives in references/source-matrix.md (with the long-form
+# prompt at references/original-prompt.md as the canonical tier-name source).
 # =============================================================================
 source_tiers:
   tier_1: { name: vulnerability_databases,     priority: critical }

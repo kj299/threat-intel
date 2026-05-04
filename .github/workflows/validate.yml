@@ -12,6 +12,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SKILL_DIR: skills/cyber-threat-intel
+  SKILL_FILE: skills/cyber-threat-intel/SKILL.md
+  SPEC_FILE: skills/cyber-threat-intel/spec.yaml
+  SCHEMA_FILE: skills/cyber-threat-intel/schemas/output.schema.json
+  EXAMPLES_FILE: skills/cyber-threat-intel/examples/outputs.json
+  PROMPT_FILE: skills/cyber-threat-intel/references/original-prompt.md
+
 jobs:
   validate:
     name: JSON, YAML, and schema conformance
@@ -26,22 +34,81 @@ jobs:
       - name: Install dependencies
         run: pip install jsonschema pyyaml rfc3339-validator
 
+      - name: Validate skill directory layout (Anthropic Agent Skills convention)
+        run: |
+          python <<'PY'
+          import os, pathlib, sys, re
+          skill_dir = pathlib.Path(os.environ['SKILL_DIR'])
+          skill_file = pathlib.Path(os.environ['SKILL_FILE'])
+          errors = []
+          if not skill_dir.is_dir():
+              errors.append(f"missing skill directory: {skill_dir}")
+          if not skill_file.is_file():
+              errors.append(f"missing SKILL.md entrypoint: {skill_file}")
+          else:
+              text = skill_file.read_text(encoding='utf-8')
+              if not text.startswith('---\n'):
+                  errors.append("SKILL.md does not begin with YAML frontmatter '---' fence")
+              else:
+                  end = text.find('\n---\n', 4)
+                  if end < 0:
+                      errors.append("SKILL.md frontmatter is not closed with '---'")
+                  else:
+                      import yaml
+                      fm = yaml.safe_load(text[4:end])
+                      if not isinstance(fm, dict):
+                          errors.append("SKILL.md frontmatter is not a YAML mapping")
+                      else:
+                          name = fm.get('name')
+                          desc = fm.get('description')
+                          if not name:
+                              errors.append("SKILL.md frontmatter missing required 'name'")
+                          elif not re.fullmatch(r'[a-z0-9-]{1,64}', name):
+                              errors.append(
+                                  f"SKILL.md frontmatter 'name'={name!r} violates spec "
+                                  "(lowercase letters, digits, hyphens only, max 64 chars)"
+                              )
+                          elif name != skill_dir.name:
+                              errors.append(
+                                  f"SKILL.md 'name'={name!r} does not match directory name "
+                                  f"{skill_dir.name!r}"
+                              )
+                          if not desc:
+                              errors.append("SKILL.md frontmatter missing recommended 'description'")
+                          elif len(desc) > 1024:
+                              errors.append(
+                                  f"SKILL.md 'description' is {len(desc)} chars; spec caps at 1024"
+                              )
+              body_lines = text.splitlines()
+              if len(body_lines) > 500:
+                  errors.append(
+                      f"SKILL.md is {len(body_lines)} lines; spec recommends keeping it under 500 "
+                      "and offloading detail to references/"
+                  )
+          if errors:
+              print("FAIL: skill layout violations:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          print(f"OK: {skill_file} conforms to Agent Skills convention")
+          PY
+
       - name: Validate JSON syntax
         run: |
-          python -c "import json; json.load(open('schema_json.json', encoding='utf-8'))"
-          python -c "import json; json.load(open('examples_outputs.json', encoding='utf-8'))"
+          python -c "import json, os; json.load(open(os.environ['SCHEMA_FILE'], encoding='utf-8'))"
+          python -c "import json, os; json.load(open(os.environ['EXAMPLES_FILE'], encoding='utf-8'))"
 
       - name: Validate YAML syntax
         run: |
-          python -c "import yaml; yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))"
+          python -c "import yaml, os; yaml.safe_load(open(os.environ['SPEC_FILE'], encoding='utf-8'))"
 
       - name: Validate examples conform to schema
         run: |
           python <<'PY'
-          import json, sys, jsonschema
-          with open('schema_json.json', encoding='utf-8') as f:
+          import json, os, sys, jsonschema
+          with open(os.environ['SCHEMA_FILE'], encoding='utf-8') as f:
               schema = json.load(f)
-          with open('examples_outputs.json', encoding='utf-8') as f:
+          with open(os.environ['EXAMPLES_FILE'], encoding='utf-8') as f:
               data = json.load(f)
           examples = data.get('examples', data)
           items = list(examples.items()) if isinstance(examples, dict) else list(enumerate(examples))
@@ -61,21 +128,21 @@ jobs:
       - name: Cross-file version consistency
         run: |
           python <<'PY'
-          import json, re, sys, pathlib, yaml
-          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+          import json, os, re, sys, pathlib, yaml
+          with open(os.environ['SPEC_FILE'], encoding='utf-8') as f:
               truth = yaml.safe_load(f)['skill']['version']
           mismatches = []
-          with open('schema_json.json', encoding='utf-8') as f:
+          with open(os.environ['SCHEMA_FILE'], encoding='utf-8') as f:
               v = json.load(f).get('version')
           if v != truth:
-              mismatches.append(f"schema_json.json :: version={v!r}")
-          with open('examples_outputs.json', encoding='utf-8') as f:
+              mismatches.append(f"{os.environ['SCHEMA_FILE']} :: version={v!r}")
+          with open(os.environ['EXAMPLES_FILE'], encoding='utf-8') as f:
               examples = json.load(f)['examples']
           for i, ex in enumerate(examples):
               sv = ex.get('output', {}).get('metadata', {}).get('skill_version')
               if sv != truth:
                   mismatches.append(
-                      f"examples_outputs.json[{i}] persona={ex.get('persona')!r} :: skill_version={sv!r}"
+                      f"{os.environ['EXAMPLES_FILE']}[{i}] persona={ex.get('persona')!r} :: skill_version={sv!r}"
                   )
           text = pathlib.Path('changelog.md').read_text(encoding='utf-8')
           m = re.search(r'^##\s*\[(\d+\.\d+\.\d+)\]', text, re.MULTILINE)
@@ -84,32 +151,32 @@ jobs:
           elif m.group(1) != truth:
               mismatches.append(f"changelog.md :: top entry is {m.group(1)!r}")
           if mismatches:
-              print(f"FAIL: version mismatch -- source of truth (cyber_threat_skill.yaml skill.version) = {truth!r}")
+              print(f"FAIL: version mismatch -- source of truth (spec.yaml skill.version) = {truth!r}")
               for line in mismatches:
                   print(f"  {line}")
               sys.exit(1)
-          print(f"OK: version {truth!r} consistent across skill yaml, schema, examples, and changelog")
+          print(f"OK: version {truth!r} consistent across spec, schema, examples, and changelog")
           PY
 
-      - name: Persona parity (skill yaml vs examples)
+      - name: Persona parity (spec yaml vs examples)
         run: |
           python <<'PY'
-          import json, sys, yaml
-          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+          import json, os, sys, yaml
+          with open(os.environ['SPEC_FILE'], encoding='utf-8') as f:
               skill = yaml.safe_load(f)
           profiles = skill['persona_profiles']
           yaml_personas = {k for k in profiles if k != 'description'}
-          with open('examples_outputs.json', encoding='utf-8') as f:
+          with open(os.environ['EXAMPLES_FILE'], encoding='utf-8') as f:
               examples = json.load(f)['examples']
           example_personas = [ex.get('persona') for ex in examples]
           example_set = set(example_personas)
           errors = []
           missing = yaml_personas - example_set
           if missing:
-              errors.append(f"defined in skill yaml but missing from examples: {sorted(missing)}")
+              errors.append(f"defined in spec.yaml but missing from examples: {sorted(missing)}")
           extra = example_set - yaml_personas
           if extra:
-              errors.append(f"present in examples but not defined in skill yaml: {sorted(extra)}")
+              errors.append(f"present in examples but not defined in spec.yaml: {sorted(extra)}")
           dups = sorted({p for p in example_personas if example_personas.count(p) > 1})
           if dups:
               errors.append(f"persona has multiple examples: {dups}")
@@ -118,14 +185,14 @@ jobs:
               for e in errors:
                   print(f"  {e}")
               sys.exit(1)
-          print(f"OK: {len(yaml_personas)} personas in skill yaml each have exactly one example")
+          print(f"OK: {len(yaml_personas)} personas in spec.yaml each have exactly one example")
           PY
 
       - name: Coverage ledger consistency
         run: |
           python <<'PY'
-          import json, math, re, sys, yaml
-          with open('cyber_threat_skill.yaml', encoding='utf-8') as f:
+          import json, math, os, re, sys, yaml
+          with open(os.environ['SPEC_FILE'], encoding='utf-8') as f:
               skill = yaml.safe_load(f)
           tier_mins_yaml = skill['source_coverage_protocol']['tier_minimums']
           must_total = skill['source_coverage_protocol']['must_minimum_total']
@@ -146,7 +213,7 @@ jobs:
               if total >= partial_floor: return 'PARTIAL'
               return 'MINIMAL'
 
-          with open('examples_outputs.json', encoding='utf-8') as f:
+          with open(os.environ['EXAMPLES_FILE'], encoding='utf-8') as f:
               examples = json.load(f)['examples']
 
           all_errors = []
@@ -206,10 +273,10 @@ jobs:
           print(f"OK: {checked} example(s) with coverage data are internally consistent")
           PY
 
-      - name: Source-matrix tier parity (prompt vs skill vs schema)
+      - name: Source-matrix tier parity (prompt vs spec vs schema)
         run: |
           python <<'PY'
-          import json, pathlib, re, sys, yaml
+          import json, os, pathlib, re, sys, yaml
 
           STOPWORDS = {
               'and', 'or', 'of', 'the', 'a', 'an', 'in', 'on', 'for', 'to', 'with',
@@ -228,18 +295,18 @@ jobs:
               return int(m.group(1)) if m else None
 
           # 1. Prompt headings: ### Tier N <sep> <name>
-          prompt_text = pathlib.Path('cyber_threat_prompt.md').read_text(encoding='utf-8')
+          prompt_text = pathlib.Path(os.environ['PROMPT_FILE']).read_text(encoding='utf-8')
           heading_re = re.compile(r'^#{1,6}\s*Tier\s*(\d+)\s*[:\-–—]\s*(.+?)\s*$', re.MULTILINE)
           prompt_tiers = {}
           for m in heading_re.finditer(prompt_text):
               n = int(m.group(1))
               if n in prompt_tiers:
-                  print(f"FAIL: duplicate Tier {n} heading in cyber_threat_prompt.md")
+                  print(f"FAIL: duplicate Tier {n} heading in {os.environ['PROMPT_FILE']}")
                   sys.exit(1)
               prompt_tiers[n] = m.group(2)
 
           # 2. YAML source_coverage_protocol.tier_minimums and source_tiers
-          skill = yaml.safe_load(open('cyber_threat_skill.yaml', encoding='utf-8'))
+          skill = yaml.safe_load(open(os.environ['SPEC_FILE'], encoding='utf-8'))
           tier_min_keys = list(skill['source_coverage_protocol']['tier_minimums'].keys())
           source_tier_keys = list(skill['source_tiers'].keys())
           yaml_tier_min = {}
@@ -260,7 +327,7 @@ jobs:
               yaml_source_tiers[n] = name
 
           # 3. Schema range from coverage_ledger.items.properties.tier
-          schema = json.load(open('schema_json.json', encoding='utf-8'))
+          schema = json.load(open(os.environ['SCHEMA_FILE'], encoding='utf-8'))
           tier_prop = schema['properties']['skill_output']['properties']['coverage_ledger']['items']['properties']['tier']
           schema_min = tier_prop.get('minimum')
           schema_max = tier_prop.get('maximum')
@@ -274,9 +341,9 @@ jobs:
           tmin_set = set(yaml_tier_min)
           stier_set = set(yaml_source_tiers)
           all_sources = {
-              'cyber_threat_prompt.md headings': prompt_set,
-              'cyber_threat_skill.yaml tier_minimums': tmin_set,
-              'cyber_threat_skill.yaml source_tiers': stier_set,
+              f'{os.environ["PROMPT_FILE"]} headings': prompt_set,
+              'spec.yaml tier_minimums': tmin_set,
+              'spec.yaml source_tiers': stier_set,
               'schema coverage_ledger.tier range': schema_tiers,
           }
           reference = prompt_set
@@ -286,7 +353,7 @@ jobs:
                   mismatches.append(f"  {label}: {sorted(s)}")
           if mismatches:
               print("FAIL: tier numbering disagreement.")
-              print(f"  cyber_threat_prompt.md headings: {sorted(reference)}")
+              print(f"  prompt headings: {sorted(reference)}")
               for line in mismatches:
                   print(line)
               sys.exit(1)
@@ -298,8 +365,8 @@ jobs:
               tmin_slug = slugify(yaml_tier_min[n].split('_', 2)[-1] if '_' in yaml_tier_min[n] else yaml_tier_min[n])
               stier_slug = slugify(yaml_source_tiers[n])
               checks = [
-                  ('prompt heading vs skill source_tiers.name', prompt_slug, stier_slug),
-                  ('skill tier_minimums slug vs source_tiers.name', tmin_slug, stier_slug),
+                  ('prompt heading vs spec.yaml source_tiers.name', prompt_slug, stier_slug),
+                  ('spec.yaml tier_minimums slug vs source_tiers.name', tmin_slug, stier_slug),
               ]
               for label, a, b in checks:
                   if not (a & b):
@@ -314,14 +381,14 @@ jobs:
                   print(e)
               sys.exit(1)
 
-          print(f"OK: {len(reference)} tiers numbered consistently across prompt, skill, and schema, with overlapping names")
+          print(f"OK: {len(reference)} tiers numbered consistently across prompt, spec, and schema, with overlapping names")
           PY
 
       - name: Negative schema fixtures (tests/invalid)
         run: |
           python <<'PY'
-          import json, pathlib, sys, jsonschema
-          schema = json.load(open('schema_json.json', encoding='utf-8'))
+          import json, os, pathlib, sys, jsonschema
+          schema = json.load(open(os.environ['SCHEMA_FILE'], encoding='utf-8'))
           def resolve_subschema(def_name):
               if def_name in schema.get('definitions', {}):
                   return schema['definitions'][def_name]
