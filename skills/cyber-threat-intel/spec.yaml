@@ -418,7 +418,7 @@ metadata:
       changes: "Initial release with 150+ sources, 6 personas, structured IOC/TTP extraction"
     - version: "1.1.0"
       date: "2026-04-23"
-      changes: "Add source coverage protocol (R1-R5), dedupe source list (now single-source-of-truth in prompt.md), trim aspirational sections for token efficiency"
+      changes: "Add source coverage protocol (R1-R5), dedupe source list (single source of truth at references/original-prompt.md, mirrored in references/source-matrix.md), trim aspirational sections for token efficiency"
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
