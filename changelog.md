@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **SIEM query authoring guidance** (`skills/cyber-threat-intel/references/siem-queries.md`, closes #16) — discovery-first, schema-driven Splunk SPL / Sentinel KQL patterns for the report's detection and hunting output. Establishes the SIEM analogue of R3: an agent must emit a **discovery query**, never a guessed `index`/`sourcetype`/table, when the target environment schema is unknown. Includes `tstats`/`Usage`/`getschema` discovery starters and IOC→query patterns (network, file-hash, process/parent-child, registry autorun, named-pipe/WMI), each carrying a `schema_dependency` note. Wired into `SKILL.md` §7, `references/original-prompt.md` Part 5 §7, `references/output-templates.md`, and `spec.yaml` (`threat_hunting_hypothesis.siem_query_rules`). Schema gains an additive, optional `hunting_queries` array (objective, platform, query, `schema_dependency`, assumptions, tuning, validation, `status`); standalone distributions regenerated.
 - **`.gitattributes`** at repo root enforcing LF line endings for text files (`.md`, `.yaml`, `.yml`, `.json`, `.py`, `LICENSE`, `.gitignore`). Required so the CI layout check (which parses `SKILL.md` frontmatter with `text.startswith('---\n')`) does not break on Linux runners when contributors commit from Windows with `core.autocrlf=true`.
 
 ---

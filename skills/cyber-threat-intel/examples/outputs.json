@@ -201,10 +201,38 @@
           "kql": [
             "DeviceProcessEvents\n| where Timestamp > ago(7d)\n| where FileName =~ \"svchost_update.exe\" or ProcessCommandLine contains \"RTCore64.sys\"\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, InitiatingProcessFileName"
           ]
-        }
+        },
+        "hunting_queries": [
+          {
+            "platform": "sentinel",
+            "language": "kql",
+            "query_kind": "detection",
+            "objective": "Detect LockBit 3.0 BYOVD driver load via vulnerable RTCore64.sys",
+            "query": "DeviceImageLoadEvents\n| where TimeGenerated > ago(7d)\n| where FileName in~ (\"RTCore64.sys\", \"DBUtil_2_3.sys\")\n| project TimeGenerated, DeviceName, FolderPath, SHA256, InitiatingProcessFileName",
+            "schema_dependency": "DeviceImageLoadEvents (Defender XDR). If only Sysmon is onboarded, map to SecurityEvent/Event with EventID 7 and ImageLoaded.",
+            "assumptions": ["MDE advanced hunting tables present", "driver_load telemetry retained 7d"],
+            "tuning": "Allowlist signed legitimate RTCore64.sys deployments by SHA256; alert only on unsigned or unexpected FolderPath.",
+            "validation": "Load the vulnerable driver in an isolated VM and confirm the rule fires before production.",
+            "status": "ready",
+            "source": "The DFIR Report"
+          },
+          {
+            "platform": "splunk",
+            "language": "spl",
+            "query_kind": "discovery",
+            "objective": "Locate the index/sourcetype carrying driver-load telemetry before writing the production detection",
+            "query": "| tstats count where index=* by index, sourcetype\n| search sourcetype=*sysmon* OR sourcetype=*WinEventLog*",
+            "schema_dependency": "Unknown which index receives Sysmon EID 7 / driver loads. Resolve before authoring the production SPL.",
+            "assumptions": ["No internal data dictionary provided"],
+            "tuning": "n/a — discovery query.",
+            "validation": "Confirm the chosen sourcetype emits ImageLoaded with file hashes via: | tstats values(ImageLoaded) where index=CHOSEN_INDEX",
+            "status": "needs_schema",
+            "source": "MITRE ATT&CK"
+          }
+        ]
       }
     },
-    
+
     {
       "persona": "enterprise_executive",
       "name": "Board-Ready Threat Brief",

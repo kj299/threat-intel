@@ -455,6 +455,11 @@ Provide rules in formats applicable to the threats found:
 
 Every rule must reference its source(s).
 
+**SPL/KQL authoring rules (the SIEM analogue of R3 — no fabrication of schema):** constrain time + dataset first, then fielded predicates, then parsing, then aggregation (filter early, parse late, aggregate last). Prefer documented/normalized schema (Splunk CIM, Sentinel ASIM) over vendor `sourcetype`s or `rex`/raw-text scans. **Do not invent an `index`, `sourcetype`, or Sentinel table name** — when the environment schema is unknown, emit a **discovery query** and mark the detection `status: needs schema`:
+- Splunk: `| tstats count where index=* by index, sourcetype`
+- Sentinel: `Usage | where TimeGenerated > ago(7d) | summarize sum(Quantity) by DataType, Solution`, or `TableName | getschema` to confirm columns.
+Attach to every detection: `schema_dependency` (datasets/fields assumed), threshold/tuning + false-positive levers, and a **validation** step (lab detonation before production). Record any `needs schema` detection in Intelligence Gaps.
+
 ### 8. Actions Matrix
 Fields: `priority (P1/P2/P3/P4) | action | owner | timeline | investment | risk_addressed | success_metric`
 Timelines: P1=0–48h, P2=48h–7d, P3=7–30d, P4=30–90d.

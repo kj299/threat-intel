@@ -233,7 +233,7 @@ Persona: <persona>
      - `Detection_Method` ∈ {`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`} (lowercase, spaces — not underscores).
      - `Severity` ∈ {`CRITICAL`, `WARNING`, `INFO`} (uppercase).
      - `Detection_Value`: ASCII-only, ≤260 chars, none of `"` `'` `` ` `` `$` `;` `|` `&` `<` `>` `(` `)` `{` `}` `^`.
-7. **Detection Rules** — YARA / Sigma / KQL / SPL / Snort/Suricata, each with `source`.
+7. **Detection Rules** — YARA / Sigma / KQL / SPL / Snort/Suricata, each with `source`. For SPL/KQL: constrain time + dataset first, filter early, prefer normalized schema (CIM / ASIM), and **emit a discovery query — never a guessed `index`/`sourcetype`/table — when the environment schema is unknown** (the SIEM analogue of R3). Attach `schema_dependency`, threshold/tuning, and a validation step to every detection; record `needs schema` detections in Intelligence Gaps.
 8. **Actions Matrix** — `priority | action | owner | timeline | investment | risk_addressed | success_metric`. Timelines: P1=0–48h, P2=48h–7d, P3=7–30d, P4=30–90d.
 9. **Intelligence Gaps** — what couldn't be determined and why.
 10. **Appendix A: Source Coverage Ledger** (R5 — required, template below).

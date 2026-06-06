@@ -12,6 +12,7 @@ Produce a structured threat intelligence report. The output must follow the Sour
 - [references/scoring.md](references/scoring.md) — threat scoring formula and priority mapping
 - [references/personas.md](references/personas.md) — six supported personas
 - [references/output-templates.md](references/output-templates.md) — per-persona report sections + the mandatory Source Coverage Ledger template
+- [references/siem-queries.md](references/siem-queries.md) — Splunk SPL / Sentinel KQL query authoring (discovery-first, schema-driven, no invented datasets)
 - [references/compliance-frameworks.md](references/compliance-frameworks.md) — NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR mappings
 - [references/original-prompt.md](references/original-prompt.md) — the long-form prompt (one self-contained document, used directly by non-Claude assistants and by CI as the canonical source for tier-name parity checks; do not delete)
 - [spec.yaml](spec.yaml) — structured spec consumed by CI validators (personas, scoring weights, tier minimums, compliance mappings)
@@ -100,7 +101,7 @@ Persona: <persona>
    - `Detection_Method` ∈ {`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`} (lowercase, spaces).
    - `Severity` ∈ {`CRITICAL`, `WARNING`, `INFO`} (uppercase).
    - `Detection_Value`: ASCII-only, ≤260 chars, none of `"` `'` `` ` `` `$` `;` `|` `&` `<` `>` `(` `)` `{` `}` `^`.
-7. Detection Rules — YARA / Sigma / KQL / SPL / Snort/Suricata, each with source.
+7. Detection Rules — YARA / Sigma / KQL / SPL / Snort/Suricata, each with source. For SPL/KQL, follow [references/siem-queries.md](references/siem-queries.md): constrain time + dataset first, filter early, prefer documented/normalized schema (CIM / ASIM), and **emit a discovery query — never a guessed `index`/`sourcetype`/table — when the environment schema is unknown** (the SIEM analogue of R3). Attach `schema_dependency`, threshold/tuning, and a validation step to every detection.
 8. Actions Matrix (`priority | action | owner | timeline | investment | risk_addressed | success_metric`). Timelines: P1=0–48h, P2=48h–7d, P3=7–30d, P4=30–90d.
 9. Intelligence Gaps — what couldn't be determined and why.
 10. **Appendix A: Source Coverage Ledger** (R5 — required). One row per tier with `consulted`, `skipped (with reason)`, `met`. Compute total MUST-minimum sources consulted (out of 25) and stamp the matching badge.
