@@ -15,9 +15,11 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `skills/cyber-threat-intel/references/` -- supporting reference docs loaded only when needed
   - `source-matrix.md` -- the full named source list across 9 tiers (R1/R2 enforcement)
   - `extraction-framework.md` -- IOC, TTP, actor, and forecast field schemas
+  - `cwe-chaining.md` -- weakness-class (CWE) chaining for AI-assisted attacks, with defensive break-points
   - `scoring.md` -- threat scoring formula and priority mapping
   - `personas.md` -- the 6 supported personas
   - `output-templates.md` -- per-persona section lists and the mandatory Source Coverage Ledger template
+  - `siem-queries.md` -- Splunk SPL / Sentinel KQL authoring (discovery-first, schema-driven, no invented datasets)
   - `compliance-frameworks.md` -- NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR mappings
   - `original-prompt.md` -- the original long-form prompt, kept for non-Claude assistants and as the canonical source for tier-name parity checks
 - `skills/cyber-threat-intel/schemas/output.schema.json` -- JSON Schema for validating structured output

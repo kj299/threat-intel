@@ -87,15 +87,20 @@ threat-intel/
         +-- references/
         |   +-- source-matrix.md                      # 150+ named sources across 9 tiers
         |   +-- extraction-framework.md               # IOC/TTP/actor field schemas
+        |   +-- cwe-chaining.md                       # CWE-chain analysis (AI-assisted) + break-points
         |   +-- scoring.md                            # scoring formula + priority mapping
         |   +-- personas.md                           # 6 supported personas
         |   +-- output-templates.md                   # per-persona report sections
+        |   +-- siem-queries.md                       # SPL/KQL authoring: discovery-first, schema-driven
         |   +-- compliance-frameworks.md              # NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR
         |   +-- original-prompt.md                    # long-form prompt for non-Claude assistants
         +-- schemas/
         |   +-- output.schema.json                    # JSON Schema for output validation
         +-- examples/
             +-- outputs.json                          # one example per persona
++-- standalone/                                      # flattened single-file distributions
+    +-- cyber-threat-intel-prompt.md                 # self-contained prompt (any LLM)
+    +-- cyber-threat-intel-skill.md                  # self-contained Agent Skill
 ```
 
 ---
