@@ -62,7 +62,7 @@ grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CHANGELOG
 **After editing the prompt or skill file:**
 - Read through the full file to ensure changes are reflected consistently
 - If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` in `skills/cyber-threat-intel/references/source-matrix.md` *and* `skills/cyber-threat-intel/references/original-prompt.md`
-- If you modify source coverage rules (R1-R5), update all references in `SKILL.md`, `references/`, `original-prompt.md`, and `spec.yaml`
+- If you modify source coverage rules (R1-R6), update all references in `SKILL.md`, `references/`, `original-prompt.md`, `spec.yaml`, and both `standalone/` distributions
 
 **If you bumped the version:**
 The version string lives in four places. CI fails if they disagree. Bump all four together (source of truth: `skills/cyber-threat-intel/spec.yaml` -> `skill.version`):

@@ -32,6 +32,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **CWE-chaining analysis for AI-assisted attacks** (`skills/cyber-threat-intel/references/cwe-chaining.md`, closes #18) — the skill previously reasoned only about multi-CVE exploit chains; it now models **weakness-class (CWE) chains** (primary → resultant, MITRE CWE-1000 view) with a mandatory defensive **break-point** per chain. Each chain records an `ai_assist_factor` (none/low/moderate/high) capturing how much AI tooling lowers the attacker's cost — paired with a defensive takeaway, never operational uplift. Adds `cwe_ids` to the New Attack Method schema (`attack_method`) and an additive, optional `cwe_chains` array to `skill_output`; expands `spec.yaml` (`vulnerability_chaining.cwe_chaining`, new `ai_assisted_attack_analysis` module); wires a Part 3.E subsection into `references/original-prompt.md`, a §D entry into `references/extraction-framework.md`, and workflow guidance into `SKILL.md`; adds an illustrative SSRF→credential CWE chain to the red_team example. Standalone distributions regenerated.
 - **`.gitattributes`** at repo root enforcing LF line endings for text files (`.md`, `.yaml`, `.yml`, `.json`, `.py`, `LICENSE`, `.gitignore`). Required so the CI layout check (which parses `SKILL.md` frontmatter with `text.startswith('---\n')`) does not break on Linux runners when contributors commit from Windows with `core.autocrlf=true`.
 
+### Fixed
+
+- **Doc consistency after the SIEM/CWE/R6 work**: the `README.md` directory tree and `CLAUDE.md` reference list now enumerate the two new reference files (`references/siem-queries.md`, `references/cwe-chaining.md`), the README tree now also shows the `standalone/` distributions, and `contributing.md` now says "source coverage rules (R1-R6)" (an R6 was added) and reminds contributors to update both `standalone/` files.
+
 ---
 
 ## [1.1.0] - 2026-04-26
