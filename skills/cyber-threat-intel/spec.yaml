@@ -324,7 +324,25 @@ analysis_modules:
       unresolved_status: needs_schema   # recorded in intelligence_gaps
 
   vulnerability_chaining:
-    steps: [inventory, map_dependencies, identify_chains, score_chains, recommend_breaks]
+    # CVE-level and CWE-level (weakness-class) chaining. Detail: references/cwe-chaining.md
+    steps: [inventory, map_dependencies, identify_cve_chains, identify_cwe_chains, score_chains, recommend_breaks]
+    cwe_chaining:
+      relationship_model: primary_resultant   # CWE-1000 research view; primary enables resultant
+      link_fields: [cwe_id, role, mitre_id, tactic, evidence, source]
+      break_point_required: true              # every chain ships >=1 defensive break-point
+      break_point_fields: [at_link, control, control_type, rationale, mapped_mitigation]
+
+  ai_assisted_attack_analysis:
+    # Analysis input, not operational uplift. Records how much AI tooling lowers an
+    # attacker's cost for a chain -> raises its urgency for defenders. See references/cwe-chaining.md.
+    ai_assist_factor_levels: [none, low, moderate, high]
+    factors:
+      automated_weakness_discovery: shrink_exposure_window_prioritize_sast
+      variant_generation: prefer_behavioral_detection_over_signatures
+      chain_synthesis_ordering: harden_every_primary_link
+      poc_drafting: compress_patch_sla_for_known_chains
+    threat_category: AI_Enabled_Attacks       # ties to user_inputs.threat_focus options
+    no_operational_uplift: true                # report the factor + break-point, never the weaponization
 
   trend_analysis:
     timeframes: [weekly, monthly, quarterly, yearly]

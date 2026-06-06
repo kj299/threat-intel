@@ -9,6 +9,7 @@ Produce a structured threat intelligence report. The output must follow the Sour
 
 - [references/source-matrix.md](references/source-matrix.md) — full named source list (R1/R2 enforcement)
 - [references/extraction-framework.md](references/extraction-framework.md) — IOC, TTP, actor, forecast field schemas
+- [references/cwe-chaining.md](references/cwe-chaining.md) — weakness-class (CWE) chaining for AI-assisted attacks, with defensive break-points
 - [references/scoring.md](references/scoring.md) — threat scoring formula and priority mapping
 - [references/personas.md](references/personas.md) — six supported personas
 - [references/output-templates.md](references/output-templates.md) — per-persona report sections + the mandatory Source Coverage Ledger template
@@ -75,7 +76,7 @@ Full input options, persona profiles, scoring weights, and compliance mappings a
 2. **Consult sources.** Walk all 9 tiers from [references/source-matrix.md](references/source-matrix.md). Track which MUST-sources you actually drew from. Honestly mark inaccessible ones.
 3. **Extract.** Use the schemas in [references/extraction-framework.md](references/extraction-framework.md) for attack methods, IOCs (network/host/email/behavioral), TTPs (MITRE ATT&CK), and threat actors.
 4. **Score and prioritize.** Apply the formula in [references/scoring.md](references/scoring.md) — `score = exploitability·0.25 + impact·0.25 + relevance·0.30 + urgency·0.20`. Map scores to P1–P5 priorities.
-5. **Forecast and infer.** Generate predictive IOCs only where pattern evidence supports them. Mark `confidence: low` unless evidence is strong.
+5. **Forecast and infer.** Generate predictive IOCs only where pattern evidence supports them. Mark `confidence: low` unless evidence is strong. When weaknesses combine, model **CWE chains** (primary → resultant) per [references/cwe-chaining.md](references/cwe-chaining.md): record each chain's `ai_assist_factor` (how much AI tooling lowers its cost) and ship at least one defensive **break-point** per chain. CWE IDs and chain links obey R2/R3 — cite a source, never invent a link.
 6. **Compose output.** Follow the persona-appropriate template in [references/output-templates.md](references/output-templates.md). Stamp the coverage badge. Build Appendix A (Source Coverage Ledger).
 7. **Validate.** Output JSON sections must conform to [schemas/output.schema.json](schemas/output.schema.json). See [examples/outputs.json](examples/outputs.json) for one validated example per persona.
 
