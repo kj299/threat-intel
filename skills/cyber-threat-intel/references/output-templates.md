@@ -31,7 +31,7 @@ The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) 
 2. Deployment Priority
 3. High-Confidence IOCs
 4. Detection Rules (CSV, STIX 2.1, pipe-delimited, YARA, Sigma, Snort, KQL, SPL)
-5. Hunting Queries (KQL, SPL)
+5. Hunting Queries (KQL, SPL) — author per [siem-queries.md](siem-queries.md): discovery-first, schema-driven, no invented `index`/`sourcetype`/table; each query carries `schema_dependency` + tuning + a validation step
 6. Response Playbooks
 7. False-Positive Guidance
 8. Appendix A: Source Coverage Ledger

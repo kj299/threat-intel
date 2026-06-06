@@ -312,6 +312,14 @@ analysis_modules:
   threat_hunting_hypothesis:
     methodology: intelligence_driven_hunting
     query_formats: [kql, spl, sigma, yara]
+    # SPL/KQL authoring guardrails. Detail in references/siem-queries.md.
+    siem_query_rules:
+      schema_truth_order: [internal_data_dictionary, user_provided_names, normalized_schema_cim_asim, discovery_query]
+      discovery_first: true   # unknown index/sourcetype/table -> discovery query, never a guessed name (SIEM analogue of R3)
+      filter_early_parse_late: true
+      prefer_normalized: [splunk_cim, sentinel_asim]
+      per_detection_metadata: [schema_dependency, threshold, false_positive_levers, validation_step, source]
+      unresolved_status: needs_schema   # recorded in intelligence_gaps
 
   vulnerability_chaining:
     steps: [inventory, map_dependencies, identify_chains, score_chains, recommend_breaks]

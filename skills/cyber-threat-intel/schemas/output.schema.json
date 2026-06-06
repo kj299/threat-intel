@@ -739,6 +739,60 @@
             }
           }
         },
+        "hunting_queries": {
+          "type": "array",
+          "description": "Structured SPL/KQL hunt or detection queries shaped per references/siem-queries.md. Unknown environment schema MUST yield query_kind=discovery with status=needs_schema, never a guessed index/sourcetype/table.",
+          "items": {
+            "type": "object",
+            "required": ["platform", "objective", "query", "source"],
+            "properties": {
+              "platform": {
+                "type": "string",
+                "enum": ["splunk", "sentinel"]
+              },
+              "language": {
+                "type": "string",
+                "enum": ["spl", "kql"]
+              },
+              "query_kind": {
+                "type": "string",
+                "enum": ["hunt", "detection", "triage", "discovery", "translation"],
+                "default": "hunt"
+              },
+              "objective": { "type": "string" },
+              "query": {
+                "type": "string",
+                "minLength": 1
+              },
+              "schema_dependency": {
+                "type": "string",
+                "description": "Datasets/fields the query assumes; the single fact that would remove ambiguity"
+              },
+              "assumptions": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "tuning": {
+                "type": "string",
+                "description": "Threshold options, false-positive levers, suppression ideas, field substitutions"
+              },
+              "validation": {
+                "type": "string",
+                "description": "How to confirm the query fires before production (lab detonation / known-bad replay)"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["ready", "needs_schema", "needs_validation"],
+                "default": "ready"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+              }
+            }
+          }
+        },
         "doze_sec_iocs": {
           "type": "array",
           "description": "Pipe-delimited IOC lines for doze_sec batch audit tool. Format: MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor",
