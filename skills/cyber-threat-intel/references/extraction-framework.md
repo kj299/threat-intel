@@ -4,7 +4,9 @@ Field schemas for every emitted finding. One row per item that actually exists �
 
 ## A. New Attack Method (one row per distinct technique)
 
-`technique_name | mitre_id | tactic | cves | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact`
+`technique_name | mitre_id | tactic | cves | cwes | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact`
+
+`cwes` is the list of underlying weakness classes (e.g. `CWE-89`, `CWE-502`) the technique exploits — the bridge to CWE-chain analysis (§D).
 
 ## B. Indicators of Compromise
 
@@ -31,6 +33,7 @@ Tactics to cover if present: Reconnaissance, Resource Development, Initial Acces
 - Tool development: new malware families or frameworks
 - Infrastructure shifts: C2, hosting, ASN changes
 - Exploit chains: multi-CVE combinations
+- **CWE chains: weakness-class sequences** (primary → resultant) — see [cwe-chaining.md](cwe-chaining.md). Emit one `cwe_chain` per distinct chain: `chain_id | name | links[] (cwe_id, role, mitre_id, evidence, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | break_points[] (at_link, control, control_type, mapped_mitigation) | score | confidence | source`. Every chain MUST carry at least one `break_point` (the defensive deliverable); `ai_assist_factor` records how much AI tooling lowers the chain's cost for an attacker and therefore raises its urgency for defenders.
 - Living-off-the-land: new abuse of legitimate tools
 
 ## E. Predictive IOCs

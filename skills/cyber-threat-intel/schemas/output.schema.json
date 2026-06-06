@@ -222,6 +222,14 @@
             "pattern": "^CVE-[0-9]{4}-[0-9]+$"
           }
         },
+        "cwe_ids": {
+          "type": "array",
+          "description": "Underlying weakness classes the technique exploits (bridge to cwe_chains analysis)",
+          "items": {
+            "type": "string",
+            "pattern": "^CWE-[0-9]+$"
+          }
+        },
         "cvss_score": {
           "type": "number",
           "minimum": 0.0,
@@ -651,6 +659,92 @@
         "threats": {
           "type": "array",
           "items": { "$ref": "#/definitions/attack_method" }
+        },
+        "cwe_chains": {
+          "type": "array",
+          "description": "Weakness-class chains (primary -> resultant) per references/cwe-chaining.md. Each chain MUST carry at least one break_point (the defensive deliverable). ai_assist_factor records how much AI tooling lowers the chain's cost for an attacker.",
+          "items": {
+            "type": "object",
+            "required": ["chain_id", "links", "break_points", "source"],
+            "properties": {
+              "chain_id": { "type": "string" },
+              "name": { "type": "string" },
+              "links": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "required": ["cwe_id", "role"],
+                  "properties": {
+                    "cwe_id": {
+                      "type": "string",
+                      "pattern": "^CWE-[0-9]+$"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": ["primary", "resultant"]
+                    },
+                    "mitre_id": {
+                      "type": "string",
+                      "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+                    },
+                    "tactic": { "type": "string" },
+                    "evidence": { "type": "string" },
+                    "source": { "type": "string" }
+                  }
+                }
+              },
+              "enabling_conditions": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "ai_assist_factor": {
+                "type": "string",
+                "enum": ["none", "low", "moderate", "high"],
+                "description": "How much AI tooling lowers the chain's cost for an attacker (analysis input that raises defender urgency)"
+              },
+              "break_points": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Defensive deliverable: at least one control that invalidates the largest downstream tail",
+                "items": {
+                  "type": "object",
+                  "required": ["at_link", "control"],
+                  "properties": {
+                    "at_link": {
+                      "type": "string",
+                      "pattern": "^CWE-[0-9]+$"
+                    },
+                    "control": { "type": "string" },
+                    "control_type": {
+                      "type": "string",
+                      "enum": ["preventive", "detective", "corrective"]
+                    },
+                    "rationale": { "type": "string" },
+                    "mapped_mitigation": { "type": "string" }
+                  }
+                }
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "priority": {
+                "type": "string",
+                "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
+              },
+              "confidence": {
+                "type": "string",
+                "enum": ["High", "Medium", "Low"]
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+              }
+            }
+          }
         },
         "iocs": {
           "type": "object",

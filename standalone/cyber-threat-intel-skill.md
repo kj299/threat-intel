@@ -130,7 +130,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 
 Emit one row per item that actually exists — do NOT emit blank template rows.
 
-**A. New Attack Method** — `technique_name | mitre_id | tactic | cves | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact`
+**A. New Attack Method** — `technique_name | mitre_id | tactic | cves | cwes | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact` (`cwes` = underlying weakness classes, e.g. `CWE-89`; bridge to CWE-chain analysis in §D).
 
 **B. IOCs** — every row MUST include `source` and `confidence (high/med/low)`.
 - **Network** — `type (ipv4/ipv6/domain/url/cert_hash/ja3/ja3s/jarm/user_agent/cidr) | value | confidence | source | first_seen | last_seen | threat | mitre_id | action (block/alert/hunt) | tlp`
@@ -140,7 +140,7 @@ Emit one row per item that actually exists — do NOT emit blank template rows.
 
 **C. TTP Mapping (MITRE ATT&CK)** — `tactic | technique_id | technique_name | sub_technique | procedure | detection_method | data_sources | source`. Cover Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, C2, Exfiltration, Impact.
 
-**D. Pattern Analysis** — cross-source correlation (≥2), technique evolution, tool development, infrastructure shifts (C2/ASN), exploit chains, living-off-the-land.
+**D. Pattern Analysis** — cross-source correlation (≥2), technique evolution, tool development, infrastructure shifts (C2/ASN), exploit chains, living-off-the-land. **CWE chains** (weakness-class sequences, primary → resultant): emit one per chain — `chain_id | name | links (cwe_id, role, mitre_id, evidence, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | break_points (at_link, control, control_type, mapped_mitigation) | score | confidence | source`. Every chain ships ≥1 `break_point` (the defensive deliverable). `ai_assist_factor` records how much AI tooling lowers the chain's cost for an attacker; report the factor + break-point, never the weaponization. CWE IDs/links obey R2/R3.
 
 **E. Predictive IOCs** — state the basis (which observed pattern generated it); mark `confidence: low` unless evidence is strong. Cover DGA patterns, ASN/hosting affinities, file naming, behavioral signatures, C2 protocol characteristics.
 

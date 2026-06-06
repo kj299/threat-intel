@@ -234,7 +234,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 For every finding, use the schemas below. Emit one row per item that actually exists — do NOT emit blank template rows.
 
 ### A. New Attack Method (one row per distinct technique)
-Fields: `technique_name | mitre_id | tactic | cves | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact`
+Fields: `technique_name | mitre_id | tactic | cves | cwes | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact` (`cwes` = underlying weakness classes, e.g. `CWE-89`, `CWE-502` — the bridge to CWE-chain analysis in Part 3.E).
 
 ### B. Indicators of Compromise
 Every IOC row MUST include `source` and `confidence (high/med/low)`.
@@ -262,6 +262,7 @@ Tactics to cover if present: Reconnaissance, Resource Development, Initial Acces
 - Tool development: new malware families or frameworks
 - Infrastructure shifts: C2, hosting, ASN changes
 - Exploit chains: multi-CVE combinations
+- CWE chains: weakness-class sequences (see Part 3.E)
 - Living-off-the-land: new abuse of legitimate tools
 
 ### B. Predictive IOCs
@@ -277,6 +278,16 @@ Fields: `actor | type (apt/criminal/hacktivist) | motivation | new_ttps | new_in
 
 ### D. Exploitation Forecast
 Fields: `cve | days_since_disclosure | exploit_maturity | mass_exploitation (yes/no, GreyNoise) | org_exposure | priority | source`
+
+### E. CWE Chaining (AI-assisted attacks)
+
+Adversaries chain **weakness classes** (CWE), not just CVEs: a primary weakness enables a resultant one (MITRE CWE-1000 research view). AI tooling is lowering the cost of discovering and ordering those links, which raises a chain's urgency for defenders. Model chains as analysis — the deliverable is the **break-point**, not an exploitation recipe.
+
+One row per distinct chain: `chain_id | name | links (each: cwe_id, role primary/resultant, mitre_id, evidence, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | break_points (each: at_link cwe_id, control, control_type preventive/detective/corrective, mapped_mitigation) | score | confidence | source`.
+
+- **Every chain ships ≥1 `break_point`** — the single control that invalidates the largest downstream tail. A chain without one is incomplete.
+- `ai_assist_factor` records how much AI tooling (automated weakness discovery, variant generation, chain synthesis, PoC drafting) lowers the attacker's cost, each paired with a defensive takeaway (shrink exposure windows, prefer behavioral detection, harden every primary link, compress patch SLAs). Report the **factor and takeaway, never the weaponization**.
+- CWE IDs and links obey R2/R3: cite a source; mark unsupported links `confidence: low`; never invent a CWE ID or a link.
 
 ---
 
