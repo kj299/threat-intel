@@ -20,7 +20,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T14:32:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "enterprise_soc",
           "sources_referenced": 27,
           "coverage_badge": "FULL"
@@ -249,7 +249,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "enterprise_executive"
         },
         "alert_level": {
@@ -340,7 +340,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "smb_security"
         },
         "alert_level": {
@@ -462,7 +462,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "individual_researcher"
         },
         "executive_summary": {
@@ -582,7 +582,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "individual_privacy"
         },
         "alert_level": {
@@ -722,7 +722,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
-          "skill_version": "1.1.0",
+          "skill_version": "1.2.0",
           "persona_used": "red_team"
         },
         "executive_summary": {
@@ -738,21 +738,50 @@
           {
             "chain_id": "AWS-SSRF-CREDS-1",
             "name": "SSRF to cloud credential exposure",
+            "chain_type": "multi_branch",
+            "cwe_view": "CWE-1000",
             "links": [
-              { "cwe_id": "CWE-918", "role": "primary", "mitre_id": "T1190", "tactic": "Initial Access", "evidence": "SSRF reaching IMDS endpoint in web tier", "source": "The DFIR Report" },
-              { "cwe_id": "CWE-200", "role": "resultant", "mitre_id": "T1552.005", "tactic": "Credential Access", "evidence": "IMDS returns role credentials", "source": "MITRE ATT&CK" },
-              { "cwe_id": "CWE-522", "role": "resultant", "mitre_id": "T1078.004", "tactic": "Privilege Escalation", "evidence": "Over-permissive instance role reused for API access", "source": "MITRE ATT&CK" }
+              { "cwe_id": "CWE-918", "role": "primary", "mitre_id": "T1190", "tactic": "Initial Access", "evidence": "SSRF reaching IMDS endpoint in web tier", "detection_opportunity": "Outbound request from web tier to 169.254.169.254 (link-local IMDS)", "data_source": "VPC flow logs / web proxy", "source": "The DFIR Report" },
+              { "cwe_id": "CWE-200", "role": "resultant", "mitre_id": "T1552.005", "tactic": "Credential Access", "evidence": "IMDS returns role credentials", "detection_opportunity": "GetCallerIdentity / first-seen API calls from an instance role outside its baseline", "data_source": "CloudTrail", "source": "MITRE ATT&CK" },
+              { "cwe_id": "CWE-522", "role": "resultant", "mitre_id": "T1078.004", "tactic": "Privilege Escalation", "evidence": "Branch A: over-permissive instance role reused for API access", "detection_opportunity": "Role credentials used from a non-instance IP / impossible-travel ASN", "data_source": "CloudTrail / GuardDuty", "source": "MITRE ATT&CK" },
+              { "cwe_id": "CWE-1391", "role": "resultant", "mitre_id": "T1078.004", "tactic": "Privilege Escalation", "evidence": "Branch B: weak/static long-lived keys recovered alongside role creds", "detection_opportunity": "Use of long-lived access keys that should have been rotated", "data_source": "IAM credential report", "source": "MITRE ATT&CK" }
             ],
-            "enabling_conditions": ["IMDSv1 reachable", "instance role broader than workload needs"],
+            "enabling_conditions": ["IMDSv1 reachable", "instance role broader than workload needs", "credential exposure forks to either role reuse (A) or static-key recovery (B)"],
             "ai_assist_factor": "moderate",
+            "time_to_exploit": { "observed_days": 5, "trend": "accelerating", "source": "Zero Day Clock" },
             "break_points": [
-              { "at_link": "CWE-918", "control": "Enforce IMDSv2 (token-bound) and egress filtering from the web tier", "control_type": "preventive", "rationale": "Neutralizes the primary link; the credential-exposure tail cannot start", "mapped_mitigation": "MITRE M1037 / NIST SC-7" },
-              { "at_link": "CWE-522", "control": "Scope instance roles to least privilege", "control_type": "preventive", "rationale": "Caps blast radius if the primary link is ever reached", "mapped_mitigation": "NIST AC-6" }
+              { "at_link": "CWE-918", "control": "Enforce IMDSv2 (token-bound) and egress filtering from the web tier", "control_type": "preventive", "rationale": "Shared primary: closing it collapses both branch A and branch B", "mapped_mitigation": "MITRE M1037 / NIST SC-7" },
+              { "at_link": "CWE-200", "control": "Alert on instance-role API calls outside the workload baseline", "control_type": "detective", "rationale": "Catches credential use if the primary is ever reached", "mapped_mitigation": "NIST SI-4", "detection_telemetry": "CloudTrail: instance-role principal making first-seen or geo-anomalous API calls" },
+              { "at_link": "CWE-522", "control": "Scope instance roles to least privilege", "control_type": "preventive", "rationale": "Caps blast radius of branch A", "mapped_mitigation": "NIST AC-6" }
             ],
-            "score": 82,
+            "terminal_impact": "AWS account-level privilege escalation and data access via assumed role",
+            "score": 86,
             "priority": "P2-HIGH",
             "confidence": "Medium",
             "source": "The DFIR Report"
+          },
+          {
+            "chain_id": "MEMSAFE-RCE-1",
+            "name": "Integer overflow to code execution (named chain)",
+            "chain_type": "named_chain",
+            "cwe_view": "CWE-709",
+            "links": [
+              { "cwe_id": "CWE-190", "role": "primary", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Unchecked size arithmetic in a media-parsing path", "detection_opportunity": "Malformed media file with anomalous length fields", "data_source": "Network IDS / file sandbox", "source": "Project Zero" },
+              { "cwe_id": "CWE-787", "role": "resultant", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Overflowed allocation yields out-of-bounds write", "detection_opportunity": "Process crash / heap corruption telemetry on the parser process", "data_source": "EDR / crash reporting", "source": "Project Zero" },
+              { "cwe_id": "CWE-94", "role": "resultant", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Controlled write redirected to attacker code", "detection_opportunity": "Unexpected child process / RWX allocation from the parser", "data_source": "EDR process events", "source": "MITRE ATT&CK" }
+            ],
+            "enabling_conditions": ["attacker-supplied media reaches the vulnerable parser", "no bounds check between CWE-190 and CWE-787"],
+            "ai_assist_factor": "high",
+            "time_to_exploit": { "observed_days": 1, "trend": "accelerating", "source": "Project Zero 0day In the Wild" },
+            "break_points": [
+              { "at_link": "CWE-190", "control": "Checked/saturating arithmetic and size validation before allocation", "control_type": "preventive", "rationale": "Breaks the named chain at the integer-overflow→OOB-write boundary, invalidating the RCE tail", "mapped_mitigation": "NIST SI-10" },
+              { "at_link": "CWE-94", "control": "Sandbox the parser and alert on anomalous child processes", "control_type": "detective", "rationale": "Backstop if the overflow is reached on unpatched builds", "mapped_mitigation": "MITRE M1040", "detection_telemetry": "EDR: media-parser process spawning a shell or allocating RWX memory" }
+            ],
+            "terminal_impact": "Remote code execution in the context of the media application",
+            "score": 91,
+            "priority": "P1-CRITICAL",
+            "confidence": "Medium",
+            "source": "Project Zero"
           }
         ],
         "attack_chains": [

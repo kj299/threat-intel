@@ -8,6 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.2.0] - 2026-06-06
+
+### Added
+
+- **Source refresh — zero-day tracking sources** (closes the source-robustness review). Added across all four mirror files (`references/source-matrix.md`, `references/original-prompt.md`, `standalone/cyber-threat-intel-prompt.md`, `standalone/cyber-threat-intel-skill.md`):
+  - **Tier 1** new "Zero-Day Trackers & Exploit-Timeline Intelligence" subsection: **Zero Day Initiative (ZDI)** advisories (`zerodayinitiative.com/advisories/published`) + machine-readable RSS (`zerodayinitiative.com/rss/published/<year>`) [MUST]; **Zero Day Tracker** (`zerodaytracker.com`) [SHOULD]; **Zero Day Clock** (`zerodayclock.com`, time-to-exploit analytics across 80k+ CVEs) [SHOULD]; **Zero-Day.cz** (`zero-day.cz`) [SHOULD].
+  - **Tier 5**: **Project Zero** entry migrated from the deprecated `googleprojectzero.blogspot.com` to `projectzero.google`, and added the **Project Zero "0day In the Wild"** tracker (`projectzero.google/0day.html`) [MUST].
+- **Deeper CWE-chaining analysis** (`references/cwe-chaining.md`, schema, spec, extraction-framework, example):
+  - **Chain-type taxonomy**: `chain_type` ∈ {`primary_resultant`, `composite`, `named_chain`, `multi_branch`}, with a worked multi-branch chain whose shared-primary break-point collapses all branches.
+  - **CWE view provenance**: `cwe_view` cites where a link relationship comes from (CWE-1000 Research Concepts `CanPrecede`/`CanFollow`, CWE-709 Named Chains, CWE-1003 NVD mapping, CWE Top 25 for prioritization).
+  - **Per-link detection payload**: `detection_opportunity` + `data_source` on each link, and `detection_telemetry` on detective break-points — wiring chains into the SIEM hunting queries.
+  - **Exploit-velocity modeling**: chain-level `time_to_exploit` (`observed_days`, `trend`, `source`) tied to Zero Day Clock TTE data; an `accelerating` trend with moderate/high `ai_assist_factor`, or a contributing CWE class in CISA KEV / Project Zero ITW, escalates priority.
+  - **Break-point selection algorithm** (shared-primary → preventive-at-earliest → detective-at-resultant → corrective-backstop) and `terminal_impact` for the chain score's impact dimension.
+  - Schema additions are all **additive and optional** (existing outputs stay valid); `spec.yaml` `analysis_modules.vulnerability_chaining.cwe_chaining` and `ai_assisted_attack_analysis.time_to_exploit_tracking` expanded; the red_team example gains a multi-branch and a named-chain illustration.
+- **Version bumped to 1.2.0** across `spec.yaml`, `schemas/output.schema.json`, all `examples/outputs.json` `skill_version` fields, and this changelog (CI cross-file version consistency).
+
 ### Changed
 
 - **Repository restructured to follow the [Anthropic Agent Skills](https://code.claude.com/docs/en/skills) convention** (closes #12). The skill now lives at `skills/cyber-threat-intel/` with a proper `SKILL.md` entrypoint (YAML frontmatter `name` + `description`), and supporting files split into `references/`, `schemas/`, and `examples/` subdirectories. The skill can now be installed into `~/.claude/skills/cyber-threat-intel/` and invoked as `/cyber-threat-intel`.

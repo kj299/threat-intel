@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "object",
   
   "definitions": {
@@ -669,6 +669,15 @@
             "properties": {
               "chain_id": { "type": "string" },
               "name": { "type": "string" },
+              "chain_type": {
+                "type": "string",
+                "enum": ["primary_resultant", "composite", "named_chain", "multi_branch"],
+                "description": "Shape of the chain. primary_resultant=linear A->B->C; composite=weaknesses required together; named_chain=matches CWE-709; multi_branch=one link fans out to several downstream paths"
+              },
+              "cwe_view": {
+                "type": "string",
+                "description": "Provenance of the chain relationship, e.g. CWE-1000 (Research Concepts CanPrecede/CanFollow), CWE-709 (Named Chains), CWE-1003 (NVD mapping)"
+              },
               "links": {
                 "type": "array",
                 "minItems": 2,
@@ -690,6 +699,14 @@
                     },
                     "tactic": { "type": "string" },
                     "evidence": { "type": "string" },
+                    "detection_opportunity": {
+                      "type": "string",
+                      "description": "Observable this link produces (feeds the detective break-point and hunting queries)"
+                    },
+                    "data_source": {
+                      "type": "string",
+                      "description": "Where the detection_opportunity is observable, e.g. 'VPC flow logs', 'EDR process events'"
+                    },
                     "source": { "type": "string" }
                   }
                 }
@@ -702,6 +719,26 @@
                 "type": "string",
                 "enum": ["none", "low", "moderate", "high"],
                 "description": "How much AI tooling lowers the chain's cost for an attacker (analysis input that raises defender urgency)"
+              },
+              "time_to_exploit": {
+                "type": "object",
+                "description": "Exploit-velocity context for the contributing CWE classes (e.g. from Zero Day Clock / CISA KEV). An accelerating trend plus moderate/high ai_assist_factor escalates priority.",
+                "properties": {
+                  "observed_days": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Median days from disclosure to in-the-wild exploitation"
+                  },
+                  "trend": {
+                    "type": "string",
+                    "enum": ["accelerating", "stable", "decelerating"]
+                  },
+                  "source": { "type": "string" }
+                }
+              },
+              "terminal_impact": {
+                "type": "string",
+                "description": "Impact of the chain's terminal resultant link (drives the impact dimension of the chain score)"
               },
               "break_points": {
                 "type": "array",
@@ -721,7 +758,11 @@
                       "enum": ["preventive", "detective", "corrective"]
                     },
                     "rationale": { "type": "string" },
-                    "mapped_mitigation": { "type": "string" }
+                    "mapped_mitigation": { "type": "string" },
+                    "detection_telemetry": {
+                      "type": "string",
+                      "description": "For detective break-points: the concrete signal/data source the SOC hunts on"
+                    }
                   }
                 }
               },

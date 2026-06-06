@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.1.0
+# Version: 1.2.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage enforcement, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -20,7 +20,7 @@ skill:
     Structured prompt specification that guides AI assistants to produce
     professional-grade threat intelligence reports with enforced source
     coverage, mandatory IOC citations, and a no-fabrication rule.
-  version: "1.1.0"
+  version: "1.2.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -39,6 +39,8 @@ skill:
     - "Threat scoring (exploitability, impact, relevance, urgency)"
     - "IOC export formats: CSV, STIX 2.1, pipe-delimited, MISP, OpenIOC"
     - "Six personas with adapted output depth and format"
+    - "CWE-chain analysis (primary->resultant, composite, named, multi-branch) with mandatory defensive break-points"
+    - "AI-assist factor + time-to-exploit velocity modeling for weakness chains"
 
 # =============================================================================
 # SOURCE COVERAGE PROTOCOL
@@ -328,9 +330,22 @@ analysis_modules:
     steps: [inventory, map_dependencies, identify_cve_chains, identify_cwe_chains, score_chains, recommend_breaks]
     cwe_chaining:
       relationship_model: primary_resultant   # CWE-1000 research view; primary enables resultant
-      link_fields: [cwe_id, role, mitre_id, tactic, evidence, source]
+      chain_types: [primary_resultant, composite, named_chain, multi_branch]
+      cwe_views:                              # provenance cited per chain (cwe_view field)
+        CWE-1000: research_concepts_canprecede_canfollow
+        CWE-709: named_chains
+        CWE-1003: nvd_cve_mapping
+        CWE_top_25: prioritize_primary_links_to_harden_first
+      link_fields: [cwe_id, role, mitre_id, tactic, evidence, detection_opportunity, data_source, source]
+      chain_fields: [chain_id, name, chain_type, cwe_view, enabling_conditions, ai_assist_factor, time_to_exploit, terminal_impact, score, priority, confidence, source]
       break_point_required: true              # every chain ships >=1 defensive break-point
-      break_point_fields: [at_link, control, control_type, rationale, mapped_mitigation]
+      break_point_fields: [at_link, control, control_type, rationale, mapped_mitigation, detection_telemetry]
+      break_point_selection:                  # rank by downstream-tail-invalidated x feasibility
+        - shared_primary_collapses_all_branches
+        - preventive_at_earliest_enabling_link
+        - detective_at_resultant_when_primary_uncloseable
+        - corrective_as_backstop_only
+      multi_branch_rule: break_point_at_shared_primary_collapses_every_branch
 
   ai_assisted_attack_analysis:
     # Analysis input, not operational uplift. Records how much AI tooling lowers an
@@ -341,6 +356,14 @@ analysis_modules:
       variant_generation: prefer_behavioral_detection_over_signatures
       chain_synthesis_ordering: harden_every_primary_link
       poc_drafting: compress_patch_sla_for_known_chains
+    time_to_exploit_tracking:
+      # Quantitative companion to ai_assist_factor. Disclosure->exploitation window is
+      # collapsing (months -> days), AI cited as inflection. Sources: Zero Day Clock
+      # (zerodayclock.com, median TTE across 80k+ CVEs), CISA KEV, Project Zero ITW tracker.
+      fields: [observed_days, trend, source]
+      trend_levels: [accelerating, stable, decelerating]
+      escalation_rule: accelerating_trend_plus_moderate_or_high_ai_assist_escalates_priority_one_band
+      active_exploitation_uplift: cwe_class_in_kev_or_itw_forces_urgency_uplift
     threat_category: AI_Enabled_Attacks       # ties to user_inputs.threat_focus options
     no_operational_uplift: true                # report the factor + break-point, never the weaponization
 
@@ -438,7 +461,7 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-04-23"
+  last_updated: "2026-06-06"
 
   version_history:
     - version: "1.0.0"
@@ -447,6 +470,9 @@ metadata:
     - version: "1.1.0"
       date: "2026-04-23"
       changes: "Add source coverage protocol (R1-R5), dedupe source list (single source of truth at references/original-prompt.md, mirrored in references/source-matrix.md), trim aspirational sections for token efficiency"
+    - version: "1.2.0"
+      date: "2026-06-06"
+      changes: "Source refresh (Zero Day Initiative + RSS, Zero Day Tracker, Zero Day Clock, Zero-Day.cz; Project Zero migrated to projectzero.google + 0day In the Wild tracker). Deepen CWE-chaining: chain_type taxonomy (primary_resultant/composite/named_chain/multi_branch), cwe_view provenance (CWE-1000/709/1003), per-link detection_opportunity/data_source, time_to_exploit velocity modeling, terminal_impact, break-point selection algorithm. Also rolls up the previously unreleased SIEM/CWE/R6 work."
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
