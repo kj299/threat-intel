@@ -76,6 +76,8 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - Exploit-DB — exploit-db.com — PoC archive [MUST]
 - GitHub Security Advisories — github.com/advisories [MUST]
 - CVE Details, VulDB, OpenCVE, Vulners, Packet Storm, Rapid7 Vuln DB, Sploitus, 0day.today, GitHub PoC repos, ExploitPack [SHOULD]
+- Zero Day Initiative (ZDI) — zerodayinitiative.com/advisories/published (+RSS /rss/published/<year>) [MUST]
+- Zero-day trackers: Zero Day Tracker (zerodaytracker.com), Zero Day Clock (zerodayclock.com — time-to-exploit analytics), Zero-Day.cz [SHOULD]
 
 ### Tier 2: Commercial Threat Intelligence
 - Recorded Future — IOC feeds, dark web [MUST]
@@ -98,7 +100,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - Intigriti, YesWeHack, Synack, Open Bug Bounty, Hackrate, Detectify, Cobalt [SHOULD]
 
 ### Tier 5: Offensive Security Research
-- Project Zero — googleprojectzero.blogspot.com [MUST]
+- Project Zero — projectzero.google — research blog + "0day In the Wild" tracker (projectzero.google/0day.html) [MUST]
 - SpecterOps blog — adversary simulation [MUST]
 - ProjectDiscovery blog, Rapid7 blog, SANS Pen Test blog, Pentest Partners, OffSec blog, Red Team Journal, Cobalt Strike Blog, Metasploit Blog [SHOULD]
 - Labs/training: bWAPP, OWASP Mutillidae II, Google Gruyere, Defend The Web, DVWA, HackTheBox, TryHackMe, VulnHub, PentesterLab, PortSwigger Web Security Academy, OWASP WebGoat, CyberDefenders, LetsDefend, Root Me [SHOULD]
@@ -140,7 +142,7 @@ Emit one row per item that actually exists — do NOT emit blank template rows.
 
 **C. TTP Mapping (MITRE ATT&CK)** — `tactic | technique_id | technique_name | sub_technique | procedure | detection_method | data_sources | source`. Cover Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, C2, Exfiltration, Impact.
 
-**D. Pattern Analysis** — cross-source correlation (≥2), technique evolution, tool development, infrastructure shifts (C2/ASN), exploit chains, living-off-the-land. **CWE chains** (weakness-class sequences, primary → resultant): emit one per chain — `chain_id | name | links (cwe_id, role, mitre_id, evidence, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | break_points (at_link, control, control_type, mapped_mitigation) | score | confidence | source`. Every chain ships ≥1 `break_point` (the defensive deliverable). `ai_assist_factor` records how much AI tooling lowers the chain's cost for an attacker; report the factor + break-point, never the weaponization. CWE IDs/links obey R2/R3.
+**D. Pattern Analysis** — cross-source correlation (≥2), technique evolution, tool development, infrastructure shifts (C2/ASN), exploit chains, living-off-the-land. **CWE chains** (weakness-class sequences, primary → resultant): emit one per chain — `chain_id | name | chain_type (primary_resultant/composite/named_chain/multi_branch) | cwe_view (CWE-1000/709/1003) | links (cwe_id, role, mitre_id, tactic, evidence, detection_opportunity, data_source, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | time_to_exploit (observed_days, trend, source) | break_points (at_link, control, control_type, mapped_mitigation, detection_telemetry) | terminal_impact | score | priority | confidence | source`. Every chain ships ≥1 `break_point` (the defensive deliverable); rank break-points shared-primary → preventive → detective → corrective, and for `multi_branch` the shared-primary break-point collapses every branch. `ai_assist_factor` (with `time_to_exploit.trend`, e.g. Zero Day Clock TTE) records how much/how fast AI lowers the chain's cost; an accelerating trend or a CWE class in CISA KEV / Project Zero ITW escalates priority. Report the factor + break-point, never the weaponization. CWE IDs/links obey R2/R3.
 
 **E. Predictive IOCs** — state the basis (which observed pattern generated it); mark `confidence: low` unless evidence is strong. Cover DGA patterns, ASN/hosting affinities, file naming, behavioral signatures, C2 protocol characteristics.
 

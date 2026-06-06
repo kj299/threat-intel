@@ -75,6 +75,12 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - GitHub PoC repos (search `CVE-YYYY-NNNNN PoC`) [SHOULD]
 - ExploitPack — exploitpack.com — exploitation framework with 39k+ exploits [SHOULD]
 
+**Zero-Day Trackers & Exploit-Timeline Intelligence**
+- Zero Day Initiative (ZDI) — zerodayinitiative.com/advisories/published — researcher-disclosed advisories (ZDI IDs, CVEs, CVSS, Pwn2Own); machine-readable RSS at zerodayinitiative.com/rss/published/<year> [MUST]
+- Zero Day Tracker — zerodaytracker.com — real-time zero-day threat-intelligence tracker [SHOULD]
+- Zero Day Clock — zerodayclock.com — time-to-exploit (TTE) analytics across 80k+ CVEs from CISA KEV / Exploit-DB / Metasploit; quantifies the AI-driven collapse of exploit timelines (median TTE, year-over-year trend) [SHOULD]
+- Zero-Day.cz — zero-day.cz — catalog of actively exploited, not-yet-disclosed vulnerabilities [SHOULD]
+
 ### Tier 2: Commercial Threat Intelligence
 - Recorded Future — IOC feeds, dark web [MUST]
 - Mandiant / Google TI — APT tracking [MUST]
@@ -132,7 +138,8 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - Cobalt — pentest-as-a-service findings [SHOULD]
 
 ### Tier 5: Offensive Security Research
-- Project Zero — googleprojectzero.blogspot.com [MUST]
+- Project Zero — projectzero.google — vulnerability research blog (migrated from googleprojectzero.blogspot.com) [MUST]
+- Project Zero "0day In the Wild" — projectzero.google/0day.html — curated spreadsheet of detected in-the-wild zero-day exploits [MUST]
 - SpecterOps blog — adversary simulation [MUST]
 - ProjectDiscovery blog — Nuclei, httpx [SHOULD]
 - Rapid7 blog — Metasploit updates [SHOULD]
@@ -283,10 +290,12 @@ Fields: `cve | days_since_disclosure | exploit_maturity | mass_exploitation (yes
 
 Adversaries chain **weakness classes** (CWE), not just CVEs: a primary weakness enables a resultant one (MITRE CWE-1000 research view). AI tooling is lowering the cost of discovering and ordering those links, which raises a chain's urgency for defenders. Model chains as analysis — the deliverable is the **break-point**, not an exploitation recipe.
 
-One row per distinct chain: `chain_id | name | links (each: cwe_id, role primary/resultant, mitre_id, evidence, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | break_points (each: at_link cwe_id, control, control_type preventive/detective/corrective, mapped_mitigation) | score | confidence | source`.
+One row per distinct chain: `chain_id | name | chain_type (primary_resultant/composite/named_chain/multi_branch) | cwe_view (CWE-1000/CWE-709/CWE-1003) | links (each: cwe_id, role primary/resultant, mitre_id, tactic, evidence, detection_opportunity, data_source, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | time_to_exploit (observed_days, trend accelerating/stable/decelerating, source) | break_points (each: at_link cwe_id, control, control_type preventive/detective/corrective, mapped_mitigation, detection_telemetry) | terminal_impact | score | priority | confidence | source`.
 
-- **Every chain ships ≥1 `break_point`** — the single control that invalidates the largest downstream tail. A chain without one is incomplete.
+- **Every chain ships ≥1 `break_point`** — the single control that invalidates the largest downstream tail. A chain without one is incomplete. Rank break-points: shared primary (collapses all branches) → preventive at earliest enabling link → detective at resultant → corrective backstop.
+- Set `chain_type` and cite `cwe_view`. For a `multi_branch` chain, the break-point at the shared primary collapses every branch.
 - `ai_assist_factor` records how much AI tooling (automated weakness discovery, variant generation, chain synthesis, PoC drafting) lowers the attacker's cost, each paired with a defensive takeaway (shrink exposure windows, prefer behavioral detection, harden every primary link, compress patch SLAs). Report the **factor and takeaway, never the weaponization**.
+- `time_to_exploit` quantifies exploit velocity (e.g. Zero Day Clock TTE); an `accelerating` trend with `ai_assist_factor` ≥ moderate, or a contributing CWE class in CISA KEV / Project Zero "0day In the Wild", escalates priority by one band.
 - CWE IDs and links obey R2/R3: cite a source; mark unsupported links `confidence: low`; never invent a CWE ID or a link.
 
 ---

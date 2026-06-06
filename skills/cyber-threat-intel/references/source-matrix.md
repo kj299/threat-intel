@@ -22,6 +22,12 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - GitHub PoC repos (search `CVE-YYYY-NNNNN PoC`) [SHOULD]
 - ExploitPack — exploitpack.com — exploitation framework with 39k+ exploits [SHOULD]
 
+**Zero-Day Trackers & Exploit-Timeline Intelligence**
+- Zero Day Initiative (ZDI) — zerodayinitiative.com/advisories/published — researcher-disclosed advisories (ZDI IDs, CVEs, CVSS, Pwn2Own); machine-readable RSS at zerodayinitiative.com/rss/published/<year> [MUST]
+- Zero Day Tracker — zerodaytracker.com — real-time zero-day threat-intelligence tracker [SHOULD]
+- Zero Day Clock — zerodayclock.com — time-to-exploit (TTE) analytics across 80k+ CVEs from CISA KEV / Exploit-DB / Metasploit; quantifies the AI-driven collapse of exploit timelines (median TTE, year-over-year trend) [SHOULD]
+- Zero-Day.cz — zero-day.cz — catalog of actively exploited, not-yet-disclosed vulnerabilities [SHOULD]
+
 ## Tier 2: Commercial Threat Intelligence
 - Recorded Future — IOC feeds, dark web [MUST]
 - Mandiant / Google TI — APT tracking [MUST]
@@ -79,7 +85,8 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources cou
 - Cobalt — pentest-as-a-service findings [SHOULD]
 
 ## Tier 5: Offensive Security Research
-- Project Zero — googleprojectzero.blogspot.com [MUST]
+- Project Zero — projectzero.google — vulnerability research blog (migrated from googleprojectzero.blogspot.com) [MUST]
+- Project Zero "0day In the Wild" — projectzero.google/0day.html — curated spreadsheet of detected in-the-wild zero-day exploits [MUST]
 - SpecterOps blog — adversary simulation [MUST]
 - ProjectDiscovery blog — Nuclei, httpx [SHOULD]
 - Rapid7 blog — Metasploit updates [SHOULD]
