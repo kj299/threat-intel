@@ -10,7 +10,7 @@ Field schemas for every emitted finding. One row per item that actually exists â
 
 ## B. Indicators of Compromise
 
-Every IOC row MUST include `source` and `confidence (high/med/low)`.
+Every IOC row should include `source` and `confidence (high/med/low)`. If an indicator can't be attributed to a real source, don't emit it as confirmed.
 
 **Network IOCs** â€” `type (ipv4/ipv6/domain/url/cert_hash/ja3/ja3s/jarm/user_agent/cidr) | value | confidence | source | first_seen | last_seen | threat | mitre_id | action (block/alert/hunt) | tlp`
 
