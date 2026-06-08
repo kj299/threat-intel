@@ -149,9 +149,10 @@ Format: `<type>: <description>` where type is one of:
 - Translations or localization efforts
 
 **Not Accepted:**
-- Changes that weaken source coverage enforcement (R1-R5)
-- Unsourced IOCs, CVEs, or threat actor attributions
-- Modifications to source coverage thresholds without clear justification
+- Changes that weaken the no-fabrication rule (R3) or the honest-reporting framing of the Source Coverage Protocol (R1-R6) — e.g. re-introducing "pad the coverage to hit the number" behavior
+- Unsourced IOCs, CVEs, or threat actor attributions presented as confirmed
+- Modifications to the source coverage targets without clear justification
+- Re-introducing output engineered to flow straight into a downstream tool's execution path (the consuming tool owns input validation/sanitization)
 - Removal of established personas or breaking changes to the output schema
 - Active exploit code or other content that violates security guidelines (see Security section)
 

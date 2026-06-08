@@ -11,13 +11,13 @@ Two self-contained files. No sibling references, no `spec.yaml`, no schema files
 
 Both files embed everything previously split across `skills/cyber-threat-intel/references/` and `spec.yaml`:
 
-- The R1–R5 Source Coverage Protocol
+- The R1–R6 Source Coverage Protocol (strong guidance, not a hard gate)
 - The full 9-tier Source Matrix (the prompt has the long-form list; the skill has a tighter version with the same MUST sources and SHOULD groups)
 - IOC / TTP / actor / forecast / business-risk extraction schemas
 - Threat scoring formula and P1–P5 priority mapping
 - All 6 personas and their section lists
 - Compliance framework mappings (NIST CSF, ISO 27001, PCI DSS, DORA, NYDFS, SOX, GDPR)
-- Output sections, pipe-delimited sanitizer rules, and the Appendix A Source Coverage Ledger template
+- Output sections, the optional `build_iocs_and_queries` toggle, and the Appendix A Source Coverage Ledger template
 
 ## What's intentionally not included
 

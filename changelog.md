@@ -10,6 +10,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.3.0] - 2026-06-08
+
+### Changed
+
+- **Source Coverage Protocol reframed from a hard "enforcement contract" to strong guidance** (R1-R6) across `SKILL.md`, `references/original-prompt.md`, `references/output-templates.md`, `references/extraction-framework.md`, `spec.yaml`, and both `standalone/` distributions:
+  - Per-tier source numbers are now **targets, not quotas**. "MANDATORY", "enforcement contract", "output is invalid / must be regenerated", and "rejected" framing is replaced with "strongly recommended" / "should" / "aim for".
+  - The **coverage badge is an honest self-report**: a `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure to paper over. When little is retrievable, the report says so plainly (e.g. "little new activity in the last 7 days for X") instead of padding.
+  - **R3 (no fabrication) stays the hard line** — plausible-but-fake IOCs poison detection pipelines, so unverifiable findings are marked `unverified`, never invented.
+- **Honesty self-report tightened** in the schema `coverage_badge` description and the spec `source_coverage_protocol` / `enforcement_rules` wording.
+
+### Added
+
+- **`build_iocs_and_queries` input (default: `true`)** — toggles whether the report includes generated IOCs and detection/hunting queries in the standard formats (CSV, STIX 2.1, JSON, YARA/Sigma/KQL/SPL/Snort). When `false`, the report stays narrative. Wired into `SKILL.md`, `references/original-prompt.md`, both `standalone/` files, `spec.yaml` (`user_inputs.defaults` + an `initial_questions` entry, `soc_ioc_package.build_toggle`), and the schema (`skill_input.build_iocs_and_queries`).
+
+### Removed
+
+- **The `doze_sec` pipe-delimited integration and its shell-metacharacter blocklist.** Generating unescaped rows engineered to flow straight into a tool's execution path — with the generator acting as that tool's character-blocklist sanitizer — is a fragile design: input validation has to live in the consuming tool's own input handling, because anything upstream (a different model, a compromised feed) can violate the contract. Removed from the schema (`doze_sec_iocs` definition, replaced with a generic optional `delimited_batch_export`), `spec.yaml` (`doze_sec_integration` block, `pipe_delimited` dropped from `soc_ioc_package.ioc_formats` and capabilities), `references/output-templates.md`, `references/original-prompt.md`, and both `standalone/` files. Delimited/batch exports now emit clean structured rows and document their columns, leaving validation to the consumer.
+- **Version bumped to 1.3.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.2.0] - 2026-06-06
 
 ### Added

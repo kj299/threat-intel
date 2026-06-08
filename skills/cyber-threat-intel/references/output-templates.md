@@ -1,6 +1,6 @@
 # Output Templates
 
-The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) is mandatory in every template.
+The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) belongs in every template.
 
 ## Executive Brief (max 2 pages)
 
@@ -30,7 +30,7 @@ The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) 
 1. Header with Coverage Badge
 2. Deployment Priority
 3. High-Confidence IOCs
-4. Detection Rules (CSV, STIX 2.1, pipe-delimited, YARA, Sigma, Snort, KQL, SPL)
+4. Detection Rules (CSV, STIX 2.1, JSON, YARA, Sigma, Snort, KQL, SPL)
 5. Hunting Queries (KQL, SPL) — author per [siem-queries.md](siem-queries.md): discovery-first, schema-driven, no invented `index`/`sourcetype`/table; each query carries `schema_dependency` + tuning + a validation step
 6. Response Playbooks
 7. False-Positive Guidance
@@ -45,32 +45,11 @@ The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) 
 5. Resources for Learning
 6. Appendix A: Source Coverage Ledger
 
-## doze_sec Pipe-Delimited Integration
+## Delimited / batch exports for downstream tools
 
-Schema: `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`
+If a consumer (a SIEM importer, a batch audit tool, a TIP) ingests a specific delimited format, build clean structured rows in that shape and document the columns — but **leave input validation and sanitization to the consuming tool**. Do not hand-craft data engineered to flow straight into another tool's execution path, and do not rely on the generator to enforce a character blocklist on the tool's behalf: anything upstream (a different model, a compromised feed) can violate that contract, so the validation has to live in the consumer's own input handling. Emit each indicator with its `source` and `confidence`, the same as every other IOC.
 
-Detection methods (exact lowercase strings, with spaces, not underscores): `registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`.
-
-Severity (uppercase only): `CRITICAL`, `WARNING`, `INFO`.
-
-Rules:
-- New TTPs only (not in any provided existing IOC list).
-- One indicator per line. No header row, no preamble, no markdown, no commentary.
-- `Detection_Method` MUST exactly match one of the listed values.
-- `Severity` MUST be one of the three uppercase values.
-- `Detection_Value` is ASCII-only, ≤260 chars, must not contain any of: `"` `'` `` ` `` `$` `;` `|` `&` `<` `>` `(` `)` `{` `}` `^`.
-- Exactly 5 pipe separators per row (6 fields total).
-
-Example rows that pass the sanitizer:
-```
-T1547.001|Boot Autostart Execution|registry key|HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\MalService|CRITICAL|APT29
-T1059.001|PowerShell Script Block Logging|event id|4104|WARNING|LockBit
-T1055.012|Process Hollowing|process name|svchost_update.exe|CRITICAL|BlackCat
-T1021.002|SMB Admin Share|named pipe|\\.\pipe\atsvc|WARNING|APT29
-T1047|WMI Process Creation|wmi query|SELECT Name FROM Win32_Process WHERE Name=cmd.exe|INFO|Unknown
-```
-
-## Appendix A: Source Coverage Ledger (mandatory in every report)
+## Appendix A: Source Coverage Ledger (include in every report)
 
 | Tier | Required Min | Consulted | Skipped (with reason) | Met? |
 |------|--------------|-----------|------------------------|------|
@@ -84,6 +63,6 @@ T1047|WMI Process Creation|wmi query|SELECT Name FROM Win32_Process WHERE Name=c
 | 8    | 3            |           |                        | yes/no |
 | 9    | 3            |           |                        | yes/no |
 
-**Total MUST-minimum sources consulted:** `<N>` / 25
-**Coverage badge:** `FULL` (≥25) | `PARTIAL` (13–24) | `MINIMAL` (<13)
-**Fabrication check:** confirm no IOC, CVE, hash, or actor attribution was invented. Any `status: unverified` items are listed below with reason.
+**Total preferred-source targets consulted:** `<N>` / ≈25
+**Coverage badge (honest self-report):** `FULL` (≈25+) | `PARTIAL` (13–24) | `MINIMAL` (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
+**Fabrication check:** confirm no IOC, CVE, hash, or actor attribution was invented. Any `status: unverified` items are listed below with reason. If little was retrievable for the requested scope and time range, state that plainly here.

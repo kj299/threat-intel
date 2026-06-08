@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "object",
   
   "definitions": {
@@ -582,6 +582,11 @@
           "items": { "type": "string" }
         },
         "output_format": { "$ref": "#/definitions/output_format" },
+        "build_iocs_and_queries": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true (default), the report includes generated IOCs and detection/hunting queries in the standard formats. When false, the report stays narrative without generated indicator/query artifacts."
+        },
         "natural_language_query": {
           "type": "string"
         }
@@ -609,7 +614,7 @@
             "coverage_badge": {
               "type": "string",
               "enum": ["FULL", "PARTIAL", "MINIMAL"],
-              "description": "Source coverage badge per R4. FULL >=25 MUST-sources, PARTIAL 13-24, MINIMAL <13."
+              "description": "Source coverage badge per R4 — an honest self-report of what was consulted. FULL ~25+ preferred sources, PARTIAL 13-24, MINIMAL <13. MINIMAL on a genuinely sparse scope/time range is correct, not a failure."
             }
           }
         },
@@ -928,12 +933,12 @@
             }
           }
         },
-        "doze_sec_iocs": {
+        "delimited_batch_export": {
           "type": "array",
-          "description": "Pipe-delimited IOC lines for doze_sec batch audit tool. Format: MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor",
+          "description": "Optional clean rows for a downstream importer (SIEM/TIP/batch audit tool). Carry the same source/confidence as any other IOC. Input validation and sanitization belong to the consuming tool, not to the generator — never engineer rows to flow straight into a tool's execution path.",
           "items": {
             "type": "object",
-            "required": ["mitre_id", "name", "detection_method", "detection_value", "severity"],
+            "required": ["mitre_id", "name"],
             "properties": {
               "mitre_id": {
                 "type": "string",
@@ -942,28 +947,19 @@
               "name": {
                 "type": "string"
               },
-              "detection_method": {
-                "type": "string",
-                "description": "Must match doze_sec sanitizer allowlist: lowercase, space-separated",
-                "enum": ["registry key", "event id", "process name", "file path", "named pipe", "wmi query"]
+              "fields": {
+                "type": "object",
+                "description": "Arbitrary columns the downstream importer expects (e.g. detection_method, detection_value, severity, actor). The consumer is responsible for validating these.",
+                "additionalProperties": true
               },
-              "detection_value": {
+              "source": {
                 "type": "string",
-                "description": "ASCII only, max 260 chars, must not contain: \" ' ` $ ; | & < > ( ) { } ^",
-                "maxLength": 260,
-                "pattern": "^[^\"'`$;|&<>(){}^]+$"
+                "minLength": 1,
+                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
               },
-              "severity": {
+              "confidence": {
                 "type": "string",
-                "description": "Must be uppercase: CRITICAL, WARNING, or INFO",
-                "enum": ["CRITICAL", "WARNING", "INFO"]
-              },
-              "actor": {
-                "type": "string"
-              },
-              "pipe_delimited": {
-                "type": "string",
-                "description": "Pre-formatted pipe-delimited line for direct import"
+                "enum": ["High", "Medium", "Low"]
               }
             }
           }
