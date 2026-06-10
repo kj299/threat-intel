@@ -56,7 +56,7 @@ Answer the questions below to scope the analysis. If any field is blank, use the
 
 ## Part 1: Source Matrix
 
-Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources count toward tier minimums first; SHOULD-sources count only after MUST-quotas are exhausted.
+Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources that count once the preferred ones are covered. These are priorities, not quotas (see the Source Coverage Protocol above).
 
 ### Tier 1: Vulnerability Databases & Exploit Repositories
 - NVD — nvd.nist.gov — CVE records, CVSS scores [MUST]

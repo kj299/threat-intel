@@ -18,7 +18,7 @@ Treat this as strong guidance, not a hard gate. Aim to follow every rule below; 
 | 8 — Government & Regulatory | 3 | |
 | 9 — Malware Analysis & Sandboxing | 3 | |
 
-**R2 — Cite a source for every IOC, TTP, and claim.** Each table row, each IOC, each threat actor profile, each detection rule should carry a `source:` field naming a specific entry from the Source Matrix in Part 1. If you can't attribute an item to a real source, don't present it as a confirmed finding — drop it, or mark it clearly as inferred/illustrative. Placeholders like `source: unknown` or `source: general knowledge` are not citations.
+**R2 — Cite a source for every IOC, TTP, and claim.** Each table row, each IOC, each threat actor profile, each detection rule should carry a `source:` field naming a specific entry from the Source Matrix in Part 1. If you can't attribute an item to a real source, don't present it as a confirmed finding — drop it, or mark it clearly as inferred/illustrative. Placeholders like `source: unknown`, `general knowledge`, or `n/a` are not citations.
 
 **R3 — Don't fabricate (the rule that matters most).** If a source is paywalled, offline, or outside your knowledge, mark the finding `status: unverified (source inaccessible)` — do NOT invent IPs, hashes, CVE numbers, or actor attributions. Fabricated IOCs are more dangerous than missing ones: a plausible-but-fake hash or block-list IP poisons detection pipelines and burns analyst time. When there simply isn't much for the requested scope and time range, say that directly (e.g. "little new activity in the last 7 days for X") instead of filling space. The Coverage Ledger (Appendix A) records skipped sources honestly.
 
@@ -54,7 +54,7 @@ Full input options and persona mappings live in [`../spec.yaml`](../spec.yaml).
 
 ## Part 1: Source Matrix
 
-Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources count toward tier minimums first; SHOULD-sources count only after MUST-quotas are exhausted.
+Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources that count once the preferred ones are covered. These are priorities, not quotas (see the Source Coverage Protocol above).
 
 ### Tier 1: Vulnerability Databases & Exploit Repositories
 - NVD — nvd.nist.gov — CVE records, CVSS scores [MUST]
