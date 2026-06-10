@@ -2,7 +2,7 @@
 
 The full enumeration of named intelligence sources organized by tier. Supports Rule **R1** (per-tier source coverage targets) and Rule **R2** (every IOC/TTP/claim cites a source naming a specific entry below).
 
-Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources that count once the preferred ones are covered. These are priorities, not quotas — see the Source Coverage Protocol.
+Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources to add once the preferred ones are covered. These are priorities, not quotas — see the Source Coverage Protocol in [`original-prompt.md`](original-prompt.md).
 
 ## Tier 1: Vulnerability Databases & Exploit Repositories
 - NVD — nvd.nist.gov — CVE records, CVSS scores [MUST]

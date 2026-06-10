@@ -12,7 +12,7 @@ Two self-contained files. No sibling references, no `spec.yaml`, no schema files
 Both files embed everything previously split across `skills/cyber-threat-intel/references/` and `spec.yaml`:
 
 - The R1–R6 Source Coverage Protocol (strong guidance, not a hard gate)
-- The full 9-tier Source Matrix (the prompt has the long-form list; the skill has a tighter version with the same MUST sources and SHOULD groups)
+- The full 9-tier Source Matrix (the prompt has the long-form list; the skill has a tighter version with the same preferred `[MUST]` sources and optional `[SHOULD]` sources)
 - IOC / TTP / actor / forecast / business-risk extraction schemas
 - Threat scoring formula and P1–P5 priority mapping
 - All 6 personas and their section lists
@@ -23,7 +23,7 @@ Both files embed everything previously split across `skills/cyber-threat-intel/r
 
 - **No JSON Schema.** The structured `output.schema.json` in the main skill is for CI validation. A standalone prompt or skill running in a chat doesn't need it; the field shapes are described inline.
 - **No examples file.** The main skill's `examples/outputs.json` is for schema validation in CI, not few-shot prompting.
-- **No `spec.yaml`.** All persona profiles, scoring weights, and tier minimums that lived there are inlined as tables.
+- **No `spec.yaml`.** All persona profiles, scoring weights, and per-tier coverage targets that lived there are inlined as tables.
 
 ## Versioning
 

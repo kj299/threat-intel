@@ -13,7 +13,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `skills/cyber-threat-intel/SKILL.md` -- skill entrypoint with YAML frontmatter (name, description) and the workflow Claude follows
 - `skills/cyber-threat-intel/spec.yaml` -- structured spec (personas, scoring, source-tier minimums, compliance mappings); consumed by CI validators
 - `skills/cyber-threat-intel/references/` -- supporting reference docs loaded only when needed
-  - `source-matrix.md` -- the full named source list across 9 tiers (R1/R2 enforcement)
+  - `source-matrix.md` -- the full named source list across 9 tiers (R1/R2 guidance)
   - `extraction-framework.md` -- IOC, TTP, actor, and forecast field schemas
   - `cwe-chaining.md` -- weakness-class (CWE) chaining for AI-assisted attacks, with defensive break-points
   - `scoring.md` -- threat scoring formula and priority mapping

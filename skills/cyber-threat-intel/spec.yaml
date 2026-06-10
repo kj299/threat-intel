@@ -2,7 +2,7 @@
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
 # Version: 1.3.0
 # =============================================================================
-# Defines personas, scoring models, source-coverage enforcement, and output
+# Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
 # parity checks). The Anthropic Agent Skill identifier ("cyber-threat-intel")
 # and machine-readable description live in SKILL.md frontmatter, NOT here.
@@ -69,12 +69,14 @@ source_coverage_protocol:
 
   must_minimum_total: 25
 
-  # Honest self-report of coverage depth, not a pass/fail gate. The numeric
-  # thresholds keep the badge well-defined (and drive the CI ledger check);
-  # MINIMAL on a genuinely sparse scope/time range is the correct outcome.
+  # Honest self-report of coverage depth, not a pass/fail gate. Thresholds are
+  # source counts; the CI ledger check derives the same FULL/PARTIAL/MINIMAL
+  # boundaries from must_minimum_total above (FULL at >=must_minimum_total,
+  # PARTIAL at >=ceil/2), not by parsing these strings. MINIMAL on a genuinely
+  # sparse scope/time range is the correct outcome.
   coverage_badges:
     FULL:
-      threshold: "~25+ preferred sources consulted"
+      threshold: ">=25 preferred sources consulted"
       meaning: "Broad coverage; most tier targets met"
     PARTIAL:
       threshold: "13-24 preferred sources consulted"
@@ -394,6 +396,11 @@ analysis_modules:
 
 # =============================================================================
 # OUTPUT TEMPLATES
+# The build_iocs_and_queries input (default true) gates the generated-artifact
+# sections of EVERY template below, not just soc_ioc_package: when false, drop
+# ioc_summary / high_confidence_iocs / detection_rules / detection_recommendations
+# / hunting_queries and keep the rest (always keep appendix_coverage_ledger).
+# executive_brief and personal_security_guide have no such sections.
 # =============================================================================
 output_templates:
 
@@ -403,6 +410,7 @@ output_templates:
 
   technical_report:
     sections: [header_with_coverage_badge, executive_summary, threat_landscape, vulnerability_analysis, ioc_summary, ttp_mapping, threat_actor_profiles, detection_recommendations, mitigation_priorities, technical_appendix, appendix_coverage_ledger]
+    build_toggle: build_iocs_and_queries   # when false, drop ioc_summary + detection_recommendations
 
   personal_security_guide:
     sections: [current_threats_affecting_you, simple_action_checklist, why_this_matters, step_by_step_guides, resources_for_learning, appendix_coverage_ledger]
@@ -412,7 +420,7 @@ output_templates:
     sections: [header_with_coverage_badge, deployment_priority, high_confidence_iocs, detection_rules, hunting_queries, response_playbooks, false_positive_guidance, appendix_coverage_ledger]
     ioc_formats: [csv, stix_2.1, json, yara, sigma, snort]
     query_formats: [kql, spl]
-    build_toggle: build_iocs_and_queries   # default true; when false, omit generated IOC/query artifacts
+    build_toggle: build_iocs_and_queries   # when false, drop high_confidence_iocs + detection_rules + hunting_queries
 
   # Delimited / batch exports for downstream tools: emit clean structured rows
   # and leave input validation + sanitization to the consuming tool. The
