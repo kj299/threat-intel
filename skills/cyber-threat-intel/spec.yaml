@@ -69,16 +69,19 @@ source_coverage_protocol:
 
   must_minimum_total: 25
 
+  # Honest self-report of coverage depth, not a pass/fail gate. The numeric
+  # thresholds keep the badge well-defined (and drive the CI ledger check);
+  # MINIMAL on a genuinely sparse scope/time range is the correct outcome.
   coverage_badges:
     FULL:
-      threshold: ">=25 MUST-sources consulted"
-      meaning: "All tier minimums met"
+      threshold: "~25+ preferred sources consulted"
+      meaning: "Broad coverage; most tier targets met"
     PARTIAL:
-      threshold: "13-24 MUST-sources consulted"
-      meaning: "At least 50% of tier minimums met"
+      threshold: "13-24 preferred sources consulted"
+      meaning: "Some tiers well covered, others thin"
     MINIMAL:
-      threshold: "<13 MUST-sources consulted"
-      meaning: "Below 50% — report should be treated as preliminary"
+      threshold: "<13 preferred sources consulted"
+      meaning: "Little retrievable signal for this scope/time range — report honestly, do not pad"
 
   # Rules are strong recommendations. R3 (no fabrication) is the hard line:
   # honesty about gaps always wins over hitting a coverage target.
@@ -486,7 +489,7 @@ metadata:
       changes: "Source refresh (Zero Day Initiative + RSS, Zero Day Tracker, Zero Day Clock, Zero-Day.cz; Project Zero migrated to projectzero.google + 0day In the Wild tracker). Deepen CWE-chaining: chain_type taxonomy (primary_resultant/composite/named_chain/multi_branch), cwe_view provenance (CWE-1000/709/1003), per-link detection_opportunity/data_source, time_to_exploit velocity modeling, terminal_impact, break-point selection algorithm. Also rolls up the previously unreleased SIEM/CWE/R6 work."
     - version: "1.3.0"
       date: "2026-06-08"
-      changes: "Reframe the Source Coverage Protocol from a hard 'enforcement contract' (MUST/invalid/regenerate) to strong guidance (R1-R6): per-tier numbers are targets not quotas, the coverage badge is an honest self-report (MINIMAL on a sparse scope/time range is correct), and thin results are stated plainly rather than padded. R3 (no fabrication) stays the hard line. Add a build_iocs_and_queries input (default true) to toggle generated IOC/query artifacts. Remove the doze_sec pipe-delimited integration and its shell-metacharacter blocklist (schema doze_sec_iocs definition, spec doze_sec_integration block, prompt/template pipe blocks); delimited/batch exports now emit clean structured rows and leave input validation/sanitization to the consuming tool."
+      changes: "Reframe the Source Coverage Protocol from a hard 'enforcement contract' (MUST/invalid/regenerate) to strong guidance (R1-R6): per-tier numbers are targets not quotas, the coverage badge is an honest self-report (MINIMAL on a sparse scope/time range is correct), and thin results are stated plainly rather than padded. R3 (no fabrication) stays the hard line. Add a build_iocs_and_queries input (default true) to toggle generated IOC/query artifacts. Remove the doze_sec pipe-delimited integration and its shell-metacharacter blocklist (schema doze_sec_iocs property, spec doze_sec_integration block, prompt/template pipe blocks); delimited/batch exports now emit clean structured rows and leave input validation/sanitization to the consuming tool."
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"

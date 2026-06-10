@@ -2,6 +2,8 @@
 
 The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) belongs in every template.
 
+The `build_iocs_and_queries` input (default: yes) applies to **all** templates below, not just the SOC IOC Package. When it is off, omit the generated-artifact sections from whichever template is in use — IOC packages/summaries, detection rules, and hunting queries — and keep the narrative sections (executive summary, threat landscape, risk dashboard, recommendations, ledger). The Source Coverage Ledger is still included.
+
 ## Executive Brief (max 2 pages)
 
 1. Threat Alert Banner

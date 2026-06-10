@@ -56,7 +56,7 @@ Resolve these against defaults before generating. **Do not ask clarifying questi
 ## Workflow
 
 1. **Scope.** Resolve user input against defaults. Pick a persona; persona drives output shape (see "Personas" below).
-2. **Consult sources.** Walk all 9 tiers in the Source Matrix below. Track which MUST-sources you actually drew from. Honestly mark inaccessible ones.
+2. **Consult sources.** Walk all 9 tiers in the Source Matrix below. Track which preferred (`[MUST]`) sources you actually drew from. Honestly mark inaccessible ones.
 3. **Extract.** Use the schemas in the Extraction Framework for attack methods, IOCs (network/host/email/behavioral), TTPs (MITRE ATT&CK), and threat actors.
 4. **Score and prioritize.** Apply the Threat Scoring formula: `score = exploitability·0.25 + impact·0.25 + relevance·0.30 + urgency·0.20`. Map scores to P1–P5.
 5. **Forecast and infer.** Generate predictive IOCs only where pattern evidence supports them. Mark `confidence: low` unless evidence is strong.
@@ -67,7 +67,7 @@ Resolve these against defaults before generating. **Do not ask clarifying questi
 
 ## Source Matrix
 
-Format: `name — domain — what it provides [MUST | SHOULD]`. MUST-sources count toward tier minimums first; SHOULD-sources count only after MUST-quotas are exhausted.
+Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources that count once the preferred ones are covered. These are priorities, not quotas (see the Source Coverage Protocol above).
 
 ### Tier 1: Vulnerability Databases & Exploit Repositories
 - NVD — nvd.nist.gov — CVE records, CVSS scores [MUST]
