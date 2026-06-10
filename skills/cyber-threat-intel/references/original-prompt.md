@@ -300,7 +300,7 @@ Rules:
 - Set `chain_type` and cite `cwe_view` (CWE-1000 `CanPrecede`/`CanFollow`, CWE-709 named chains, CWE-1003 NVD mapping). For a `multi_branch` chain, the break-point at the shared primary collapses every branch.
 - `ai_assist_factor` records how much AI tooling (automated weakness discovery, variant generation, chain synthesis, PoC drafting) lowers the attacker's cost — and pairs with a defensive takeaway (shrink exposure windows, prefer behavioral detection, harden every primary link, compress patch SLAs). Report the **factor and takeaway, never the weaponization**.
 - `time_to_exploit` quantifies exploit velocity (e.g. Zero Day Clock TTE). An `accelerating` trend with `ai_assist_factor` ≥ moderate, or a contributing CWE class in CISA KEV / Project Zero "0day In the Wild", escalates priority by one band.
-- For each link's `detection_opportunity`, emit a matching discovery-first hunting query (Part 5 §7).
+- For each link's `detection_opportunity`, emit a matching starter hunting query on normalized schema (Part 5 §7).
 - CWE IDs and links obey R2/R3: cite a source; mark unsupported links `confidence: low`; never invent a CWE ID or a link.
 - Score the chain via the standard engine (exploitability of weakest primary link, impact of terminal resultant captured in `terminal_impact`, urgency uplift per the velocity rule above) and drive the break-point control into the Actions Matrix.
 
@@ -378,14 +378,13 @@ Provide rules in formats applicable to the threats found:
 
 Every rule must reference its source(s).
 
-**SPL/KQL authoring rules (the SIEM analogue of R3 — no fabrication of schema):**
+**SPL/KQL authoring rules — always hand the analyst a runnable starting point:**
+- **Starter-first, on normalized schema.** Build concrete queries on Splunk CIM data models, Sentinel ASIM functions, and the well-known Defender XDR tables — these run *without* a guessed raw `index`/`sourcetype`/table, so they are concrete and copy-pasteable even when the deployment is unknown. Emit **at least one SPL and one KQL starter** relevant to the threats found. Never return a discovery-only or empty Detection/Hunting section.
 - Constrain **time + dataset first**, then fielded predicates, then parsing, then aggregation (filter early, parse late, aggregate last).
-- Prefer documented/normalized schema — Splunk CIM data models, Sentinel ASIM / normalized tables — over vendor-specific `sourcetype`s or `rex`/raw-text scans.
-- **Do not invent an `index`, `sourcetype`, or Sentinel table name.** When the target environment schema is unknown, emit a **discovery query** instead and mark the detection `status: needs schema`:
-  - Splunk: `| tstats count where index=* by index, sourcetype`
-  - Sentinel: `Usage | where TimeGenerated > ago(7d) | summarize sum(Quantity) by DataType, Solution`
-  - or `TableName | getschema` to confirm columns before relying on a field.
-- Attach to every detection: `schema_dependency` (datasets/fields assumed), threshold/tuning + false-positive levers, and a **validation** step (detonate in a lab before production). Record any `needs schema` detection in Intelligence Gaps.
+- **The raw `index`/`sourcetype`/table is the only environment-specific, unguessable part — never invent it.** Leave it a `<PLACEHOLDER>` and **pair each starter with a coverage-check/discovery query** so the reader confirms the model is populated and learns the local index:
+  - Splunk: `| tstats count from datamodel=Endpoint.Processes by index, sourcetype` (confirm the model is populated and find the index), then `| tstats count where index=* by index, sourcetype` if empty.
+  - Sentinel: `Usage | where TimeGenerated > ago(7d) | summarize sum(Quantity) by DataType, Solution`, or `TableName | getschema` to confirm columns.
+- Attach to every detection: `schema_dependency` (datasets/fields assumed, and the single fact — usually the raw index — that would remove ambiguity), threshold/tuning + false-positive levers, and a **validation** step (detonate in a lab before production). Mark a normalized starter `status: needs_validation` (the norm); use `ready` only with confirmed schema, and `needs schema` only when even normalized coverage can't be assumed. Record genuine schema gaps in Intelligence Gaps.
 
 ### 8. Actions Matrix
 Fields: `priority (P1/P2/P3/P4) | action | owner | timeline | investment | risk_addressed | success_metric`

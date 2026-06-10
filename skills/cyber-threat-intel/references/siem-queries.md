@@ -1,87 +1,127 @@
 # SIEM Query Authoring (Splunk SPL / Microsoft Sentinel KQL)
 
-How to shape the **detection** and **hunting** queries a threat-intel report emits (`SKILL.md` §7–§"Hunting Queries", `output-templates.md` SOC IOC Package). The rules below are the SIEM analogue of the no-fabrication rule (R3): **never invent a dataset name when discovery is safer.** A query that references an `index`, `sourcetype`, or Sentinel table that does not exist in the reader's environment is as useless — and as misleading — as a fabricated IOC.
+How to shape the **detection** and **hunting** queries a threat-intel report emits (`SKILL.md` §7 / "Hunting Queries", `output-templates.md` SOC IOC Package).
 
-These patterns are environment-agnostic by design. They carry placeholders, not guessed production names. The consumer substitutes real dataset/field names (ideally from an internal data dictionary) before running anything.
+**The deliverable is always a runnable starting point — never an empty section, never a bare "needs schema."** The way to give a concrete query *and* stay honest is to lean on **normalized data models**: Splunk CIM data models, Sentinel ASIM functions, and the well-known Defender XDR tables. These run against a documented schema **without** needing the environment's raw `index`/`sourcetype`/table name — so they're concrete and copy-pasteable even when you don't know the reader's deployment. Only the *raw* index/sourcetype/table is environment-specific, and that is the one thing you never invent (the SIEM analogue of R3): leave it as a `<PLACEHOLDER>` and hand the reader a discovery query to resolve it.
+
+## Output contract (whenever queries are built)
+
+For every report that emits SIEM content, produce — at minimum — **one concrete SPL starter and one concrete KQL starter** relevant to the threats found, plus the discovery/coverage queries to adapt them:
+
+- **Concrete + normalized.** Build on CIM / ASIM / Defender XDR tables so the query runs without a guessed raw dataset. Put `<ANGLE_BRACKET>` placeholders only on the genuinely environment-specific bits (a raw index, an EDR sourcetype, an IOC value to fill in).
+- **Pair with a coverage check.** Follow each starter with a one-line discovery query (below) that confirms the data model/table is populated and reveals the local index — so the reader can verify and adapt rather than trust on faith.
+- **Status.** `needs_validation` is the *normal* state for a normalized starter (runnable, but test before production). Use `ready` only when the user supplied real schema. Reserve `needs_schema` for the narrow case where even normalized-model coverage can't be assumed — and even then, still emit the normalized starter as the primary output.
+
+A report that returns only discovery queries, or an empty Detection/Hunting section, is under-delivering. Give the analyst something to run today, with a clear path to harden it.
 
 ## Truth order (highest wins)
 
 1. An internal data dictionary URL or excerpt the user supplied.
 2. Explicit dataset/field names the user gave.
-3. Documented normalized schema (Splunk CIM data models; Sentinel ASIM / normalized tables).
-4. **Discovery query** — when none of the above is known.
+3. **Documented normalized schema (Splunk CIM data models; Sentinel ASIM; Defender XDR tables) — the default starting point: concrete and runnable without a raw index name.**
+4. A raw vendor `sourcetype`/table — only when actually known (or mapped via the vendor cheat-sheet below); otherwise a `<PLACEHOLDER>`, never invented.
+5. A discovery / coverage query — paired with the starter to confirm datasets and adapt.
 
-Do not let a lower-priority guess override a higher-priority fact. If the schema is unknown, emit a *discovery* query and stop — do not emit a confident production query against an invented dataset.
+Do not let a lower-priority guess override a higher-priority fact. Never assert a raw `index`/`sourcetype`/table the reader hasn't confirmed — but *do* always ship the normalized starter from level 3.
 
 ## Golden rules
 
-- **Discovery-first.** Unknown `index`/`sourcetype` (Splunk) or table/connector (Sentinel) → return a discovery starter (below), mark the detection `status: needs schema`, and say what single fact would unblock it. Same weight as R3.
+- **Starter-first.** Always give a concrete normalized query as the deliverable. Discovery queries *accompany* it; they never replace it.
+- **Never invent the raw index/sourcetype/table.** Normalized models sidestep this; for raw queries, use `<PLACEHOLDERS>` and a discovery query.
 - **Constrain scope before logic.** Time bound + exact dataset first, then fielded predicates, then parsing, then aggregation. Filter early, parse late, aggregate last.
-- **Fielded over raw.** Prefer documented field names over `rex`/raw-text scans and over ad-hoc `search "string"`.
-- **Every query carries provenance.** Each detection/hunt query in the report carries `source` (the Matrix entry the logic derives from) and a `schema_dependency` note listing the datasets/fields it assumes.
+- **Fielded over raw.** Prefer documented field names over `rex`/raw-text scans and ad-hoc `search "string"`.
+- **Every query carries provenance.** Each detection/hunt query carries `source` (the Matrix entry the logic derives from) and a `schema_dependency` note listing the datasets/fields it assumes.
 - **Small results.** Project only needed columns (`| table` / `project`); stop at the smallest useful output.
-- **Prefer normalized models** (CIM / ASIM) when coverage is known; they survive schema drift better than vendor-specific sourcetypes.
 
-## Discovery starters (run these first when schema is unknown)
+## Normalized starters (concrete, runnable — copy and adapt)
 
-### Splunk — `tstats` (reads indexed metadata, cheap)
+These run against the normalized model without a raw index name. `summariesonly=true` assumes the CIM data model is accelerated — drop it if it isn't (or if very recent events matter). Field prefixes use the root dataset (`Processes.*`, `All_Traffic.*`).
+
+### Process creation / parent-child (Execution, T1059 / T1055 / many)
 
 ```spl
-| tstats count where index=* by index, sourcetype
-```
-```spl
-| tstats count from datamodel=Endpoint where nodename=Endpoint.Processes by index
-```
-```spl
-| tstats values(YOUR_FIELD) where index=YOUR_INDEX
-```
-An empty `values()` result means the field is not indexed — a raw-event search with extraction is required.
-
-### Sentinel — metadata tables + `getschema`
-
-```kql
-Usage | where TimeGenerated > ago(7d)
-| summarize TotalGB = sum(Quantity) / 1024 by DataType, Solution
-| sort by TotalGB desc
+| tstats summariesonly=true count from datamodel=Endpoint.Processes
+  where Processes.process_name=<CHILD_PROC> Processes.parent_process_name=<PARENT_PROC>
+  by Processes.dest, Processes.user, Processes.process, Processes.parent_process
+| rename Processes.* AS *
 ```
 ```kql
-Heartbeat | where TimeGenerated > ago(24h)
-| summarize LastSeen = max(TimeGenerated) by Computer, OSType, Category
+DeviceProcessEvents
+| where TimeGenerated > ago(7d)
+| where FileName =~ "<CHILD_PROC>" and InitiatingProcessFileName =~ "<PARENT_PROC>"
+| project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine
 ```
-```kql
-TableName | getschema      // columns + types, no event scan
-TableName | take 5         // cheapest look at real values
-```
+ASIM variant (cross-EDR): `_Im_ProcessCreate(starttime=ago(7d)) | where TargetProcessName has "<CHILD_PROC>"`.
 
-Return a discovery query (and stop) when: the exact index/sourcetype or table is unknown; a CIM/ASIM detection is requested but model coverage is unclear; or a translation hinges on which index/table receives the source data.
-
-## IOC → query patterns
-
-Placeholders in `<ANGLE_BRACKETS>` are substituted from the data dictionary. Each pattern names the schema it assumes so the consumer can map or run discovery.
-
-### Network IOC match (IP / domain) — `block`/`alert` IOCs as a hunt
-
-Schema assumed: a network/proxy/DNS dataset with `dest_ip`, `dest`/`query` (Splunk CIM `Network_Traffic` / `Web` / `DNS`); Sentinel `CommonSecurityLog` / `DnsEvents` / ASIM `_Im_NetworkSession`.
+### Network / proxy / firewall (C2, exfil, IOC IP match)
 
 ```spl
-| tstats summariesonly=t count from datamodel=Network_Traffic
-  where All_Traffic.dest_ip IN (<IOC_IP_1>,<IOC_IP_2>) by All_Traffic.src_ip, All_Traffic.dest_ip
+| tstats summariesonly=true count from datamodel=Network_Traffic.All_Traffic
+  where All_Traffic.dest_ip IN (<IOC_IP_1>,<IOC_IP_2>)
+  by All_Traffic.src, All_Traffic.dest, All_Traffic.dest_port, All_Traffic.app
 | rename All_Traffic.* AS *
 ```
 ```kql
 let iocs = dynamic(["<IOC_IP_1>","<IOC_IP_2>"]);
 _Im_NetworkSession(starttime=ago(7d))
 | where DstIpAddr in (iocs)
-| project TimeGenerated, SrcIpAddr, DstIpAddr, Dvc, EventProduct
+| project TimeGenerated, SrcIpAddr, DstIpAddr, DstPortNumber, Dvc, EventProduct
 ```
 
-### File-hash match
-
-Schema assumed: endpoint/file-event dataset with a hash field (CIM `Endpoint.Filesystem` / Sysmon `file_hash`; Sentinel `DeviceFileEvents.SHA256` or ASIM `_Im_FileEvent`).
+### Web / proxy URL or domain match
 
 ```spl
-index=<EDR_INDEX> sourcetype=<EDR_SOURCETYPE> (file_hash=<SHA256_1> OR file_hash=<SHA256_2>)
-| table _time, host, user, process_name, file_path, file_hash
+| tstats summariesonly=true count from datamodel=Web.Web
+  where Web.url IN (<IOC_URL_1>,<IOC_URL_2>) OR Web.dest IN (<IOC_DOMAIN_1>)
+  by Web.src, Web.user, Web.url, Web.action
+| rename Web.* AS *
+```
+```kql
+let domains = dynamic(["<IOC_DOMAIN_1>","<IOC_DOMAIN_2>"]);
+_Im_WebSession(starttime=ago(7d))
+| where Url has_any (domains)
+| project TimeGenerated, SrcIpAddr, Url, HttpUserAgent, DstIpAddr
+```
+
+### DNS resolution (DGA / C2 domain)
+
+```spl
+| tstats summariesonly=true count from datamodel=Network_Resolution.DNS
+  where DNS.query IN (<IOC_DOMAIN_1>,<IOC_DOMAIN_2>)
+  by DNS.src, DNS.query, DNS.answer, DNS.record_type
+| rename DNS.* AS *
+```
+```kql
+let domains = dynamic(["<IOC_DOMAIN_1>","<IOC_DOMAIN_2>"]);
+_Im_Dns(starttime=ago(7d))
+| where DnsQuery has_any (domains)
+| project TimeGenerated, SrcIpAddr, DnsQuery, DnsResponseName
+```
+
+### Authentication (credential attacks, T1110 / T1078)
+
+```spl
+| tstats summariesonly=true count from datamodel=Authentication.Authentication
+  where Authentication.action="failure"
+  by Authentication.user, Authentication.src, Authentication.app, _time span=1h
+| where count > <THRESHOLD>
+| rename Authentication.* AS *
+```
+```kql
+SigninLogs
+| where TimeGenerated > ago(7d)
+| where ResultType != "0"
+| summarize failures = count() by UserPrincipalName, IPAddress, AppDisplayName, bin(TimeGenerated, 1h)
+| where failures > <THRESHOLD>
+```
+
+### File-hash match (malware delivery)
+
+```spl
+| tstats summariesonly=true count from datamodel=Endpoint.Filesystem
+  where Filesystem.file_hash IN (<SHA256_1>,<SHA256_2>)
+  by Filesystem.dest, Filesystem.user, Filesystem.file_name, Filesystem.file_path
+| rename Filesystem.* AS *
 ```
 ```kql
 let hashes = dynamic(["<SHA256_1>","<SHA256_2>"]);
@@ -91,31 +131,13 @@ DeviceFileEvents
 | project TimeGenerated, DeviceName, InitiatingProcessAccountName, FolderPath, SHA256
 ```
 
-### Suspicious process / parent-child (TTP behavior)
-
-Schema assumed: process-creation telemetry (CIM `Endpoint.Processes`; Sysmon EID 1; Sentinel `DeviceProcessEvents` / ASIM `_Im_ProcessCreate`).
-
-```spl
-| tstats summariesonly=t count from datamodel=Endpoint.Processes
-  where Processes.process_name=<CHILD_PROC> Processes.parent_process_name=<PARENT_PROC>
-  by Processes.dest, Processes.user, Processes.process
-| rename Processes.* AS *
-```
-```kql
-DeviceProcessEvents
-| where TimeGenerated > ago(7d)
-| where FileName =~ "<CHILD_PROC>" and InitiatingProcessFileName =~ "<PARENT_PROC>"
-| project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine
-```
-
 ### Registry autorun persistence (T1547.001)
 
-Schema assumed: registry telemetry (Sysmon EID 12/13; Sentinel `DeviceRegistryEvents`).
-
 ```spl
-index=<EDR_INDEX> sourcetype=<SYSMON_SOURCETYPE> EventCode IN (12,13)
-  registry_path="*\\CurrentVersion\\Run*"
-| table _time, host, user, registry_path, registry_value_name, registry_value_data
+| tstats summariesonly=true count from datamodel=Endpoint.Registry
+  where Registry.registry_path="*\\CurrentVersion\\Run*"
+  by Registry.dest, Registry.user, Registry.registry_path, Registry.registry_value_name
+| rename Registry.* AS *
 ```
 ```kql
 DeviceRegistryEvents
@@ -126,7 +148,7 @@ DeviceRegistryEvents
 
 ### Named-pipe / WMI persistence (T1021.002 / T1047)
 
-Schema assumed: Sysmon EID 17/18 (pipes), EID 19/20/21 (WMI); Sentinel `DeviceEvents` (`ActionType` for named-pipe / WMI events).
+Sysmon-specific (no CIM root dataset), so this one carries a raw-sourcetype placeholder — pair it with the discovery query.
 
 ```spl
 index=<EDR_INDEX> sourcetype=<SYSMON_SOURCETYPE> EventCode IN (17,18) pipe_name=<NAMED_PIPE>
@@ -140,21 +162,78 @@ DeviceEvents
 | project TimeGenerated, DeviceName, ActionType, InitiatingProcessFileName, AdditionalFields
 ```
 
+## Coverage check / discovery starters (pair one with every query)
+
+These confirm the model/table is populated and reveal the local index, so the reader can trust or adapt the starter above.
+
+### Splunk — confirm the CIM model is populated, then find the index
+
+```spl
+| tstats count from datamodel=Endpoint.Processes by index, sourcetype
+```
+```spl
+| datamodel Endpoint search | head 5
+```
+An empty result means the model isn't accelerated/populated for that source — fall back to a raw search against the index the next query reveals:
+```spl
+| tstats count where index=* by index, sourcetype
+```
+
+### Sentinel — enumerate tables and confirm columns
+
+```kql
+Usage | where TimeGenerated > ago(7d)
+| summarize TotalGB = sum(Quantity)/1024 by DataType, Solution | sort by TotalGB desc
+```
+```kql
+<TableName> | getschema      // columns + types, no event scan
+<TableName> | take 5         // cheapest look at real values
+```
+
+## CIM vendor alignment cheat-sheet
+
+When the threat is tied to a known product, map its raw `sourcetype` to a CIM data model so the normalized starter applies. Indexes are deployment-specific — never assume them; the coverage-check query reveals them.
+
+| Data model | Root dataset | Core fields |
+|---|---|---|
+| Web | Web | action, src, dest, url, uri_path, http_method, status, http_user_agent, user |
+| Network_Traffic | All_Traffic | action, src, dest, dest_port, transport, app, rule, bytes_in, bytes_out, user |
+| Network_Resolution | DNS | src, dest, query, reply_code, record_type, answer |
+| Authentication | Authentication | action, app, src, dest, user, signature, authentication_method |
+| Endpoint | Processes, Filesystem, Registry, Services | process, process_name, parent_process_name, dest, user, action |
+| Malware | Malware_Attacks | signature, action, file_name, file_path, file_hash, dest, user, vendor_product |
+| Email | All_Email | action, src_user, recipient, subject, file_name, file_hash, url, message_id |
+| Intrusion_Detection | IDS_Attacks | signature, severity, action, src, dest, category, vendor_product |
+
+| Vendor (sourcetype) | CIM data model(s) |
+|---|---|
+| Zscaler (`zscalernss-web` / `-fw` / `-dns`) | Web / Network_Traffic / Network_Resolution |
+| Palo Alto (`pan:traffic` / `pan:threat` / `pan:globalprotect`) | Network_Traffic / Intrusion_Detection+Malware (URL→Web) / Authentication+Network_Sessions |
+| Cisco (`cisco:asa` / `cisco:umbrella:dns` / `cisco:ise:syslog`) | Network_Traffic+Authentication / Network_Resolution+Web / Authentication |
+| CrowdStrike (`crowdstrike:events:sensor`) | Endpoint, Malware, Intrusion_Detection (FDR field names differ — verify) |
+| Microsoft Defender (`ms:defender:atp:alerts`) | Alerts, Malware, Endpoint |
+| Proofpoint (`proofpoint:tap:siem` / `pps_messagelog`) | Email+Malware / Email |
+| Cloudflare (`cloudflare:json`) | Web / Network_Resolution (Gateway DNS) |
+| Web proxy generic (`bluecoat:proxysg:access:*`, `squid:access`) | Web |
+
+**Cross-vendor strategy:** query the shared data model once instead of OR-ing sourcetypes, and `by ... sourcetype` (or `vendor_product`) so per-vendor gaps stay visible. If one vendor isn't CIM-mapped, add a separate raw-sourcetype query rather than weakening the CIM query.
+
 ## Detection output shape
 
-When the report emits a **detection** (not just a hunt), attach the operational metadata that makes it deployable. Match the structured `hunting_queries` schema (objective, platform, query, schema_dependency, assumptions, tuning, validation):
+When the report emits a **detection** (not just a hunt), attach the operational metadata that makes it deployable. Match the structured `hunting_queries` schema (objective, platform, query, schema_dependency, assumptions, tuning, validation, status):
 
 - **Objective** — the analyst goal in one line.
-- **Query** — the SPL/KQL above with placeholders resolved (or a discovery query if unresolved).
-- **schema_dependency** — datasets + fields the query assumes; the single fact that would remove ambiguity.
-- **Assumptions** — normalized vs raw, time window, parser/connector caveats.
+- **Query** — the normalized starter above with placeholders for env-specific bits.
+- **schema_dependency** — datasets + fields the query assumes; the single fact (often the raw index) that would remove ambiguity.
+- **Assumptions** — accelerated vs un-accelerated model, time window, parser/connector caveats.
 - **Tuning** — threshold options, false-positive levers, suppression ideas, field substitutions for alternate schemas.
 - **Validate** — how to confirm it fires (detonate the TTP in a lab, replay a known-bad sample) before production.
+- **Status** — `needs_validation` for a normalized starter (the norm); `ready` only with confirmed schema.
 
 ## Translation (SPL ⇄ KQL)
 
-Preserve intent before syntax: map scope → filters → parsing → aggregation. If no safe one-to-one mapping exists (e.g. the SPL index has no documented Sentinel table equivalent), say so and provide the closest operational pattern plus a discovery query — do not assert a table name on faith.
+Preserve intent before syntax: map scope → filters → parsing → aggregation. Prefer normalized↔normalized (CIM ↔ ASIM) mappings. If no safe one-to-one mapping exists (e.g. an SPL index has no documented Sentinel table equivalent), give the closest normalized pattern plus a discovery query — do not assert a table name on faith.
 
 ## Honesty parity
 
-Unknown schema is marked, never guessed — the SIEM counterpart of R3. A detection that depends on an unverified `index`/`sourcetype`/table is emitted as a discovery query with `status: needs schema`, recorded in Intelligence Gaps, and never stamped as a ready-to-deploy rule.
+The raw `index`/`sourcetype`/table is the only thing that's environment-specific and unguessable — leave it a `<PLACEHOLDER>` and pair a discovery query, the SIEM counterpart of R3. But always ship the normalized (CIM/ASIM/Defender) starter as the runnable deliverable, marked `status: needs_validation`. Record genuinely unresolvable schema gaps in Intelligence Gaps. The failure mode to avoid is the opposite of fabrication: shipping an empty or discovery-only section that leaves the analyst with nothing to run.

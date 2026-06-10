@@ -10,6 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.5.0] - 2026-06-10
+
+### Fixed
+
+- **Near-empty SPL/KQL output.** The discovery-first SIEM guidance was over-suppressing concrete queries: when the environment's raw `index`/`sourcetype`/table was unknown — almost always for a generic run with no internal data dictionary — the skill defaulted to a discovery-only query or `status: needs_schema` and produced little usable content, leaving the analyst without a starting point.
+
+### Changed
+
+- **Rebalanced SIEM query authoring to "starter-first".** The skill now always emits a **concrete** query built on **normalized schema** (Splunk CIM data models, Sentinel ASIM functions, Defender XDR tables) — which runs **without** a guessed raw index/sourcetype/table — with `<PLACEHOLDERS>` only on genuinely environment-specific bits, **paired** with a coverage-check/discovery query to confirm datasets and adapt. The no-fabrication rule still holds: the raw index/sourcetype/table is the one thing never invented. Requires ≥1 SPL and ≥1 KQL starter when queries are built; default query status is now `needs_validation`, with `needs_schema` reserved for genuinely unknowable coverage.
+- **Rewrote `references/siem-queries.md`** with concrete CIM/ASIM/Defender starters per category (process creation, network/firewall, web/proxy, DNS, authentication, file-hash, registry autorun, named-pipe/WMI), coverage-check queries to pair with each, and a **CIM vendor-alignment cheat-sheet** (Zscaler, Palo Alto, Cisco, CrowdStrike, Microsoft Defender, Proofpoint, Cloudflare → CIM data models). Ideas drawn from the public `kj299/siem_fun` query-builder skill pack.
+- Updated `SKILL.md` §7, `references/original-prompt.md` §7, both `standalone/` files, `references/output-templates.md`, the schema `hunting_queries` description, and `spec.yaml` `siem_query_rules`. The `enterprise_soc` example's SPL hunting query was upgraded from discovery-only to a concrete CIM `Endpoint.Processes` starter (`status: needs_validation`).
+- **Version bumped to 1.5.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.4.0] - 2026-06-10
 
 ### Added

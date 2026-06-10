@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.4.0
+# Version: 1.5.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.4.0"
+  version: "1.5.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -341,12 +341,17 @@ analysis_modules:
     query_formats: [kql, spl, sigma, yara]
     # SPL/KQL authoring guardrails. Detail in references/siem-queries.md.
     siem_query_rules:
-      schema_truth_order: [internal_data_dictionary, user_provided_names, normalized_schema_cim_asim, discovery_query]
-      discovery_first: true   # unknown index/sourcetype/table -> discovery query, never a guessed name (SIEM analogue of R3)
+      schema_truth_order: [internal_data_dictionary, user_provided_names, normalized_schema_cim_asim_defenderxdr, raw_sourcetype_if_known, discovery_query]
+      starter_first: true     # always emit a concrete normalized (CIM/ASIM/Defender) starter; never discovery-only or empty
+      normalized_starters_run_without_raw_index: true   # CIM datamodels / ASIM functions / Defender tables need no guessed index
+      pair_with_discovery: true   # each starter is accompanied by a coverage-check/discovery query to confirm + adapt
+      never_invent: [raw_index, sourcetype, sentinel_table]   # the only env-specific, unguessable parts -> <PLACEHOLDER> + discovery (SIEM analogue of R3)
+      minimum_output: { spl_starters: 1, kql_starters: 1 }     # when queries are built
       filter_early_parse_late: true
-      prefer_normalized: [splunk_cim, sentinel_asim]
+      prefer_normalized: [splunk_cim, sentinel_asim, defender_xdr]
       per_detection_metadata: [schema_dependency, threshold, false_positive_levers, validation_step, source]
-      unresolved_status: needs_schema   # recorded in intelligence_gaps
+      default_status: needs_validation   # normalized starter is runnable but unvalidated
+      unresolved_status: needs_schema     # reserved for genuinely unknowable coverage; recorded in intelligence_gaps
 
   vulnerability_chaining:
     # CVE-level and CWE-level (weakness-class) chaining. Detail: references/cwe-chaining.md
@@ -488,6 +493,7 @@ execution:
 metadata:
   created: "2026-03-30"
   last_updated: "2026-06-10"
+  # (1.5.0 SIEM-output rebalance)
 
   version_history:
     - version: "1.0.0"
@@ -505,6 +511,9 @@ metadata:
     - version: "1.4.0"
       date: "2026-06-10"
       changes: "Wire the optional delimited_batch_export output for programmatic consumers (e.g. a downstream batch-audit importer, called via Claude or other models). The skill now emits structured, typed rows (mitre_id, name, fields{detection_method, detection_value, severity, actor}, source, confidence) when build_iocs_and_queries is on; named columns are a dependable contract while additionalProperties stays open for other importers. Safety boundary preserved: the skill emits typed JSON only — the consuming tool delimits, escapes, and validates for its own input path; the generator never pre-formats a delimited string or applies a shell-metacharacter blocklist on the tool's behalf. Stays tool-agnostic (no project named). Wired into SKILL.md, original-prompt.md, output-templates.md, both standalone files, and the schema; example added to the enterprise_soc output."
+    - version: "1.5.0"
+      date: "2026-06-10"
+      changes: "Fix near-empty SPL/KQL output. The discovery-first guidance was over-suppressing concrete queries: whenever the environment's raw index/sourcetype/table was unknown (almost always for a generic run), the skill defaulted to discovery-only or needs_schema and produced little usable content. Rebalanced to STARTER-FIRST: always emit a concrete query built on normalized schema (Splunk CIM data models, Sentinel ASIM functions, Defender XDR tables) — which runs without a guessed raw index — with <PLACEHOLDERS> only on env-specific bits, paired with a coverage-check/discovery query to confirm and adapt. Require >=1 SPL and >=1 KQL starter when queries are built; reserve needs_schema for genuinely unknowable coverage (default status now needs_validation). Rewrote references/siem-queries.md with concrete CIM/ASIM/Defender starters per category (process, network, web, dns, auth, file-hash, registry, persistence), coverage-check queries, and a CIM vendor-alignment cheat-sheet (Zscaler/Palo Alto/Cisco/CrowdStrike/Defender/Proofpoint/Cloudflare). Updated SKILL.md, original-prompt.md, both standalone files, output-templates.md, the schema hunting_queries description, and spec.yaml siem_query_rules; the enterprise_soc example's SPL entry upgraded from discovery-only to a concrete CIM Endpoint starter. Ideas drawn from the public kj299/siem_fun query-builder skill pack."
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
