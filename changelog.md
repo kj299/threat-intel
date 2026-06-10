@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.6.0] - 2026-06-10
+
+### Added
+
+- **External-consumer integration docs (P1).** New "Using this skill from an external consumer" section in `README.md` and `docs.md` (and `standalone/README.md`): feed the self-contained `standalone/cyber-threat-intel-prompt.md` (not `spec.yaml` alone, and note the legacy `cyber_threat_skill.yaml` was renamed/split in 1.2.0 so that path no longer resolves), how the `delimited_batch_export` rows map to an importer's columns, and that the consumer owns input validation. Closes the failure mode where a consumer auto-discovering the old filename loads nothing and produces empty output.
+- **Known-limitations sections** in `README.md` and `standalone/README.md` documenting downstream-importer ingestibility: rows with shell metacharacters / non-ASCII in `detection_value`, or a `detection_method` outside the common six, are dropped by strict importers; `wmi query` indicators (quotes/parens) almost always drop and should be surfaced as behavioral/hunting IOCs; no generator-side sanitization.
+
+### Changed
+
+- **Hardened `delimited_batch_export` row guidance (P2)** so generated rows are actually ingestible by a downstream importer: `SKILL.md` §6, `references/original-prompt.md` §6, both `standalone/` files, `references/output-templates.md`, and the schema now state that `detection_value` must be a **concrete, literal, printable-ASCII, metacharacter-free** indicator (not a `<PLACEHOLDER>` — those belong only in the SPL/KQL starters), and recommend a `detection_method` from the common six. `detection_method` is **kept schema-open (recommended, not enum-locked)** so the export stays tool-agnostic. `spec.yaml` `delimited_batch_export` gains `detection_value_rules` + `detection_method_recommended` + a `known_limitation` note.
+- **Version bumped to 1.6.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.5.0] - 2026-06-10
 
 ### Fixed

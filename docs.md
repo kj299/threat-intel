@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.5.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
+**Version:** 1.6.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
 
 **Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
 
@@ -130,6 +130,15 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 - **Detection Rules**: YARA, Sigma, Snort/Suricata, KQL, SPL
 - **Frameworks**: MITRE ATT&CK Navigator layers
 
+## Using This Skill from an External Consumer
+
+To drive the skill programmatically (Claude Code, an OpenAI pipeline, or a tool that ingests its output):
+
+- **Feed the self-contained artifact** [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md). It inlines the source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract. Do not feed `spec.yaml` alone (CI spec only — no workflow / SIEM guidance). The legacy `cyber_threat_skill.yaml` was split/renamed in 1.2.0 and no longer exists; a consumer auto-discovering that filename loads nothing and produces empty output.
+- **Structured IOC hand-off**: with `build_iocs_and_queries` on (default), `delimited_batch_export` carries `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity`, `actor`), `source`, `confidence`. Map to your importer's columns (e.g. `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`).
+- **The consumer owns input validation.** The skill emits raw typed values and never escapes/sanitizes on a tool's behalf. For ingestibility, `detection_value` should be a concrete metacharacter-free ASCII literal and `detection_method` one of the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`) — strict importers drop rows that violate this. (See *Limitations* below.)
+- **Validate** output against [`schemas/output.schema.json`](skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
+
 ## Compliance Mapping
 
 The skill can map findings to:
@@ -159,6 +168,7 @@ The skill can map findings to:
 - Generated IOCs are illustrative examples based on known patterns, not real-time indicators.
 - Detection rules should be tested in a lab environment before production deployment.
 - This skill does not replace professional threat intelligence services or incident response capabilities.
+- **`delimited_batch_export` ingestibility:** strict downstream importers drop rows whose `detection_value` contains shell metacharacters (quotes, backtick, `$ ; | & < > ( ) { } ^`) or non-ASCII, or whose `detection_method` is outside the common six. This is by design — the consumer owns sanitization — but means some legitimate indicators (notably `wmi query` strings, which contain quotes/parentheses) won't merge via batch export; surface those as behavioral/hunting IOCs instead.
 
 ## Schema Validation
 

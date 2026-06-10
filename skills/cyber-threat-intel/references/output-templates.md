@@ -51,6 +51,8 @@ The `build_iocs_and_queries` input (default: on) applies to **all** templates be
 
 For programmatic consumption (a SIEM importer, a batch-audit tool, a TIP — including pipelines that call this skill via Claude or another model), populate the structured `delimited_batch_export` array: one row per new TTP with `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity` ∈ CRITICAL/WARNING/INFO, `actor`), `source`, and `confidence`. The named columns are a dependable contract; a consumer may add extra columns under `fields`.
 
+Make each row **ingestible**: `detection_value` must be a **concrete, literal** indicator (not a `<PLACEHOLDER>` — those belong only in the SPL/KQL starters above), printable ASCII, and free of shell metacharacters (quotes, backtick, and `$ ; | & < > ( ) { } ^`), because strict importers drop any row that contains them. Prefer a `detection_method` from the common set (registry key, event id, process name, file path, named pipe, wmi query) — other values may be dropped. Note that `wmi query` values inherently contain quotes/parens and so are usually dropped by such importers; surface those as a behavioral/hunting IOC instead.
+
 Emit **typed values only** — the consuming tool does the delimiting, escaping, and validation for its own input path. Do not pre-format a delimited string, do not hand-craft data engineered to flow straight into another tool's execution path, and do not rely on the generator to enforce a character blocklist on the tool's behalf: anything upstream (a different model, a compromised feed) can violate that contract, so the validation has to live in the consumer's own input handling.
 
 ## Appendix A: Source Coverage Ledger (include in every report)
