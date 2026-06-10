@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.4.0] - 2026-06-10
+
+### Added
+
+- **Wired the optional `delimited_batch_export` output for programmatic consumers.** Threat-intel pipelines that call this skill (via Claude or another model) and feed a downstream importer — a SIEM loader, a batch-audit tool, a TIP — can now rely on a structured export. When `build_iocs_and_queries` is on, the skill emits `delimited_batch_export` rows: `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity` ∈ CRITICAL/WARNING/INFO, `actor`), `source`, `confidence`. The named columns are a dependable contract; `fields` keeps `additionalProperties` open so other importers can add columns.
+- **Safety boundary preserved.** The skill emits **typed JSON only** — the consuming tool delimits, escapes, and validates for its own input path. The generator never pre-formats a delimited string and never applies a shell-metacharacter blocklist on a tool's behalf (anything upstream — a different model, a compromised feed — can violate that contract, so validation lives in the consumer). The export stays tool-agnostic (no downstream project named in the skill).
+- Wired into `SKILL.md` §6, `references/original-prompt.md` §6, `references/output-templates.md`, both `standalone/` files, the schema (`delimited_batch_export.fields` gains named typed properties), and `spec.yaml` (`output_templates.delimited_batch_export`). A `delimited_batch_export` example added to the `enterprise_soc` output.
+- **Version bumped to 1.4.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.3.0] - 2026-06-08
 
 ### Changed
