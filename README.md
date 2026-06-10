@@ -166,6 +166,17 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 
 ---
 
+## Using this skill from an external consumer
+
+The skill is built to be driven programmatically (Claude Code, an OpenAI-based pipeline, or any orchestrator) and to feed upstream/downstream cyber-ops tooling such as a SIEM importer or batch-audit tool.
+
+- **Feed the self-contained file.** Point your consumer at [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md) — it inlines everything the model needs (source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract). Do **not** feed `spec.yaml` alone (it's the CI spec — missing the workflow and SIEM guidance). Note the legacy single-file `cyber_threat_skill.yaml` was split/renamed in 1.2.0, so that path no longer exists; a consumer still auto-discovering it will load nothing and produce empty output.
+- **Structured IOC hand-off.** With `build_iocs_and_queries` on (default), the skill populates `delimited_batch_export` — rows of `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity`, `actor`), plus `source`/`confidence`. Map those to your importer's columns (e.g. `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`, with `source`/`confidence` as optional trailing fields).
+- **The consumer owns input validation.** The skill emits **raw typed values** and never pre-formats a delimited string or sanitizes on a tool's behalf — escaping, quoting, and metacharacter/length filtering belong in the consuming tool's own input handling, because anything upstream (a different model, a compromised feed) can violate the contract.
+- **Validate** the output against [`schemas/output.schema.json`](skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
+
+---
+
 ## Limitations
 
 - **Knowledge cutoff.** Output reflects the model's training data. For breaking threats (last 24-48 hours), consult professional threat intelligence services -- this skill cannot surface intelligence newer than the model behind it.
@@ -174,6 +185,12 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 - This skill structures AI output; it does not guarantee accuracy. Always verify critical findings.
 - Detection rules should be tested in a lab environment before production deployment.
 - This is not a replacement for professional threat intelligence services or incident response.
+
+### Known limitations — `delimited_batch_export` / downstream importers
+
+- **Ingestibility filter.** Strict importers reject any `delimited_batch_export` row whose `detection_value` contains shell metacharacters (quotes, backtick, `$ ; | & < > ( ) { } ^`) or non-printable/non-ASCII characters, or whose `detection_method` falls outside the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`). The skill is guided to emit concrete, ASCII, metacharacter-free literals and the common methods, but a row that legitimately needs a blocked character will be dropped by such a consumer — by design (the consumer owns sanitization).
+- **`wmi query` indicators.** WMI query strings inherently contain quotes and parentheses, so they are almost always dropped by a metacharacter-filtering importer. Treat WMI indicators as behavioral/hunting IOCs (in `iocs.behavioral` / a hunting query) rather than as `delimited_batch_export` rows.
+- **No generator-side sanitization.** Because the skill deliberately does not escape its output, a consumer that ingests `delimited_batch_export` without its own input validation is responsible for any injection risk — never pipe these values straight into an execution path.
 
 ---
 
