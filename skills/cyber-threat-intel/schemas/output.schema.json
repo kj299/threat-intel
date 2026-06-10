@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "object",
   
   "definitions": {
@@ -881,7 +881,7 @@
         },
         "hunting_queries": {
           "type": "array",
-          "description": "Structured SPL/KQL hunt or detection queries shaped per references/siem-queries.md. Unknown environment schema MUST yield query_kind=discovery with status=needs_schema, never a guessed index/sourcetype/table.",
+          "description": "Structured SPL/KQL hunt or detection queries shaped per references/siem-queries.md. Always provide a runnable starter built on normalized schema (Splunk CIM / Sentinel ASIM / Defender XDR tables) with status=needs_validation, paired with a discovery/coverage query to confirm datasets; never a guessed raw index/sourcetype/table, and never a discovery-only or empty result. Reserve status=needs_schema for the narrow case where even normalized coverage can't be assumed.",
           "items": {
             "type": "object",
             "required": ["platform", "objective", "query", "source"],

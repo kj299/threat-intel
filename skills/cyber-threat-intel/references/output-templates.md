@@ -33,7 +33,7 @@ The `build_iocs_and_queries` input (default: on) applies to **all** templates be
 2. Deployment Priority
 3. High-Confidence IOCs
 4. Detection Rules (CSV, STIX 2.1, JSON, YARA, Sigma, Snort, KQL, SPL)
-5. Hunting Queries (KQL, SPL) — author per [siem-queries.md](siem-queries.md): discovery-first, schema-driven, no invented `index`/`sourcetype`/table; each query carries `schema_dependency` + tuning + a validation step
+5. Hunting Queries (KQL, SPL) — author per [siem-queries.md](siem-queries.md): starter-first on normalized schema (CIM / ASIM / Defender XDR), so each query runs without a guessed raw `index`/`sourcetype`/table; pair each starter with a coverage-check/discovery query, carry `schema_dependency` + tuning + a validation step, and never emit a discovery-only or empty section
 6. Response Playbooks
 7. False-Positive Guidance
 8. Appendix A: Source Coverage Ledger

@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.4.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
+**Version:** 1.5.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
 
 **Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
 
