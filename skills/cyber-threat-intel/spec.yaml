@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.3.0
+# Version: 1.4.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.3.0"
+  version: "1.4.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -429,9 +429,13 @@ output_templates:
   # because anything upstream (a different model, a compromised feed) can
   # violate it. Never engineer rows to flow straight into a tool's execution path.
   delimited_batch_export:
-    description: "Optional clean delimited/CSV-style rows for a downstream importer; columns documented per consumer"
+    description: "Optional structured rows for a downstream importer, populated when build_iocs_and_queries is on. Emit typed values; the consumer delimits/escapes/validates them for its own input path."
     validation_owner: consuming_tool
-    each_row_carries: [source, confidence]
+    each_row_carries: [mitre_id, name, source, confidence]
+    # Named columns are a dependable contract; importers may add extra columns.
+    fields: [detection_method, detection_value, severity, actor]
+    severity_levels: [CRITICAL, WARNING, INFO]
+    structured_not_delimited: true   # the skill emits typed JSON, not a pre-formatted delimited string
 
 # =============================================================================
 # COMPLIANCE MAPPING
@@ -483,7 +487,7 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-06-08"
+  last_updated: "2026-06-10"
 
   version_history:
     - version: "1.0.0"
@@ -498,6 +502,9 @@ metadata:
     - version: "1.3.0"
       date: "2026-06-08"
       changes: "Reframe the Source Coverage Protocol from a hard 'enforcement contract' (MUST/invalid/regenerate) to strong guidance (R1-R6): per-tier numbers are targets not quotas, the coverage badge is an honest self-report (MINIMAL on a sparse scope/time range is correct), and thin results are stated plainly rather than padded. R3 (no fabrication) stays the hard line. Add a build_iocs_and_queries input (default true) to toggle generated IOC/query artifacts. Remove the doze_sec pipe-delimited integration and its shell-metacharacter blocklist (schema doze_sec_iocs property, spec doze_sec_integration block, prompt/template pipe blocks); delimited/batch exports now emit clean structured rows and leave input validation/sanitization to the consuming tool."
+    - version: "1.4.0"
+      date: "2026-06-10"
+      changes: "Wire the optional delimited_batch_export output for programmatic consumers (e.g. a downstream batch-audit importer, called via Claude or other models). The skill now emits structured, typed rows (mitre_id, name, fields{detection_method, detection_value, severity, actor}, source, confidence) when build_iocs_and_queries is on; named columns are a dependable contract while additionalProperties stays open for other importers. Safety boundary preserved: the skill emits typed JSON only — the consuming tool delimits, escapes, and validates for its own input path; the generator never pre-formats a delimited string or applies a shell-metacharacter blocklist on the tool's behalf. Stays tool-agnostic (no project named). Wired into SKILL.md, original-prompt.md, output-templates.md, both standalone files, and the schema; example added to the enterprise_soc output."
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"

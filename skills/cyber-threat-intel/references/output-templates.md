@@ -49,7 +49,9 @@ The `build_iocs_and_queries` input (default: on) applies to **all** templates be
 
 ## Delimited / batch exports for downstream tools
 
-If a consumer (a SIEM importer, a batch audit tool, a TIP) ingests a specific delimited format, build clean structured rows in that shape and document the columns — but **leave input validation and sanitization to the consuming tool**. Do not hand-craft data engineered to flow straight into another tool's execution path, and do not rely on the generator to enforce a character blocklist on the tool's behalf: anything upstream (a different model, a compromised feed) can violate that contract, so the validation has to live in the consumer's own input handling. Emit each indicator with its `source` and `confidence`, the same as every other IOC.
+For programmatic consumption (a SIEM importer, a batch-audit tool, a TIP — including pipelines that call this skill via Claude or another model), populate the structured `delimited_batch_export` array: one row per new TTP with `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity` ∈ CRITICAL/WARNING/INFO, `actor`), `source`, and `confidence`. The named columns are a dependable contract; a consumer may add extra columns under `fields`.
+
+Emit **typed values only** — the consuming tool does the delimiting, escaping, and validation for its own input path. Do not pre-format a delimited string, do not hand-craft data engineered to flow straight into another tool's execution path, and do not rely on the generator to enforce a character blocklist on the tool's behalf: anything upstream (a different model, a compromised feed) can violate that contract, so the validation has to live in the consumer's own input handling.
 
 ## Appendix A: Source Coverage Ledger (include in every report)
 

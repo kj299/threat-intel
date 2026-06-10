@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.3.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-08
+**Version:** 1.4.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
 
 **Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
 
@@ -126,7 +126,7 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 - Actionable Checklist
 
 ### Export Formats
-- **IOCs**: CSV, STIX 2.1, OpenIOC, JSON, MISP. IOC/query generation is toggled by the `build_iocs_and_queries` input (default on). For any delimited/batch export to a downstream tool, the skill emits clean structured rows and leaves input validation/sanitization to the consuming tool.
+- **IOCs**: CSV, STIX 2.1, OpenIOC, JSON, MISP. IOC/query generation is toggled by the `build_iocs_and_queries` input (default on). For programmatic consumers, the schema's optional `delimited_batch_export` array carries structured TTP rows (`mitre_id`, `name`, `fields`, `source`, `confidence`) for a downstream importer; the skill emits typed values and leaves delimiting, escaping, and validation to the consuming tool.
 - **Detection Rules**: YARA, Sigma, Snort/Suricata, KQL, SPL
 - **Frameworks**: MITRE ATT&CK Navigator layers
 

@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "object",
   
   "definitions": {
@@ -935,7 +935,7 @@
         },
         "delimited_batch_export": {
           "type": "array",
-          "description": "Optional clean rows for a downstream importer (SIEM/TIP/batch audit tool). Carry the same source/confidence as any other IOC. Input validation and sanitization belong to the consuming tool, not to the generator — never engineer rows to flow straight into a tool's execution path.",
+          "description": "Optional structured rows for a downstream importer (SIEM/TIP/batch audit tool), populated when build_iocs_and_queries is on and a downstream export is wanted. Emit typed values only — the consuming tool delimits, escapes, and validates them for its own input path. Never pre-format a delimited string or engineer rows to flow straight into a tool's execution path; input validation/sanitization belongs to the consumer, since anything upstream (a different model, a compromised feed) can violate the contract.",
           "items": {
             "type": "object",
             "required": ["mitre_id", "name"],
@@ -949,7 +949,24 @@
               },
               "fields": {
                 "type": "object",
-                "description": "Arbitrary columns the downstream importer expects (e.g. detection_method, detection_value, severity, actor). The consumer is responsible for validating these.",
+                "description": "Detection columns for the importer. The named properties below are a dependable contract a consumer can rely on; additionalProperties stays open so other importers can carry extra columns. Values are raw/structured — the consumer escapes and validates them (no shell-metacharacter filtering or length capping here).",
+                "properties": {
+                  "detection_method": {
+                    "type": "string",
+                    "description": "e.g. registry key, event id, process name, file path, named pipe, wmi query"
+                  },
+                  "detection_value": {
+                    "type": "string",
+                    "description": "Raw detection value; the consumer is responsible for escaping/sanitizing it for its own input path"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": ["CRITICAL", "WARNING", "INFO"]
+                  },
+                  "actor": {
+                    "type": "string"
+                  }
+                },
                 "additionalProperties": true
               },
               "source": {
