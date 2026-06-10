@@ -97,7 +97,7 @@ The skill references sources organized by priority:
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 
-> The table above shows examples per tier for orientation. **The complete source matrix used for coverage enforcement (R1–R5) lives in [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
+> The table above shows examples per tier for orientation. **The complete source matrix referenced by the source-coverage guidance (R1–R6) lives in [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
 
 ## Threat Scoring
 

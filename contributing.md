@@ -126,8 +126,8 @@ Updates compliance mapping reference from ID.RA-1 to RS.AN-2 per NIST CSF 2.0 sp
 
 docs: clarify source coverage protocol in README
 
-Expands explanation of R1-R5 enforcement rules with examples.
-Adds note about MUST vs SHOULD source priorities.
+Expands explanation of the R1-R6 source-coverage guidance with examples.
+Adds note about preferred (MUST) vs optional (SHOULD) source priorities.
 ```
 
 Format: `<type>: <description>` where type is one of:
