@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "object",
   
   "definitions": {
@@ -504,8 +504,9 @@
 
     "time_range": {
       "type": "string",
-      "enum": ["48h", "7d", "30d", "90d"],
-      "default": "7d"
+      "pattern": "^[1-9][0-9]*(h|d|w|mo)$",
+      "default": "7d",
+      "description": "IOC/intel search lookback window: a positive integer followed by a unit — h (hours), d (days), w (weeks), or mo (months). Any amount is allowed, e.g. 12h, 48h, 7d, 30d, 3w, 6mo. The presets 48h/7d/30d/90d remain valid."
     },
     
     "alert_level": {

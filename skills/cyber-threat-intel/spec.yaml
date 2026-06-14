@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.6.0
+# Version: 1.7.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.6.0"
+  version: "1.7.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -218,13 +218,18 @@ user_inputs:
         - { label: "Red Team/Penetration Tester", value: red_team }
 
     - name: time_range
-      type: single_select
+      # Free-form lookback for the IOC/intel search: a positive integer + unit.
+      # Any amount the user wants; the presets below are quick-picks, not limits.
+      type: duration
       default: 7d
-      options:
-        - { label: "Breaking (24-48h)", value: 48h }
-        - { label: "Recent (7 days)", value: 7d }
-        - { label: "Monthly (30 days)", value: 30d }
+      pattern: "^[1-9][0-9]*(h|d|w|mo)$"   # h=hours, d=days, w=weeks, mo=months
+      units: { h: hours, d: days, w: weeks, mo: months }
+      suggested:
+        - { label: "Breaking (24-48h)",  value: 48h }
+        - { label: "Recent (7 days)",    value: 7d }
+        - { label: "Monthly (30 days)",  value: 30d }
         - { label: "Quarterly (90 days)", value: 90d }
+        - { label: "Custom (e.g. 12h, 3w, 6mo)", value: "<N>{h|d|w|mo}" }
 
     - name: output_format
       type: single_select
@@ -499,8 +504,8 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-06-10"
-  # (1.6.0 consumer-integration docs + delimited_batch_export row hardening)
+  last_updated: "2026-06-14"
+  # (1.7.0 free-form IOC/intel search lookback)
 
   version_history:
     - version: "1.0.0"
@@ -524,6 +529,9 @@ metadata:
     - version: "1.6.0"
       date: "2026-06-10"
       changes: "External-consumer integration docs (P1) + delimited_batch_export row hardening (P2). README.md/docs.md/standalone/README.md gain a 'Using this skill from an external consumer' section: feed standalone/cyber-threat-intel-prompt.md (not spec.yaml alone; the legacy cyber_threat_skill.yaml was renamed/split in 1.2.0 so that auto-discovery path resolves to nothing -> empty output), how delimited_batch_export maps to importer columns, and that the consumer owns input validation. Known-limitations sections added to the READMEs (metachar/non-ASCII/method-allowlist drops; wmi query indicators usually drop -> use behavioral/hunting IOCs; no generator-side sanitization). Row guidance hardened across SKILL.md, original-prompt.md, both standalone files, output-templates.md, and the schema: detection_value must be a concrete, literal, printable-ASCII, metacharacter-free indicator (not a <PLACEHOLDER>), detection_method recommended from the common six but kept schema-open (not enum-locked). No structural schema change."
+    - version: "1.7.0"
+      date: "2026-06-14"
+      changes: "Free-form IOC/intel search lookback. time_range is no longer limited to 48h/7d/30d/90d -- it accepts any positive integer + unit (h=hours, d=days, w=weeks, mo=months), e.g. 12h, 3w, 6mo. Schema time_range changed from enum to pattern ^[1-9][0-9]*(h|d|w|mo)$ (default still 7d; presets remain valid); prompt computes the report from/to window from the value. Updated the time_range guidance in SKILL.md, original-prompt.md, both standalone files, docs.md, and the spec user_inputs question (now a duration type). Added tests/invalid/time_range fixtures (7y, weekly, 0d)."
 
   support:
     documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
