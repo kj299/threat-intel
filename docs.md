@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.6.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
+**Version:** 1.7.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
 
 **Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
 
@@ -15,8 +15,8 @@ For the long-form prompt (suitable for non-Claude assistants like ChatGPT or Cop
 ## How It Works
 
 1. The user invokes the skill with `/cyber-threat-intel` (Claude Code) or pastes the long-form prompt into another AI assistant.
-2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly.
-3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days, network edge/endpoints/mobile/APIs/payment systems, full technical detail.
+2. If the user provides input (industry, time range, focus areas, detail level), the AI scopes the analysis accordingly. The **time range** (IOC/intel search lookback) accepts any positive integer + unit — `h` (hours), `d` (days), `w` (weeks), `mo` (months), e.g. `12h`, `7d`, `3w`, `6mo` — not just fixed presets.
+3. If no input is provided, the AI proceeds immediately with defaults: all emerging threats, last 7 days (`7d`), network edge/endpoints/mobile/APIs/payment systems, full technical detail.
 4. The AI generates a structured threat intelligence report with actionable IOCs, detection rules, and TTPs.
 5. Every report is stamped with a **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) and includes a **Source Coverage Ledger** in Appendix A.
 

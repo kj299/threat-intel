@@ -45,7 +45,7 @@ A `MINIMAL` badge on a genuinely sparse report is the correct, honest outcome �
 Resolve these against defaults before generating. **Do not ask clarifying questions — begin analysis immediately using defaults for anything not provided.**
 
 1. **Search scope** — default: all emerging threats
-2. **Time range** — default: last 7 days
+2. **Time range** — IOC/intel search lookback; accepts any positive integer + unit: `h` (hours), `d` (days), `w` (weeks), `mo` (months) — e.g. `12h`, `48h`, `7d`, `30d`, `3w`, `6mo`. Default: `7d` (last 7 days). Compute the report's `<from>`/`<to>` window from this value.
 3. **New business context** — default: none
 4. **Assets of concern** — default: network edge, endpoints, mobile, APIs, payment systems
 5. **Detail level** — default: full technical (IOCs + TTPs + detection rules)

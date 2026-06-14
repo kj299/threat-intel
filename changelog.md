@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.7.0] - 2026-06-14
+
+### Added
+
+- **Free-form IOC/intel search lookback.** The `time_range` input is no longer limited to the four presets (`48h`/`7d`/`30d`/`90d`) — it now accepts **any positive integer + unit**: `h` (hours), `d` (days), `w` (weeks), `mo` (months), e.g. `12h`, `3w`, `6mo`. The schema `time_range` definition changed from an `enum` to the pattern `^[1-9][0-9]*(h|d|w|mo)$` (default still `7d`; the old presets remain valid). The prompt computes the report's `<from>`/`<to>` window from the value.
+- Negative fixtures `tests/invalid/time_range/` (`7y`, `weekly`, `0d`) prove the pattern still rejects bad lookbacks.
+
+### Changed
+
+- Updated the `time_range` guidance in `SKILL.md`, `references/original-prompt.md`, both `standalone/` files, `docs.md`, and the `spec.yaml` `user_inputs` question (now a `duration` type with the pattern + unit map and the presets as quick-picks).
+- **Version bumped to 1.7.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.6.0] - 2026-06-10
 
 ### Added
