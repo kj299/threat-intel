@@ -2,7 +2,7 @@
 
 An [Anthropic Agent Skill](https://code.claude.com/docs/en/skills) that guides Claude Code (and other Skill-aware AI assistants) to produce professional-grade cyber threat intelligence reports with strong source-coverage guidance, per-IOC source citations, and a strict no-fabrication rule. Source-coverage targets are recommendations, not quotas: when little is retrievable for the requested scope and time range, the report says so plainly rather than padding or inventing data.
 
-The legacy "paste this prompt into ChatGPT" workflow is also still supported -- the long-form prompt is preserved at [skills/cyber-threat-intel/references/original-prompt.md](skills/cyber-threat-intel/references/original-prompt.md).
+The "paste this prompt into another LLM" workflow is also supported -- use the self-contained [standalone/cyber-threat-intel-prompt.md](standalone/cyber-threat-intel-prompt.md) (the long-form canonical prompt also lives at [skills/cyber-threat-intel/references/original-prompt.md](skills/cyber-threat-intel/references/original-prompt.md)).
 
 ---
 
@@ -61,6 +61,8 @@ When invoked it produces a structured report with:
 - A prioritized threat list with MITRE ATT&CK mappings -- every item carries a `source` field (no unsourced claims).
 - (Optional, default on) IOCs (IPs, domains, hashes, behavioral indicators) formatted for SIEM/EDR import, toggled by the `build_iocs_and_queries` input.
 - Detection rules in YARA, Sigma, KQL, SPL, and Snort/Suricata formats.
+- **SPL/KQL hunting & detection starters** built on normalized schema (Splunk CIM, Sentinel ASIM, Defender XDR) — concrete, runnable queries with placeholders only on environment-specific bits, each paired with a discovery query to confirm datasets and adapt.
+- **CWE-chain analysis** for AI-assisted attacks — models weakness-class chains (primary → resultant) with a mandatory defensive break-point per chain, plus an AI-assist factor and time-to-exploit velocity.
 - CSV, STIX 2.1, and JSON exports. For any delimited/batch export, the skill emits clean structured rows and leaves input validation/sanitization to the consuming tool.
 - Recommended actions matrix with owners, timelines, and success metrics.
 
@@ -91,7 +93,7 @@ threat-intel/
         |   +-- scoring.md                            # scoring formula + priority mapping
         |   +-- personas.md                           # 6 supported personas
         |   +-- output-templates.md                   # per-persona report sections
-        |   +-- siem-queries.md                       # SPL/KQL authoring: discovery-first, schema-driven
+        |   +-- siem-queries.md                       # SPL/KQL authoring: starter-first, normalized CIM/ASIM (no invented datasets)
         |   +-- compliance-frameworks.md              # NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR
         |   +-- original-prompt.md                    # long-form prompt for non-Claude assistants
         +-- schemas/
