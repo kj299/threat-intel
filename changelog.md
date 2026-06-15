@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.8.0] - 2026-06-15
+
+### Changed
+
+- **Source URLs added next to every named source.** `references/source-matrix.md` now lists a domain for each source that previously had only a name (e.g. Recorded Future → `recordedfuture.com`, Bugcrowd → `bugcrowd.com`, FBI IC3 → `ic3.gov`, ENISA → `enisa.europa.eu`). Domains are short-form (no scheme); prepend `https://` to resolve. Sources that already carried a domain are unchanged.
+- Mirrored the same additions into the full source lists in `references/original-prompt.md` and `standalone/cyber-threat-intel-prompt.md` so they stay line-for-line with the matrix. The condensed `standalone/cyber-threat-intel-skill.md` gained domains on its individual MUST entries; its grouped SHOULD lines stay compact by design.
+- **Version bumped to 1.8.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.7.0] - 2026-06-14
 
 ### Added
