@@ -81,11 +81,11 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Zero-day trackers: Zero Day Tracker (zerodaytracker.com), Zero Day Clock (zerodayclock.com — time-to-exploit analytics), Zero-Day.cz [SHOULD]
 
 ### Tier 2: Commercial Threat Intelligence
-- Recorded Future — IOC feeds, dark web [MUST]
-- Mandiant / Google TI — APT tracking [MUST]
-- CrowdStrike Falcon Intelligence — adversary profiles [MUST]
-- Microsoft Threat Intelligence — MSTIC, nation-state [MUST]
-- Cisco Talos — malware analysis [MUST]
+- Recorded Future — recordedfuture.com — IOC feeds, dark web [MUST]
+- Mandiant / Google TI — cloud.google.com/security/resources/insights — APT tracking [MUST]
+- CrowdStrike Falcon Intelligence — crowdstrike.com/blog — adversary profiles [MUST]
+- Microsoft Threat Intelligence — microsoft.com/security/blog — MSTIC, nation-state [MUST]
+- Cisco Talos — blog.talosintelligence.com — malware analysis [MUST]
 - Palo Alto Unit 42, SentinelLabs, Secureworks CTU, Sophos X-Ops, Trend Micro Research, FortiGuard Labs, Kaspersky Securelist, ESET Research, Check Point Research, Proofpoint Threat Insight, Microsoft Security Blog [SHOULD]
 - Attack-surface: BinaryEdge, ONYPHE, SecurityTrails [SHOULD]
 
@@ -97,12 +97,12 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 
 ### Tier 4: Bug Bounty & Disclosure
 - HackerOne — hackerone.com — disclosed reports [MUST]
-- Bugcrowd [MUST]
+- Bugcrowd — bugcrowd.com [MUST]
 - Intigriti, YesWeHack, Synack, Open Bug Bounty, Hackrate, Detectify, Cobalt [SHOULD]
 
 ### Tier 5: Offensive Security Research
 - Project Zero — projectzero.google — research blog + "0day In the Wild" tracker (projectzero.google/0day.html) [MUST]
-- SpecterOps blog — adversary simulation [MUST]
+- SpecterOps blog — specterops.io/blog — adversary simulation [MUST]
 - ProjectDiscovery blog, Rapid7 blog, SANS Pen Test blog, Pentest Partners, OffSec blog, Red Team Journal, Cobalt Strike Blog, Metasploit Blog [SHOULD]
 - Labs/training: bWAPP, OWASP Mutillidae II, Google Gruyere, Defend The Web, DVWA, HackTheBox, TryHackMe, VulnHub, PentesterLab, PortSwigger Web Security Academy, OWASP WebGoat, CyberDefenders, LetsDefend, Root Me [SHOULD]
 
@@ -118,7 +118,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 ### Tier 8: Government & Regulatory
 - CISA Advisories — cisa.gov [MUST]
 - NCSC UK — ncsc.gov.uk [MUST]
-- FBI IC3 / Flash Alerts [MUST]
+- FBI IC3 / Flash Alerts — ic3.gov [MUST]
 - NSA Cybersecurity Advisories, ENISA Threat Landscape, ACSC Australia, CCCS Canada, JPCERT/CC, CERT-In India, FS-ISAC, FFIEC, PCI SSC, US-CERT, DHS Cybersecurity, NIST Cybersecurity Publications, BSI Germany, ANSSI France, SWIFT CSCF, FCA UK, OCC US, Federal Reserve, Bank of England Operational Resilience [SHOULD]
 
 ### Tier 9: Malware Analysis & Sandboxing
