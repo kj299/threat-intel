@@ -16,6 +16,8 @@ Every IOC row should include `source` and `confidence (high/med/low)`. If an ind
 
 **Host IOCs** — `type (sha256/sha1/md5/ssdeep/imphash/filename/path/registry_key/registry_value/scheduled_task/service/mutex/named_pipe/process/cmdline/wmi_sub) | value | confidence | source | threat | platform | action | detection_source`
 
+For `filename`/`path` IOCs, emit only **discriminating** values: a specific known-bad filename or full path to a named malware binary/dropper. Do **not** emit globs or paths to files that exist on essentially every host — `…\Downloads\*`, `…\Startup\*.lnk`, browser-profile files (`…\Network\Cookies`, `…\Login Data`, `…\Web Data`), `…\AppData\…\*.log`, etc. — they only generate false positives downstream. Prefer a **hash** over a path when one is available, and leave generic "suspicious file in a common location" logic to the consuming tool's heuristics.
+
 **Email IOCs** — `type (sender/sender_domain/reply_to/subject_pattern/attachment_name/attachment_hash/x_orig_ip) | value | confidence | source | campaign | action`
 
 **Behavioral IOCs** — `behavior | data_source | detection_logic | mitre_id | threshold | source`
