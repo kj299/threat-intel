@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.8.0"
+  version: "1.9.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"

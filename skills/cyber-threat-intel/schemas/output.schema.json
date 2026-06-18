@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "type": "object",
   
   "definitions": {
@@ -100,6 +100,13 @@
         {
           "if": { "properties": { "type": { "const": "SHA512" } }, "required": ["type"] },
           "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{128}$" } } }
+        },
+        {
+          "if": { "properties": { "type": { "enum": ["File_Path", "File_Name"] } }, "required": ["type"] },
+          "then": { "properties": { "value": {
+            "not": { "pattern": "[*?]" },
+            "description": "A concrete, discriminating path/filename — a specific known-bad file (named dropper or malware binary), NOT a glob and NOT a path that exists on essentially every host. Glob wildcards (* or ?) are rejected. Broad user-profile locations are non-discriminating and should not be emitted as path IOCs (e.g. ...\\Downloads\\, ...\\Startup\\*.lnk, browser-profile files like ...\\Network\\Cookies / ...\\Login Data / ...\\Web Data, ...\\AppData\\...\\*.log) — prefer a file hash (SHA256/SHA1/MD5) instead. Generic 'suspicious file in a common location' logic belongs in the consuming tool's heuristics, not the IOC list."
+          } } }
         }
       ],
       "properties": {
@@ -958,7 +965,7 @@
                   },
                   "detection_value": {
                     "type": "string",
-                    "description": "A concrete, literal indicator value — NOT a <PLACEHOLDER> (those belong in SPL/KQL starters, not in IOC export rows). Should be printable ASCII and free of shell metacharacters (\" ' ` $ ; | & < > ( ) { } ^); strict consumers reject rows that contain them. The skill emits the raw value; the consumer escapes/validates for its own input path."
+                    "description": "A concrete, literal indicator value — NOT a <PLACEHOLDER> (those belong in SPL/KQL starters, not in IOC export rows). Should be printable ASCII and free of shell metacharacters (\" ' ` $ ; | & < > ( ) { } ^); strict consumers reject rows that contain them. When the method is 'file path', the value must be a specific known-bad path/filename, never a glob or a path to a ubiquitous legitimate file (Downloads, Startup shortcuts, browser-profile files, AppData logs) — those produce false positives downstream; prefer a hash-based row instead. The skill emits the raw value; the consumer escapes/validates for its own input path."
                   },
                   "severity": {
                     "type": "string",

@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.9.0] - 2026-06-16
+
+### Changed
+
+- **File-path IOCs must now be discriminating.** The IOC generator no longer emits broad path globs that match ubiquitous legitimate files (e.g. `…\Downloads\*`, `…\Startup\*.lnk`, browser-profile files like `…\Network\Cookies` / `…\Login Data` / `…\Web Data`, `…\AppData\…\*.log`) — these exist on every host and only produce false CRITICALs in downstream consumers. Guidance added to `SKILL.md` §6, `references/extraction-framework.md` (Host IOCs), `references/output-templates.md`, `references/original-prompt.md`, and both `standalone/` files: prefer a **file hash** or a **named malware binary / specific dropper filename**; use a path only when it is itself specific (a known-bad filename, not a wildcard over a common directory); leave generic "suspicious file in a common location" logic to the consuming tool's heuristics.
+
+### Added
+
+- **Schema guard:** `ioc_host` entries of type `File_Path`/`File_Name` now reject glob wildcards (`*`, `?`) in `value`, and the `delimited_batch_export` `detection_value` description forbids non-discriminating file-path values. New negative fixture `tests/invalid/ioc_host/file_path_glob.json` proves a globbed path IOC is rejected.
+
+### Other
+
+- **Version bumped to 1.9.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.8.0] - 2026-06-15
 
 ### Changed
