@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "type": "object",
   
   "definitions": {
@@ -106,6 +106,27 @@
           "then": { "properties": { "value": {
             "not": { "pattern": "[*?]" },
             "description": "A concrete, discriminating path/filename — a specific known-bad file (named dropper or malware binary), NOT a glob and NOT a path that exists on essentially every host. Glob wildcards (* or ?) are rejected. Broad user-profile locations are non-discriminating and should not be emitted as path IOCs (e.g. ...\\Downloads\\, ...\\Startup\\*.lnk, browser-profile files like ...\\Network\\Cookies / ...\\Login Data / ...\\Web Data, ...\\AppData\\...\\*.log) — prefer a file hash (SHA256/SHA1/MD5) instead. Generic 'suspicious file in a common location' logic belongs in the consuming tool's heuristics, not the IOC list."
+          } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "Registry_Key" } }, "required": ["type"] },
+          "then": { "properties": { "value": {
+            "not": { "pattern": "[*?]|RunMRU|UserAssist|RecentDocs|TypedPaths|TypedURLs|MUICache|OpenSavePidlMRU|LastVisitedPidlMRU|ComDlg32|BagMRU|WordWheelQuery" },
+            "description": "A discriminating registry key — NOT a glob and NOT a host-universal forensic/MRU artifact present on every Windows box. Glob wildcards (* ?) and the ubiquitous enumeration family (RunMRU, UserAssist, RecentDocs, TypedPaths, TypedURLs, MUICache, OpenSavePidlMRU / LastVisitedPidlMRU under ComDlg32, BagMRU / shellbags, WordWheelQuery) are rejected — they exist on all hosts and carry no compromise signal on their own. For autorun persistence (Run / RunOnce / services), emit a Registry_Value IOC naming the specific value and its malware-pointing data, not the bare key."
+          } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "Process_Name" } }, "required": ["type"] },
+          "then": { "properties": { "value": {
+            "not": { "pattern": "[\\s\\\\/*?]" },
+            "description": "A single bare executable name (e.g. evil.exe) — no path, no arguments, no wildcards. Whitespace, path separators (\\ /) and globs (* ?) are rejected, because a value carrying those is a misclassified Command_Line or File_Path, not a process name. Do NOT emit ubiquitous system binaries / LOLBins (svchost.exe, explorer.exe, powershell.exe, cmd.exe, rundll32.exe, regsvr32.exe, mshta.exe, wscript.exe, cscript.exe) as standalone process-name IOCs — the discriminating signal is the command line or a hash."
+          } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "Command_Line" } }, "required": ["type"] },
+          "then": { "properties": { "value": {
+            "pattern": "\\S\\s+\\S",
+            "description": "A discriminating command line that carries its distinguishing arguments (e.g. powershell.exe -enc <b64>, or a LOLBin invoked with the flags/payload that make it malicious). A bare single token with no whitespace is rejected as a misclassified Process_Name. Capture what makes the invocation malicious — the flags, encoded payload, or abuse pattern — not just the interpreter name."
           } } }
         }
       ],

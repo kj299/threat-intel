@@ -1,0 +1,6 @@
+{
+  "type": "Command_Line",
+  "value": "powershell.exe",
+  "confidence": "Medium",
+  "source": "The DFIR Report"
+}

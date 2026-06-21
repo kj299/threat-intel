@@ -18,6 +18,12 @@ Every IOC row should include `source` and `confidence (high/med/low)`. If an ind
 
 For `filename`/`path` IOCs, emit only **discriminating** values: a specific known-bad filename or full path to a named malware binary/dropper. Do **not** emit globs or paths to files that exist on essentially every host — `…\Downloads\*`, `…\Startup\*.lnk`, browser-profile files (`…\Network\Cookies`, `…\Login Data`, `…\Web Data`), `…\AppData\…\*.log`, etc. — they only generate false positives downstream. Prefer a **hash** over a path when one is available, and leave generic "suspicious file in a common location" logic to the consuming tool's heuristics.
 
+The same discrimination and correct-classification rules apply to the other host types:
+
+- `registry_key` — never emit host-universal forensic/MRU artifacts (RunMRU, UserAssist, RecentDocs, TypedPaths, TypedURLs, MUICache, ComDlg32 OpenSave/LastVisited MRU, BagMRU/shellbags, WordWheelQuery): they exist on every Windows box. For persistence, emit a `registry_value` IOC naming the specific value and its malware-pointing data, not the bare autorun key.
+- `process` — a single bare executable name (`evil.exe`), not a path, not a command line, and not a ubiquitous LOLBin (`svchost.exe`, `explorer.exe`, `powershell.exe`, `cmd.exe`, `rundll32.exe`, `regsvr32.exe`, `mshta.exe`, `wscript.exe`, `cscript.exe`) on its own — the discriminating signal there is the command line or a hash.
+- `cmdline` — must carry the distinguishing arguments (the flags / encoded payload / abuse pattern that make the invocation malicious); a bare interpreter name with no arguments is a misclassified `process`, not a command line.
+
 **Email IOCs** — `type (sender/sender_domain/reply_to/subject_pattern/attachment_name/attachment_hash/x_orig_ip) | value | confidence | source | campaign | action`
 
 **Behavioral IOCs** — `behavior | data_source | detection_logic | mitre_id | threshold | source`

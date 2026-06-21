@@ -20,7 +20,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T14:32:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "enterprise_soc",
           "sources_referenced": 27,
           "coverage_badge": "FULL"
@@ -275,7 +275,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "enterprise_executive"
         },
         "alert_level": {
@@ -366,7 +366,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "smb_security"
         },
         "alert_level": {
@@ -488,7 +488,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "individual_researcher"
         },
         "executive_summary": {
@@ -608,7 +608,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "individual_privacy"
         },
         "alert_level": {
@@ -748,7 +748,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
-          "skill_version": "1.9.0",
+          "skill_version": "1.10.0",
           "persona_used": "red_team"
         },
         "executive_summary": {
