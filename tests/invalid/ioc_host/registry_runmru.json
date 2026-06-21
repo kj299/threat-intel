@@ -1,0 +1,6 @@
+{
+  "type": "Registry_Key",
+  "value": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+  "confidence": "Low",
+  "source": "The DFIR Report"
+}

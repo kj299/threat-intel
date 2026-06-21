@@ -10,6 +10,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.10.0] - 2026-06-18
+
+### Changed
+
+- **Extended IOC discrimination to registry, process, and command-line indicators** (following the v1.9.0 file-path rule), so a future `-updateTTP` pull can't re-introduce non-discriminating host IOCs into a runtime copy:
+  - `Registry_Key` IOCs must not be host-universal forensic/MRU artifacts (RunMRU, UserAssist, RecentDocs, TypedPaths, TypedURLs, MUICache, ComDlg32 OpenSave/LastVisited MRUs, BagMRU/shellbags, WordWheelQuery) — for persistence, name the specific `Registry_Value` and its malware-pointing data instead of the bare key.
+  - `Process_Name` IOCs must be a single bare executable (`evil.exe`), never a path, a command line, or a ubiquitous LOLBin (svchost.exe, powershell.exe, rundll32.exe, …) on its own.
+  - `Command_Line` IOCs must carry the distinguishing arguments (flags / encoded payload / abuse pattern), not just a bare interpreter name.
+  - Guidance added to `SKILL.md` §6, `references/extraction-framework.md`, `references/output-templates.md`, `references/original-prompt.md`, and both `standalone/` files.
+
+### Added
+
+- **Schema guards** in `ioc_host`: `Registry_Key` rejects globs and the MRU/forensic-artifact family; `Process_Name` rejects whitespace, path separators, and globs (misclassification signals); `Command_Line` requires whitespace-separated arguments. New negative fixtures `tests/invalid/ioc_host/registry_runmru.json`, `process_name_is_commandline.json`, and `command_line_bare_process.json`.
+
+### Other
+
+- **Version bumped to 1.10.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.9.0] - 2026-06-16
 
 ### Changed

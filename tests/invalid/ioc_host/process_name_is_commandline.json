@@ -1,0 +1,6 @@
+{
+  "type": "Process_Name",
+  "value": "powershell.exe -enc ZQBjAGgAbwA=",
+  "confidence": "Medium",
+  "source": "The DFIR Report"
+}
