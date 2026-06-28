@@ -9,9 +9,10 @@ Run: threat-intel-mcp   (after `pip install -e .`)
 Requires: QFEEDS_API_KEY environment variable (Phase 1 / dev only).
 """
 
+from __future__ import annotations
+
 import logging
 import sys
-from __future__ import annotations
 
 from typing import Any
 

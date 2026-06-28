@@ -397,8 +397,13 @@ jobs:
           if feed_q is None:
               print("SKIP: no feed_integrations question in spec.yaml initial_questions")
               sys.exit(0)
-          example_text = feed_q.get('example', '')
-          feeds = [t.strip().strip('"\'') for t in re.split(r'[,;]', example_text) if t.strip()]
+          example = feed_q.get('example', '')
+          if isinstance(example, list):
+              feeds = [item['name'].strip() for item in example if isinstance(item, dict) and item.get('name')]
+          elif isinstance(example, str):
+              feeds = [t.strip().strip('"\'') for t in re.split(r'[,;]', example) if t.strip()]
+          else:
+              feeds = []
           if not feeds:
               print("SKIP: feed_integrations example is empty; nothing to cross-check")
               sys.exit(0)

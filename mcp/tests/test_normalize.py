@@ -1,7 +1,5 @@
 """Tests for the normaliser: schema validation and deduplication."""
 
-import pytest
-
 from threat_intel_mcp.normalize import deduplicate_iocs, validate_iocs
 
 

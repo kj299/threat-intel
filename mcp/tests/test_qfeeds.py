@@ -6,11 +6,9 @@ feed type; the adapter's normaliser must produce valid ioc_network objects.
 """
 
 import pytest
-import pytest_asyncio
 from pytest_httpx import HTTPXMock
 
-from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter, _normalize_line, FEED_TYPES
-from threat_intel_mcp.vault.env import EnvCredentialProvider
+from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter, _normalize_line
 
 
 # ---------------------------------------------------------------------------
