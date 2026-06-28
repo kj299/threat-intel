@@ -103,6 +103,8 @@ threat-intel/
 +-- standalone/                                      # flattened single-file distributions
 |   +-- cyber-threat-intel-prompt.md                # self-contained prompt (any LLM)
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
++-- docs/
+|   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
 +-- mcp/                                             # threat-intel-mcp server (Phase 1)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
@@ -211,6 +213,12 @@ jsonschema -i your-output.json skills/cyber-threat-intel/schemas/output.schema.j
 ```
 
 CI runs the same validation plus version/persona/tier parity checks across `spec.yaml`, the schema, the examples, and the changelog. See [.github/workflows/validate.yml](.github/workflows/validate.yml).
+
+---
+
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → QFeedsAdapter → Q-Feeds API → normalize.py → FetchResult → report output. Future adapters (AlienVault OTX, AbuseIPDB, VirusTotal) are shown as planned components.
 
 ---
 
