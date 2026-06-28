@@ -6,7 +6,8 @@ the threat-intel skill (kj299/threat-intel).
 
 Transport: stdio (for use with Claude Code / Claude Desktop).
 Run: threat-intel-mcp   (after `pip install -e .`)
-Requires: QFEEDS_API_KEY environment variable (Phase 1 / dev only).
+Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
+or QFEEDS_API_KEY for env-var mode (dev / local only).
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES
 from .normalize import deduplicate_iocs, validate_iocs
-from .vault.env import EnvCredentialProvider
+from .vault.factory import credential_provider_from_env
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,8 +42,8 @@ mcp = FastMCP(
 )
 
 # Initialise the credential provider and adapter at startup.
-# Phase 2 will load the provider type from config (env vs Vault vs AWS SM).
-_credentials = EnvCredentialProvider()
+# Selects VaultCredentialProvider when VAULT_ADDR is set, else EnvCredentialProvider.
+_credentials = credential_provider_from_env()
 _qfeeds = QFeedsAdapter(_credentials)
 
 
@@ -120,10 +121,12 @@ async def list_available_feeds() -> dict[str, Any]:
     Returns each feed's name, tier, supported feed_types, and whether credentials
     are currently configured.
     """
+    from .vault.base import CredentialError
+
     qfeeds_cred_ok = True
     try:
         _credentials.get("qfeeds", "api_key")
-    except KeyError:
+    except (KeyError, CredentialError):
         qfeeds_cred_ok = False
 
     return {
@@ -138,8 +141,8 @@ async def list_available_feeds() -> dict[str, Any]:
                 "tool": "qfeeds_fetch_iocs",
             }
         ],
-        "phase": "1 (MVP — Q-Feeds + env-var credentials)",
-        "planned_phase_2": ["VirusTotal", "Shodan", "Recorded Future", "HashiCorp Vault"],
+        "phase": "2 (Q-Feeds + HashiCorp Vault or env-var credentials)",
+        "planned_phase_3": ["VirusTotal", "Shodan", "Recorded Future"],
     }
 
 
