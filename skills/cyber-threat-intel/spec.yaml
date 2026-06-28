@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.10.0"
+  version: "1.11.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -205,6 +205,7 @@ user_inputs:
     detail_level: full_technical
     output_format: technical_ioc_package
     build_iocs_and_queries: true   # default: build IOCs + detection/hunting queries in the standard formats
+    feed_integrations: []          # default: no authenticated feed integrations
 
   initial_questions:
     - name: user_persona
@@ -251,6 +252,21 @@ user_inputs:
         YARA/Sigma/KQL/SPL/Snort). When false, the report stays narrative —
         findings, analysis, and recommendations without generated indicator or
         query artifacts.
+
+    - name: feed_integrations
+      type: list
+      default: []
+      description: >
+        Named threat intelligence feed services the operator has authenticated
+        API access to (e.g. Q-Feeds, Recorded Future). When a feed is listed,
+        the skill treats it as accessible and cites its data without marking
+        findings as unverified. The operator queries the feed API before
+        invoking the skill and passes relevant data as context.
+      example:
+        - name: Q-Feeds
+          tier: 2
+          access_level: premium
+          notes: IP/URL/DNS blocklist and IOC enrichment retrieved for the current time_range
 
   enterprise_conditional:
     condition: "user_persona in [enterprise_soc, enterprise_executive, smb_security]"
@@ -504,10 +520,22 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-06-14"
-  # (1.7.0 free-form IOC/intel search lookback)
+  last_updated: "2026-06-28"
+  # (1.11.0 Q-Feeds source + feed_integrations skill_input)
 
   version_history:
+    - version: "1.11.0"
+      date: "2026-06-28"
+      changes: "Add Q-Feeds (qfeeds.com) to Tier 2 Commercial Threat Intel as a SHOULD source. Add feed_integrations to skill_input: a list of feed services the operator has authenticated API access to; when listed, the skill treats those feeds as accessible and cites their data without marking findings as unverified. Operator queries feed API before invoking skill and passes data as context."
+    - version: "1.10.0"
+      date: "2026-06-18"
+      changes: "IOC discrimination extended to registry, process, and command-line indicators. Schema guards added (Registry_Key rejects MRU family; Process_Name rejects whitespace/path-separators/globs; Command_Line requires whitespace-separated args). Negative fixtures added."
+    - version: "1.9.0"
+      date: "2026-06-16"
+      changes: "File-path IOCs must be discriminating. Schema guard rejects glob wildcards in File_Path/File_Name values. Negative fixture added."
+    - version: "1.8.0"
+      date: "2026-06-15"
+      changes: "Source URLs added next to every named source in references/source-matrix.md and mirror files."
     - version: "1.0.0"
       date: "2026-03-30"
       changes: "Initial release with 150+ sources, 6 personas, structured IOC/TTP extraction"

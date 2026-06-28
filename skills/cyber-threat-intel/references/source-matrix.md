@@ -45,6 +45,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Check Point Research — research.checkpoint.com [SHOULD]
 - Proofpoint Threat Insight — proofpoint.com/us/blog/threat-insight [SHOULD]
 - Microsoft Security Blog — microsoft.com/en-us/security/blog — latest vulnerabilities and threat research [SHOULD]
+- Q-Feeds — qfeeds.com — real-time IP/URL/DNS CTI feeds; STIX/TAXII; MITRE ATT&CK mapped; aggregated from 2500+ sources; NGFW/SIEM/SOAR integration; subscription required [SHOULD]
 
 **Attack Surface & Exposure Intelligence**
 - BinaryEdge — binaryedge.io — threat intelligence and attack surface [SHOULD]
