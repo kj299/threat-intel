@@ -25,3 +25,5 @@ credentials.*
 
 # Claude Code runtime state (settings.local.json is tracked; locks are not)
 .claude/*.lock
+# Claude Code agent worktrees (managed by the SDK, not project files)
+.claude/worktrees/
