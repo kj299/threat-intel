@@ -52,6 +52,7 @@ Resolve these against defaults before generating. **Do not ask clarifying questi
 6. **Output format** — default: Technical IOC Package
 7. **Persona** — default: `enterprise_soc`
 8. **Build IOCs and detection queries** — default: yes. When yes, include generated IOCs and detection/hunting queries in the standard formats below (CSV, STIX 2.1, JSON, and YARA/Sigma/KQL/SPL/Snort). When no, keep the report narrative — findings, analysis, and recommendations without generated indicator or query artifacts.
+9. **Authenticated feeds** — default: none. List any threat intelligence feed services for which the operator has an API key (e.g. Q-Feeds, Recorded Future). When listed, treat that feed as accessible and cite its data without marking findings as `unverified` — the operator queries the feed API before invoking the skill and passes relevant data as context. Declare in `skill_input.feed_integrations` in the structured output.
 
 ## Workflow
 
@@ -86,7 +87,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - CrowdStrike Falcon Intelligence — crowdstrike.com/blog — adversary profiles [MUST]
 - Microsoft Threat Intelligence — microsoft.com/security/blog — MSTIC, nation-state [MUST]
 - Cisco Talos — blog.talosintelligence.com — malware analysis [MUST]
-- Palo Alto Unit 42, SentinelLabs, Secureworks CTU, Sophos X-Ops, Trend Micro Research, FortiGuard Labs, Kaspersky Securelist, ESET Research, Check Point Research, Proofpoint Threat Insight, Microsoft Security Blog [SHOULD]
+- Palo Alto Unit 42, SentinelLabs, Secureworks CTU, Sophos X-Ops, Trend Micro Research, FortiGuard Labs, Kaspersky Securelist, ESET Research, Check Point Research, Proofpoint Threat Insight, Microsoft Security Blog, Q-Feeds (qfeeds.com — real-time IP/URL/DNS CTI feeds; subscription required) [SHOULD]
 - Attack-surface: BinaryEdge, ONYPHE, SecurityTrails [SHOULD]
 
 ### Tier 3: Search Engines & Aggregators

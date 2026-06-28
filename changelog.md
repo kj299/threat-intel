@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.11.0] - 2026-06-28
+
+### Added
+
+- **Q-Feeds added to Tier 2 (Commercial Threat Intelligence)** as a `[SHOULD]` source: `qfeeds.com` — real-time IP/URL/DNS CTI feeds; STIX/TAXII; MITRE ATT&CK mapped; aggregated from 2500+ sources; NGFW/SIEM/SOAR integration; subscription required. Added to `references/source-matrix.md`, `references/original-prompt.md`, `standalone/cyber-threat-intel-prompt.md`, and `standalone/cyber-threat-intel-skill.md`.
+
+- **`feed_integrations` added to `skill_input`** (schema + spec + all prompt files): a list of named feed services the operator has authenticated API access to. When a feed is listed here, the skill treats it as accessible and cites its data without marking findings as `unverified`. The operator is responsible for querying the feed API before invoking the skill and passing relevant data as context. Input #9 ("Authenticated feeds") added to the User Input section of all four prompt files.
+
+### Other
+
+- **Version bumped to 1.11.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.10.0] - 2026-06-18
 
 ### Changed

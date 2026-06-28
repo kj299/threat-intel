@@ -51,6 +51,7 @@ Answer the questions below to scope the analysis. If any field is blank, use the
 6. **Output format** — default: Technical IOC Package
 7. **Persona** — default: enterprise_soc (see Part 7 below for the full list)
 8. **Build IOCs and detection queries** — default: yes. When yes, include generated IOCs and detection/hunting queries in the standard formats below (CSV, STIX 2.1, JSON, and YARA/Sigma/KQL/SPL/Snort). When no, keep the report narrative — findings, analysis, and recommendations without generated indicator or query artifacts.
+9. **Authenticated feeds** — default: none. List any threat intelligence feed services for which the operator has an API key (e.g. Q-Feeds, Recorded Future). When listed, treat that feed as accessible and cite its data without marking findings as `unverified` — the operator is responsible for querying the feed API before invoking the skill and passing relevant data as context. Declare the feed in `skill_input.feed_integrations` in the structured output.
 
 ---
 
@@ -99,6 +100,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Check Point Research — research.checkpoint.com [SHOULD]
 - Proofpoint Threat Insight — proofpoint.com/us/blog/threat-insight [SHOULD]
 - Microsoft Security Blog — microsoft.com/en-us/security/blog — latest vulnerabilities and threat research [SHOULD]
+- Q-Feeds — qfeeds.com — real-time IP/URL/DNS CTI feeds; STIX/TAXII; MITRE ATT&CK mapped; aggregated from 2500+ sources; NGFW/SIEM/SOAR integration; subscription required [SHOULD]
 
 **Attack Surface & Exposure Intelligence**
 - BinaryEdge — binaryedge.io — threat intelligence and attack surface [SHOULD]

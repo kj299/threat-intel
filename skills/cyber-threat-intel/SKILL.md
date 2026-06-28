@@ -68,6 +68,7 @@ Answer the questions below to scope the analysis. If any field is blank, use the
 6. **Output format** — default: Technical IOC Package
 7. **Persona** — default: enterprise_soc
 8. **Build IOCs and detection queries** — default: yes. When yes, the report includes generated IOCs and detection/hunting queries in the standard formats below (CSV, STIX 2.1, JSON, and YARA/Sigma/KQL/SPL/Snort rules). When no, the report stays narrative — findings, analysis, and recommendations without generated indicator or query artifacts.
+9. **Authenticated feeds** — default: none. List any threat intelligence feed services for which the operator has an API key (e.g. Q-Feeds, Recorded Future). When listed, treat that feed as accessible and cite its data without marking findings as `unverified` — the operator is responsible for querying the feed API before invoking the skill and passing relevant data as context. Declare the feed in `skill_input.feed_integrations` in the structured output.
 
 Full input options, persona profiles, scoring weights, and compliance mappings are defined in [spec.yaml](spec.yaml).
 

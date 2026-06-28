@@ -3,33 +3,93 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "type": "object",
-  
   "definitions": {
-    
     "ioc_network": {
       "type": "object",
       "description": "Network-based Indicator of Compromise",
-      "required": ["type", "value", "confidence", "source"],
+      "required": [
+        "type",
+        "value",
+        "confidence",
+        "source"
+      ],
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "IPv4" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^(?:[0-9xX]{1,3}(?:\\.|\\[\\.\\])){3}[0-9xX]{1,3}$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "IPv4"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^(?:[0-9xX]{1,3}(?:\\.|\\[\\.\\])){3}[0-9xX]{1,3}$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "IPv6" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^(?=.*:)[0-9a-fA-F:.\\[\\]xX]+$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "IPv6"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^(?=.*:)[0-9a-fA-F:.\\[\\]xX]+$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "Domain" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^(?=.*[a-zA-Z])[a-zA-Z0-9.\\-\\[\\]]+$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "Domain"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^(?=.*[a-zA-Z])[a-zA-Z0-9.\\-\\[\\]]+$"
+              }
+            }
+          }
         }
       ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["IPv4", "IPv6", "Domain", "URL", "SSL_Certificate_Hash", "JA3", "JA3S", "JARM", "HTTP_Header", "User_Agent", "CIDR_Range"]
+          "enum": [
+            "IPv4",
+            "IPv6",
+            "Domain",
+            "URL",
+            "SSL_Certificate_Hash",
+            "JA3",
+            "JA3S",
+            "JARM",
+            "HTTP_Header",
+            "User_Agent",
+            "CIDR_Range"
+          ]
         },
         "value": {
           "type": "string",
@@ -37,12 +97,22 @@
         },
         "confidence": {
           "type": "string",
-          "enum": ["High", "Medium", "Low"]
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ]
         },
         "source": {
           "type": "string",
           "minLength": 1,
-          "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+          "not": {
+            "enum": [
+              "unknown",
+              "general knowledge",
+              "n/a"
+            ]
+          }
         },
         "first_seen": {
           "type": "string",
@@ -60,14 +130,22 @@
         },
         "tags": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "kill_chain_phase": {
           "type": "string"
         },
         "tlp": {
           "type": "string",
-          "enum": ["WHITE", "GREEN", "AMBER", "AMBER+STRICT", "RED"]
+          "enum": [
+            "WHITE",
+            "GREEN",
+            "AMBER",
+            "AMBER+STRICT",
+            "RED"
+          ]
         },
         "mitre_technique": {
           "type": "string",
@@ -75,65 +153,213 @@
         },
         "action": {
           "type": "string",
-          "enum": ["block", "alert", "hunt"]
+          "enum": [
+            "block",
+            "alert",
+            "hunt"
+          ]
         }
       }
     },
-    
     "ioc_host": {
       "type": "object",
       "description": "Host-based Indicator of Compromise",
-      "required": ["type", "value", "confidence", "source"],
+      "required": [
+        "type",
+        "value",
+        "confidence",
+        "source"
+      ],
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "MD5" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{32}$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "MD5"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-fA-F]{32}$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "SHA1" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{40}$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "SHA1"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-fA-F]{40}$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "SHA256" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{64}$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "SHA256"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-fA-F]{64}$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "SHA512" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "pattern": "^[0-9a-fA-F]{128}$" } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "SHA512"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^[0-9a-fA-F]{128}$"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "enum": ["File_Path", "File_Name"] } }, "required": ["type"] },
-          "then": { "properties": { "value": {
-            "not": { "pattern": "[*?]" },
-            "description": "A concrete, discriminating path/filename — a specific known-bad file (named dropper or malware binary), NOT a glob and NOT a path that exists on essentially every host. Glob wildcards (* or ?) are rejected. Broad user-profile locations are non-discriminating and should not be emitted as path IOCs (e.g. ...\\Downloads\\, ...\\Startup\\*.lnk, browser-profile files like ...\\Network\\Cookies / ...\\Login Data / ...\\Web Data, ...\\AppData\\...\\*.log) — prefer a file hash (SHA256/SHA1/MD5) instead. Generic 'suspicious file in a common location' logic belongs in the consuming tool's heuristics, not the IOC list."
-          } } }
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "File_Path",
+                  "File_Name"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "not": {
+                  "pattern": "[*?]"
+                },
+                "description": "A concrete, discriminating path/filename \u2014 a specific known-bad file (named dropper or malware binary), NOT a glob and NOT a path that exists on essentially every host. Glob wildcards (* or ?) are rejected. Broad user-profile locations are non-discriminating and should not be emitted as path IOCs (e.g. ...\\Downloads\\, ...\\Startup\\*.lnk, browser-profile files like ...\\Network\\Cookies / ...\\Login Data / ...\\Web Data, ...\\AppData\\...\\*.log) \u2014 prefer a file hash (SHA256/SHA1/MD5) instead. Generic 'suspicious file in a common location' logic belongs in the consuming tool's heuristics, not the IOC list."
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "Registry_Key" } }, "required": ["type"] },
-          "then": { "properties": { "value": {
-            "not": { "pattern": "[*?]|RunMRU|UserAssist|RecentDocs|TypedPaths|TypedURLs|MUICache|OpenSavePidlMRU|LastVisitedPidlMRU|ComDlg32|BagMRU|WordWheelQuery" },
-            "description": "A discriminating registry key — NOT a glob and NOT a host-universal forensic/MRU artifact present on every Windows box. Glob wildcards (* ?) and the ubiquitous enumeration family (RunMRU, UserAssist, RecentDocs, TypedPaths, TypedURLs, MUICache, OpenSavePidlMRU / LastVisitedPidlMRU under ComDlg32, BagMRU / shellbags, WordWheelQuery) are rejected — they exist on all hosts and carry no compromise signal on their own. For autorun persistence (Run / RunOnce / services), emit a Registry_Value IOC naming the specific value and its malware-pointing data, not the bare key."
-          } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "Registry_Key"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "not": {
+                  "pattern": "[*?]|RunMRU|UserAssist|RecentDocs|TypedPaths|TypedURLs|MUICache|OpenSavePidlMRU|LastVisitedPidlMRU|ComDlg32|BagMRU|WordWheelQuery"
+                },
+                "description": "A discriminating registry key \u2014 NOT a glob and NOT a host-universal forensic/MRU artifact present on every Windows box. Glob wildcards (* ?) and the ubiquitous enumeration family (RunMRU, UserAssist, RecentDocs, TypedPaths, TypedURLs, MUICache, OpenSavePidlMRU / LastVisitedPidlMRU under ComDlg32, BagMRU / shellbags, WordWheelQuery) are rejected \u2014 they exist on all hosts and carry no compromise signal on their own. For autorun persistence (Run / RunOnce / services), emit a Registry_Value IOC naming the specific value and its malware-pointing data, not the bare key."
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "Process_Name" } }, "required": ["type"] },
-          "then": { "properties": { "value": {
-            "not": { "pattern": "[\\s\\\\/*?]" },
-            "description": "A single bare executable name (e.g. evil.exe) — no path, no arguments, no wildcards. Whitespace, path separators (\\ /) and globs (* ?) are rejected, because a value carrying those is a misclassified Command_Line or File_Path, not a process name. Do NOT emit ubiquitous system binaries / LOLBins (svchost.exe, explorer.exe, powershell.exe, cmd.exe, rundll32.exe, regsvr32.exe, mshta.exe, wscript.exe, cscript.exe) as standalone process-name IOCs — the discriminating signal is the command line or a hash."
-          } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "Process_Name"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "not": {
+                  "pattern": "[\\s\\\\/*?]"
+                },
+                "description": "A single bare executable name (e.g. evil.exe) \u2014 no path, no arguments, no wildcards. Whitespace, path separators (\\ /) and globs (* ?) are rejected, because a value carrying those is a misclassified Command_Line or File_Path, not a process name. Do NOT emit ubiquitous system binaries / LOLBins (svchost.exe, explorer.exe, powershell.exe, cmd.exe, rundll32.exe, regsvr32.exe, mshta.exe, wscript.exe, cscript.exe) as standalone process-name IOCs \u2014 the discriminating signal is the command line or a hash."
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "type": { "const": "Command_Line" } }, "required": ["type"] },
-          "then": { "properties": { "value": {
-            "pattern": "\\S\\s+\\S",
-            "description": "A discriminating command line that carries its distinguishing arguments (e.g. powershell.exe -enc <b64>, or a LOLBin invoked with the flags/payload that make it malicious). A bare single token with no whitespace is rejected as a misclassified Process_Name. Capture what makes the invocation malicious — the flags, encoded payload, or abuse pattern — not just the interpreter name."
-          } } }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "Command_Line"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "\\S\\s+\\S",
+                "description": "A discriminating command line that carries its distinguishing arguments (e.g. powershell.exe -enc <b64>, or a LOLBin invoked with the flags/payload that make it malicious). A bare single token with no whitespace is rejected as a misclassified Process_Name. Capture what makes the invocation malicious \u2014 the flags, encoded payload, or abuse pattern \u2014 not just the interpreter name."
+              }
+            }
+          }
         }
       ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["MD5", "SHA1", "SHA256", "SHA512", "SSDEEP", "IMPHASH", "File_Name", "File_Path", "Registry_Key", "Registry_Value", "Scheduled_Task", "Service_Name", "Mutex", "Named_Pipe", "Process_Name", "Command_Line", "WMI_Query", "WMI_Subscription"]
+          "enum": [
+            "MD5",
+            "SHA1",
+            "SHA256",
+            "SHA512",
+            "SSDEEP",
+            "IMPHASH",
+            "File_Name",
+            "File_Path",
+            "Registry_Key",
+            "Registry_Value",
+            "Scheduled_Task",
+            "Service_Name",
+            "Mutex",
+            "Named_Pipe",
+            "Process_Name",
+            "Command_Line",
+            "WMI_Query",
+            "WMI_Subscription"
+          ]
         },
         "value": {
           "type": "string",
@@ -141,12 +367,22 @@
         },
         "confidence": {
           "type": "string",
-          "enum": ["High", "Medium", "Low"]
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ]
         },
         "source": {
           "type": "string",
           "minLength": 1,
-          "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+          "not": {
+            "enum": [
+              "unknown",
+              "general knowledge",
+              "n/a"
+            ]
+          }
         },
         "associated_threat": {
           "type": "string"
@@ -156,11 +392,22 @@
         },
         "platform": {
           "type": "string",
-          "enum": ["Windows", "Linux", "macOS", "Android", "iOS", "Cross-Platform"]
+          "enum": [
+            "Windows",
+            "Linux",
+            "macOS",
+            "Android",
+            "iOS",
+            "Cross-Platform"
+          ]
         },
         "action": {
           "type": "string",
-          "enum": ["block", "alert", "hunt"]
+          "enum": [
+            "block",
+            "alert",
+            "hunt"
+          ]
         },
         "detection_source": {
           "type": "string",
@@ -168,41 +415,69 @@
         }
       }
     },
-
     "ioc_email": {
       "type": "object",
       "description": "Email-based Indicator of Compromise",
-      "required": ["type", "value"],
+      "required": [
+        "type",
+        "value"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["Sender_Address", "Sender_Domain", "Reply_To", "Subject_Pattern", "Attachment_Name", "Attachment_Hash", "Header_X-Originating-IP", "Header_X-Mailer"]
+          "enum": [
+            "Sender_Address",
+            "Sender_Domain",
+            "Reply_To",
+            "Subject_Pattern",
+            "Attachment_Name",
+            "Attachment_Hash",
+            "Header_X-Originating-IP",
+            "Header_X-Mailer"
+          ]
         },
         "value": {
           "type": "string"
         },
         "confidence": {
           "type": "string",
-          "enum": ["High", "Medium", "Low"]
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ]
         },
         "campaign": {
           "type": "string"
         },
         "threat_type": {
           "type": "string",
-          "enum": ["Phishing", "Spear_Phishing", "BEC", "Malware_Distribution", "Credential_Harvesting"]
+          "enum": [
+            "Phishing",
+            "Spear_Phishing",
+            "BEC",
+            "Malware_Distribution",
+            "Credential_Harvesting"
+          ]
         },
         "action": {
           "type": "string",
-          "enum": ["block", "alert", "hunt"]
+          "enum": [
+            "block",
+            "alert",
+            "hunt"
+          ]
         }
       }
     },
-
     "ioc_behavioral": {
       "type": "object",
       "description": "Behavioral Indicator of Compromise",
-      "required": ["behavior", "data_source", "mitre_technique"],
+      "required": [
+        "behavior",
+        "data_source",
+        "mitre_technique"
+      ],
       "properties": {
         "behavior": {
           "type": "string"
@@ -226,11 +501,13 @@
         }
       }
     },
-    
     "attack_method": {
       "type": "object",
       "description": "Attack method or technique",
-      "required": ["technique_name", "attack_vector"],
+      "required": [
+        "technique_name",
+        "attack_vector"
+      ],
       "properties": {
         "technique_name": {
           "type": "string"
@@ -241,7 +518,22 @@
         },
         "attack_vector": {
           "type": "string",
-          "enum": ["Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Collection", "Command and Control", "Exfiltration", "Impact"]
+          "enum": [
+            "Reconnaissance",
+            "Resource Development",
+            "Initial Access",
+            "Execution",
+            "Persistence",
+            "Privilege Escalation",
+            "Defense Evasion",
+            "Credential Access",
+            "Discovery",
+            "Lateral Movement",
+            "Collection",
+            "Command and Control",
+            "Exfiltration",
+            "Impact"
+          ]
         },
         "cve_ids": {
           "type": "array",
@@ -265,12 +557,22 @@
         },
         "cvss_version": {
           "type": "string",
-          "enum": ["2.0", "3.0", "3.1", "4.0"],
+          "enum": [
+            "2.0",
+            "3.0",
+            "3.1",
+            "4.0"
+          ],
           "default": "3.1"
         },
         "exploit_availability": {
           "type": "string",
-          "enum": ["None", "PoC", "Weaponized", "In-The-Wild"]
+          "enum": [
+            "None",
+            "PoC",
+            "Weaponized",
+            "In-The-Wild"
+          ]
         },
         "first_observed": {
           "type": "string",
@@ -282,20 +584,31 @@
         },
         "sources": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "minItems": 1
         },
         "sophistication": {
           "type": "string",
-          "enum": ["Basic", "Intermediate", "Advanced", "Nation-State"]
+          "enum": [
+            "Basic",
+            "Intermediate",
+            "Advanced",
+            "Nation-State"
+          ]
         },
         "targeted_sectors": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "targeted_technologies": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "technical_description": {
           "type": "string",
@@ -307,15 +620,33 @@
         }
       }
     },
-    
     "ttp_mapping": {
       "type": "object",
       "description": "MITRE ATT&CK TTP Mapping",
-      "required": ["tactic", "technique_id", "technique_name"],
+      "required": [
+        "tactic",
+        "technique_id",
+        "technique_name"
+      ],
       "properties": {
         "tactic": {
           "type": "string",
-          "enum": ["Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement", "Collection", "Command and Control", "Exfiltration", "Impact"]
+          "enum": [
+            "Reconnaissance",
+            "Resource Development",
+            "Initial Access",
+            "Execution",
+            "Persistence",
+            "Privilege Escalation",
+            "Defense Evasion",
+            "Credential Access",
+            "Discovery",
+            "Lateral Movement",
+            "Collection",
+            "Command and Control",
+            "Exfiltration",
+            "Impact"
+          ]
         },
         "technique_id": {
           "type": "string",
@@ -339,42 +670,66 @@
         },
         "data_sources": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "platforms": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "permissions_required": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "mitigations": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
-    
     "threat_actor": {
       "type": "object",
       "description": "Threat Actor Profile",
-      "required": ["name", "type"],
+      "required": [
+        "name",
+        "type"
+      ],
       "properties": {
         "name": {
           "type": "string"
         },
         "aliases": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "type": {
           "type": "string",
-          "enum": ["APT", "Criminal", "Hacktivist", "Insider", "Unknown"]
+          "enum": [
+            "APT",
+            "Criminal",
+            "Hacktivist",
+            "Insider",
+            "Unknown"
+          ]
         },
         "motivation": {
           "type": "string",
-          "enum": ["Financial", "Espionage", "Disruption", "Hacktivism", "Unknown"]
+          "enum": [
+            "Financial",
+            "Espionage",
+            "Disruption",
+            "Hacktivism",
+            "Unknown"
+          ]
         },
         "origin_country": {
           "type": "string"
@@ -384,11 +739,15 @@
         },
         "target_sectors": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "target_regions": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "active_since": {
           "type": "string",
@@ -400,31 +759,46 @@
         },
         "associated_ttps": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "associated_malware": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "associated_tools": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "infrastructure": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "confidence": {
           "type": "string",
-          "enum": ["High", "Medium", "Low"]
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ]
         }
       }
     },
-    
     "vulnerability_forecast": {
       "type": "object",
       "description": "Vulnerability exploitation forecast",
-      "required": ["cve_id", "exploit_maturity", "priority"],
+      "required": [
+        "cve_id",
+        "exploit_maturity",
+        "priority"
+      ],
       "properties": {
         "cve_id": {
           "type": "string",
@@ -441,14 +815,23 @@
         },
         "exploit_maturity": {
           "type": "string",
-          "enum": ["None", "PoC", "Weaponized", "In-The-Wild"]
+          "enum": [
+            "None",
+            "PoC",
+            "Weaponized",
+            "In-The-Wild"
+          ]
         },
         "greynoise_activity": {
           "type": "boolean"
         },
         "greynoise_classification": {
           "type": "string",
-          "enum": ["benign", "malicious", "unknown"]
+          "enum": [
+            "benign",
+            "malicious",
+            "unknown"
+          ]
         },
         "cisa_kev_listed": {
           "type": "boolean"
@@ -460,23 +843,39 @@
         },
         "org_exposure": {
           "type": "string",
-          "enum": ["None", "Low", "Medium", "High", "Critical"]
+          "enum": [
+            "None",
+            "Low",
+            "Medium",
+            "High",
+            "Critical"
+          ]
         },
         "affected_products": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "priority": {
           "type": "string",
-          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
+          "enum": [
+            "P1-CRITICAL",
+            "P2-HIGH",
+            "P3-MEDIUM",
+            "P4-LOW",
+            "P5-INFO"
+          ]
         }
       }
     },
-    
     "threat_score": {
       "type": "object",
       "description": "Multi-dimensional threat score",
-      "required": ["total_score", "priority"],
+      "required": [
+        "total_score",
+        "priority"
+      ],
       "properties": {
         "total_score": {
           "type": "number",
@@ -485,7 +884,13 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
+          "enum": [
+            "P1-CRITICAL",
+            "P2-HIGH",
+            "P3-MEDIUM",
+            "P4-LOW",
+            "P5-INFO"
+          ]
         },
         "dimensions": {
           "type": "object",
@@ -517,32 +922,49 @@
         }
       }
     },
-    
     "persona": {
       "type": "string",
-      "enum": ["enterprise_soc", "enterprise_executive", "smb_security", "individual_researcher", "individual_privacy", "red_team"],
+      "enum": [
+        "enterprise_soc",
+        "enterprise_executive",
+        "smb_security",
+        "individual_researcher",
+        "individual_privacy",
+        "red_team"
+      ],
       "default": "enterprise_soc"
     },
-    
     "output_format": {
       "type": "string",
-      "enum": ["auto", "executive_brief", "technical_ioc_package", "board_presentation", "ciso_briefing", "personal_security_guide", "checklist", "dashboard"],
+      "enum": [
+        "auto",
+        "executive_brief",
+        "technical_ioc_package",
+        "board_presentation",
+        "ciso_briefing",
+        "personal_security_guide",
+        "checklist",
+        "dashboard"
+      ],
       "default": "technical_ioc_package"
     },
-
     "time_range": {
       "type": "string",
       "pattern": "^[1-9][0-9]*(h|d|w|mo)$",
       "default": "7d",
-      "description": "IOC/intel search lookback window: a positive integer followed by a unit — h (hours), d (days), w (weeks), or mo (months). Any amount is allowed, e.g. 12h, 48h, 7d, 30d, 3w, 6mo. The presets 48h/7d/30d/90d remain valid."
+      "description": "IOC/intel search lookback window: a positive integer followed by a unit \u2014 h (hours), d (days), w (weeks), or mo (months). Any amount is allowed, e.g. 12h, 48h, 7d, 30d, 3w, 6mo. The presets 48h/7d/30d/90d remain valid."
     },
-    
     "alert_level": {
       "type": "object",
       "properties": {
         "level": {
           "type": "string",
-          "enum": ["critical", "high", "elevated", "normal"]
+          "enum": [
+            "critical",
+            "high",
+            "elevated",
+            "normal"
+          ]
         },
         "icon": {
           "type": "string"
@@ -557,18 +979,24 @@
       }
     }
   },
-  
   "properties": {
-    
     "skill_input": {
       "type": "object",
       "description": "User input to the skill. If no input is provided, defaults are used: search_scope=all_emerging_threats, time_range=7d, assets=network edge/endpoints/mobile/APIs/payment systems, detail=full_technical, output=technical_ioc_package",
       "required": [],
       "properties": {
-        "user_persona": { "$ref": "#/definitions/persona" },
+        "user_persona": {
+          "$ref": "#/definitions/persona"
+        },
         "query_mode": {
           "type": "string",
-          "enum": ["natural_language", "guided", "quick_scan", "deep_research", "continuous"],
+          "enum": [
+            "natural_language",
+            "guided",
+            "quick_scan",
+            "deep_research",
+            "continuous"
+          ],
           "default": "guided"
         },
         "organization_sector": {
@@ -576,41 +1004,67 @@
         },
         "organization_size": {
           "type": "string",
-          "enum": ["enterprise_large", "enterprise_mid", "smb", "small"]
+          "enum": [
+            "enterprise_large",
+            "enterprise_mid",
+            "smb",
+            "small"
+          ]
         },
         "new_business_initiative": {
           "type": "string"
         },
         "geographic_presence": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "technology_stack": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "security_tools": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "security_experience": {
           "type": "string",
-          "enum": ["beginner", "intermediate", "advanced", "expert"]
+          "enum": [
+            "beginner",
+            "intermediate",
+            "advanced",
+            "expert"
+          ]
         },
         "personal_focus_areas": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "learning_interests": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "time_range": { "$ref": "#/definitions/time_range" },
+        "time_range": {
+          "$ref": "#/definitions/time_range"
+        },
         "threat_categories": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
-        "output_format": { "$ref": "#/definitions/output_format" },
+        "output_format": {
+          "$ref": "#/definitions/output_format"
+        },
         "build_iocs_and_queries": {
           "type": "boolean",
           "default": true,
@@ -618,10 +1072,44 @@
         },
         "natural_language_query": {
           "type": "string"
+        },
+        "feed_integrations": {
+          "type": "array",
+          "description": "Named threat intelligence feed services the operator has authenticated API access to. When a feed is listed here, treat it as accessible and cite its data without marking findings as unverified \u2014 the operator is responsible for querying the feed API before invoking the skill and passing relevant data as context. Omit (or leave empty) when no authenticated feeds are configured.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Feed service name matching a source in the Source Matrix (e.g. 'Q-Feeds', 'Recorded Future')"
+              },
+              "tier": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9,
+                "description": "Source Matrix tier number for the feed"
+              },
+              "access_level": {
+                "type": "string",
+                "enum": [
+                  "free",
+                  "premium",
+                  "enterprise"
+                ],
+                "description": "Subscription level the operator holds"
+              },
+              "notes": {
+                "type": "string",
+                "description": "Optional context about what feed data was retrieved and passed as context to this invocation"
+              }
+            }
+          }
         }
       }
     },
-    
     "skill_output": {
       "type": "object",
       "description": "Output from the skill",
@@ -636,14 +1124,20 @@
             "skill_version": {
               "type": "string"
             },
-            "persona_used": { "$ref": "#/definitions/persona" },
+            "persona_used": {
+              "$ref": "#/definitions/persona"
+            },
             "sources_referenced": {
               "type": "integer"
             },
             "coverage_badge": {
               "type": "string",
-              "enum": ["FULL", "PARTIAL", "MINIMAL"],
-              "description": "Source coverage badge per R4 — an honest self-report of what was consulted. FULL ~25+ preferred sources, PARTIAL 13-24, MINIMAL <13. MINIMAL on a genuinely sparse scope/time range is correct, not a failure."
+              "enum": [
+                "FULL",
+                "PARTIAL",
+                "MINIMAL"
+              ],
+              "description": "Source coverage badge per R4 \u2014 an honest self-report of what was consulted. FULL ~25+ preferred sources, PARTIAL 13-24, MINIMAL <13. MINIMAL on a genuinely sparse scope/time range is correct, not a failure."
             }
           }
         },
@@ -652,60 +1146,106 @@
           "description": "Source Coverage Ledger per R5 (Appendix A of every report)",
           "items": {
             "type": "object",
-            "required": ["tier", "required_min", "consulted", "met"],
+            "required": [
+              "tier",
+              "required_min",
+              "consulted",
+              "met"
+            ],
             "properties": {
-              "tier": { "type": "integer", "minimum": 1, "maximum": 9 },
-              "required_min": { "type": ["integer", "string"] },
+              "tier": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "required_min": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
               "consulted": {
                 "type": "array",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               },
               "skipped": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "source": { "type": "string" },
-                    "reason": { "type": "string" }
+                    "source": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
                   }
                 }
               },
-              "met": { "type": "boolean" }
+              "met": {
+                "type": "boolean"
+              }
             }
           }
         },
-        "alert_level": { "$ref": "#/definitions/alert_level" },
+        "alert_level": {
+          "$ref": "#/definitions/alert_level"
+        },
         "executive_summary": {
           "type": "object",
           "properties": {
-            "headline": { "type": "string" },
+            "headline": {
+              "type": "string"
+            },
             "key_points": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "maxItems": 7
             },
             "critical_actions": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
         "threats": {
           "type": "array",
-          "items": { "$ref": "#/definitions/attack_method" }
+          "items": {
+            "$ref": "#/definitions/attack_method"
+          }
         },
         "cwe_chains": {
           "type": "array",
           "description": "Weakness-class chains (primary -> resultant) per references/cwe-chaining.md. Each chain MUST carry at least one break_point (the defensive deliverable). ai_assist_factor records how much AI tooling lowers the chain's cost for an attacker.",
           "items": {
             "type": "object",
-            "required": ["chain_id", "links", "break_points", "source"],
+            "required": [
+              "chain_id",
+              "links",
+              "break_points",
+              "source"
+            ],
             "properties": {
-              "chain_id": { "type": "string" },
-              "name": { "type": "string" },
+              "chain_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
               "chain_type": {
                 "type": "string",
-                "enum": ["primary_resultant", "composite", "named_chain", "multi_branch"],
+                "enum": [
+                  "primary_resultant",
+                  "composite",
+                  "named_chain",
+                  "multi_branch"
+                ],
                 "description": "Shape of the chain. primary_resultant=linear A->B->C; composite=weaknesses required together; named_chain=matches CWE-709; multi_branch=one link fans out to several downstream paths"
               },
               "cwe_view": {
@@ -717,7 +1257,10 @@
                 "minItems": 2,
                 "items": {
                   "type": "object",
-                  "required": ["cwe_id", "role"],
+                  "required": [
+                    "cwe_id",
+                    "role"
+                  ],
                   "properties": {
                     "cwe_id": {
                       "type": "string",
@@ -725,14 +1268,21 @@
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["primary", "resultant"]
+                      "enum": [
+                        "primary",
+                        "resultant"
+                      ]
                     },
                     "mitre_id": {
                       "type": "string",
                       "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
                     },
-                    "tactic": { "type": "string" },
-                    "evidence": { "type": "string" },
+                    "tactic": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "string"
+                    },
                     "detection_opportunity": {
                       "type": "string",
                       "description": "Observable this link produces (feeds the detective break-point and hunting queries)"
@@ -741,17 +1291,26 @@
                       "type": "string",
                       "description": "Where the detection_opportunity is observable, e.g. 'VPC flow logs', 'EDR process events'"
                     },
-                    "source": { "type": "string" }
+                    "source": {
+                      "type": "string"
+                    }
                   }
                 }
               },
               "enabling_conditions": {
                 "type": "array",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               },
               "ai_assist_factor": {
                 "type": "string",
-                "enum": ["none", "low", "moderate", "high"],
+                "enum": [
+                  "none",
+                  "low",
+                  "moderate",
+                  "high"
+                ],
                 "description": "How much AI tooling lowers the chain's cost for an attacker (analysis input that raises defender urgency)"
               },
               "time_to_exploit": {
@@ -765,9 +1324,15 @@
                   },
                   "trend": {
                     "type": "string",
-                    "enum": ["accelerating", "stable", "decelerating"]
+                    "enum": [
+                      "accelerating",
+                      "stable",
+                      "decelerating"
+                    ]
                   },
-                  "source": { "type": "string" }
+                  "source": {
+                    "type": "string"
+                  }
                 }
               },
               "terminal_impact": {
@@ -780,19 +1345,32 @@
                 "description": "Defensive deliverable: at least one control that invalidates the largest downstream tail",
                 "items": {
                   "type": "object",
-                  "required": ["at_link", "control"],
+                  "required": [
+                    "at_link",
+                    "control"
+                  ],
                   "properties": {
                     "at_link": {
                       "type": "string",
                       "pattern": "^CWE-[0-9]+$"
                     },
-                    "control": { "type": "string" },
+                    "control": {
+                      "type": "string"
+                    },
                     "control_type": {
                       "type": "string",
-                      "enum": ["preventive", "detective", "corrective"]
+                      "enum": [
+                        "preventive",
+                        "detective",
+                        "corrective"
+                      ]
                     },
-                    "rationale": { "type": "string" },
-                    "mapped_mitigation": { "type": "string" },
+                    "rationale": {
+                      "type": "string"
+                    },
+                    "mapped_mitigation": {
+                      "type": "string"
+                    },
                     "detection_telemetry": {
                       "type": "string",
                       "description": "For detective break-points: the concrete signal/data source the SOC hunts on"
@@ -807,16 +1385,32 @@
               },
               "priority": {
                 "type": "string",
-                "enum": ["P1-CRITICAL", "P2-HIGH", "P3-MEDIUM", "P4-LOW", "P5-INFO"]
+                "enum": [
+                  "P1-CRITICAL",
+                  "P2-HIGH",
+                  "P3-MEDIUM",
+                  "P4-LOW",
+                  "P5-INFO"
+                ]
               },
               "confidence": {
                 "type": "string",
-                "enum": ["High", "Medium", "Low"]
+                "enum": [
+                  "High",
+                  "Medium",
+                  "Low"
+                ]
               },
               "source": {
                 "type": "string",
                 "minLength": 1,
-                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+                "not": {
+                  "enum": [
+                    "unknown",
+                    "general knowledge",
+                    "n/a"
+                  ]
+                }
               }
             }
           }
@@ -826,37 +1420,53 @@
           "properties": {
             "network": {
               "type": "array",
-              "items": { "$ref": "#/definitions/ioc_network" }
+              "items": {
+                "$ref": "#/definitions/ioc_network"
+              }
             },
             "host": {
               "type": "array",
-              "items": { "$ref": "#/definitions/ioc_host" }
+              "items": {
+                "$ref": "#/definitions/ioc_host"
+              }
             },
             "email": {
               "type": "array",
-              "items": { "$ref": "#/definitions/ioc_email" }
+              "items": {
+                "$ref": "#/definitions/ioc_email"
+              }
             },
             "behavioral": {
               "type": "array",
-              "items": { "$ref": "#/definitions/ioc_behavioral" }
+              "items": {
+                "$ref": "#/definitions/ioc_behavioral"
+              }
             }
           }
         },
         "ttps": {
           "type": "array",
-          "items": { "$ref": "#/definitions/ttp_mapping" }
+          "items": {
+            "$ref": "#/definitions/ttp_mapping"
+          }
         },
         "threat_actors": {
           "type": "array",
-          "items": { "$ref": "#/definitions/threat_actor" }
+          "items": {
+            "$ref": "#/definitions/threat_actor"
+          }
         },
         "vulnerabilities": {
           "type": "array",
-          "items": { "$ref": "#/definitions/vulnerability_forecast" }
+          "items": {
+            "$ref": "#/definitions/vulnerability_forecast"
+          }
         },
         "threat_scores": {
           "type": "array",
-          "items": { "$ref": "#/definitions/threat_score" }
+          "items": {
+            "$ref": "#/definitions/threat_score"
+          }
         },
         "recommendations": {
           "type": "object",
@@ -866,20 +1476,32 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "action": { "type": "string" },
-                  "owner": { "type": "string" },
-                  "timeline": { "type": "string" },
-                  "risk_addressed": { "type": "string" }
+                  "action": {
+                    "type": "string"
+                  },
+                  "owner": {
+                    "type": "string"
+                  },
+                  "timeline": {
+                    "type": "string"
+                  },
+                  "risk_addressed": {
+                    "type": "string"
+                  }
                 }
               }
             },
             "short_term": {
               "type": "array",
-              "items": { "type": "object" }
+              "items": {
+                "type": "object"
+              }
             },
             "strategic": {
               "type": "array",
-              "items": { "type": "object" }
+              "items": {
+                "type": "object"
+              }
             }
           }
         },
@@ -888,23 +1510,33 @@
           "properties": {
             "sigma": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "yara": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "snort": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "kql": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "spl": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -913,22 +1545,41 @@
           "description": "Structured SPL/KQL hunt or detection queries shaped per references/siem-queries.md. Always provide a runnable starter built on normalized schema (Splunk CIM / Sentinel ASIM / Defender XDR tables) with status=needs_validation, paired with a discovery/coverage query to confirm datasets; never a guessed raw index/sourcetype/table, and never a discovery-only or empty result. Reserve status=needs_schema for the narrow case where even normalized coverage can't be assumed.",
           "items": {
             "type": "object",
-            "required": ["platform", "objective", "query", "source"],
+            "required": [
+              "platform",
+              "objective",
+              "query",
+              "source"
+            ],
             "properties": {
               "platform": {
                 "type": "string",
-                "enum": ["splunk", "sentinel"]
+                "enum": [
+                  "splunk",
+                  "sentinel"
+                ]
               },
               "language": {
                 "type": "string",
-                "enum": ["spl", "kql"]
+                "enum": [
+                  "spl",
+                  "kql"
+                ]
               },
               "query_kind": {
                 "type": "string",
-                "enum": ["hunt", "detection", "triage", "discovery", "translation"],
+                "enum": [
+                  "hunt",
+                  "detection",
+                  "triage",
+                  "discovery",
+                  "translation"
+                ],
                 "default": "hunt"
               },
-              "objective": { "type": "string" },
+              "objective": {
+                "type": "string"
+              },
               "query": {
                 "type": "string",
                 "minLength": 1
@@ -939,7 +1590,9 @@
               },
               "assumptions": {
                 "type": "array",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               },
               "tuning": {
                 "type": "string",
@@ -951,23 +1604,36 @@
               },
               "status": {
                 "type": "string",
-                "enum": ["ready", "needs_schema", "needs_validation"],
+                "enum": [
+                  "ready",
+                  "needs_schema",
+                  "needs_validation"
+                ],
                 "default": "ready"
               },
               "source": {
                 "type": "string",
                 "minLength": 1,
-                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+                "not": {
+                  "enum": [
+                    "unknown",
+                    "general knowledge",
+                    "n/a"
+                  ]
+                }
               }
             }
           }
         },
         "delimited_batch_export": {
           "type": "array",
-          "description": "Optional structured rows for a downstream importer (SIEM/TIP/batch audit tool), populated when build_iocs_and_queries is on and a downstream export is wanted. Emit typed values only — the consuming tool delimits, escapes, and validates them for its own input path. Never pre-format a delimited string or engineer rows to flow straight into a tool's execution path; input validation/sanitization belongs to the consumer, since anything upstream (a different model, a compromised feed) can violate the contract.",
+          "description": "Optional structured rows for a downstream importer (SIEM/TIP/batch audit tool), populated when build_iocs_and_queries is on and a downstream export is wanted. Emit typed values only \u2014 the consuming tool delimits, escapes, and validates them for its own input path. Never pre-format a delimited string or engineer rows to flow straight into a tool's execution path; input validation/sanitization belongs to the consumer, since anything upstream (a different model, a compromised feed) can violate the contract.",
           "items": {
             "type": "object",
-            "required": ["mitre_id", "name"],
+            "required": [
+              "mitre_id",
+              "name"
+            ],
             "properties": {
               "mitre_id": {
                 "type": "string",
@@ -978,7 +1644,7 @@
               },
               "fields": {
                 "type": "object",
-                "description": "Detection columns for the importer. The named properties below are a dependable contract a consumer can rely on; additionalProperties stays open so other importers can carry extra columns. Values are raw/structured — the consumer escapes and validates them (no shell-metacharacter filtering or length capping here).",
+                "description": "Detection columns for the importer. The named properties below are a dependable contract a consumer can rely on; additionalProperties stays open so other importers can carry extra columns. Values are raw/structured \u2014 the consumer escapes and validates them (no shell-metacharacter filtering or length capping here).",
                 "properties": {
                   "detection_method": {
                     "type": "string",
@@ -986,11 +1652,15 @@
                   },
                   "detection_value": {
                     "type": "string",
-                    "description": "A concrete, literal indicator value — NOT a <PLACEHOLDER> (those belong in SPL/KQL starters, not in IOC export rows). Should be printable ASCII and free of shell metacharacters (\" ' ` $ ; | & < > ( ) { } ^); strict consumers reject rows that contain them. When the method is 'file path', the value must be a specific known-bad path/filename, never a glob or a path to a ubiquitous legitimate file (Downloads, Startup shortcuts, browser-profile files, AppData logs) — those produce false positives downstream; prefer a hash-based row instead. The skill emits the raw value; the consumer escapes/validates for its own input path."
+                    "description": "A concrete, literal indicator value \u2014 NOT a <PLACEHOLDER> (those belong in SPL/KQL starters, not in IOC export rows). Should be printable ASCII and free of shell metacharacters (\" ' ` $ ; | & < > ( ) { } ^); strict consumers reject rows that contain them. When the method is 'file path', the value must be a specific known-bad path/filename, never a glob or a path to a ubiquitous legitimate file (Downloads, Startup shortcuts, browser-profile files, AppData logs) \u2014 those produce false positives downstream; prefer a hash-based row instead. The skill emits the raw value; the consumer escapes/validates for its own input path."
                   },
                   "severity": {
                     "type": "string",
-                    "enum": ["CRITICAL", "WARNING", "INFO"]
+                    "enum": [
+                      "CRITICAL",
+                      "WARNING",
+                      "INFO"
+                    ]
                   },
                   "actor": {
                     "type": "string"
@@ -1001,11 +1671,21 @@
               "source": {
                 "type": "string",
                 "minLength": 1,
-                "not": { "enum": ["unknown", "general knowledge", "n/a"] }
+                "not": {
+                  "enum": [
+                    "unknown",
+                    "general knowledge",
+                    "n/a"
+                  ]
+                }
               },
               "confidence": {
                 "type": "string",
-                "enum": ["High", "Medium", "Low"]
+                "enum": [
+                  "High",
+                  "Medium",
+                  "Low"
+                ]
               }
             }
           }
@@ -1015,9 +1695,15 @@
           "items": {
             "type": "object",
             "properties": {
-              "gap": { "type": "string" },
-              "impact": { "type": "string" },
-              "recommended_action": { "type": "string" }
+              "gap": {
+                "type": "string"
+              },
+              "impact": {
+                "type": "string"
+              },
+              "recommended_action": {
+                "type": "string"
+              }
             }
           }
         }
