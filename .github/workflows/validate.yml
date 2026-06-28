@@ -384,6 +384,42 @@ jobs:
           print(f"OK: {len(reference)} tiers numbered consistently across prompt, spec, and schema, with overlapping names")
           PY
 
+      - name: Feed-integrations source consistency
+        run: |
+          python <<'PY'
+          import os, pathlib, re, sys, yaml
+          spec = yaml.safe_load(open(os.environ['SPEC_FILE'], encoding='utf-8'))
+          feed_q = next(
+              (q for q in spec.get('user_inputs', {}).get('initial_questions', [])
+               if q.get('name') == 'feed_integrations'),
+              None,
+          )
+          if feed_q is None:
+              print("SKIP: no feed_integrations question in spec.yaml initial_questions")
+              sys.exit(0)
+          example = feed_q.get('example', '')
+          if isinstance(example, list):
+              feeds = [item['name'].strip() for item in example if isinstance(item, dict) and item.get('name')]
+          elif isinstance(example, str):
+              feeds = [t.strip().strip('"\'') for t in re.split(r'[,;]', example) if t.strip()]
+          else:
+              feeds = []
+          if not feeds:
+              print("SKIP: feed_integrations example is empty; nothing to cross-check")
+              sys.exit(0)
+          matrix = pathlib.Path('skills/cyber-threat-intel/references/source-matrix.md').read_text(encoding='utf-8')
+          original = pathlib.Path(os.environ['PROMPT_FILE']).read_text(encoding='utf-8')
+          missing = []
+          for feed in feeds:
+              slug = re.sub(r'\s+', '', feed).lower()
+              if not any(re.search(re.escape(feed), text, re.IGNORECASE) for text in (matrix, original)):
+                  missing.append(feed)
+          if missing:
+              print(f"FAIL: feed(s) in spec feed_integrations example not found in source-matrix or original-prompt: {missing}")
+              sys.exit(1)
+          print(f"OK: {len(feeds)} feed(s) from spec feed_integrations example found in source docs: {feeds}")
+          PY
+
       - name: Negative schema fixtures (tests/invalid)
         run: |
           python <<'PY'
@@ -440,3 +476,27 @@ jobs:
               sys.exit(1)
           print(f"OK: all {checked} invalid fixtures correctly rejected")
           PY
+
+  mcp-tests:
+    name: MCP server tests and lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Lint (ruff)
+        run: |
+          pip install ruff
+          ruff check src/ tests/
