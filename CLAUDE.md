@@ -25,7 +25,12 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `skills/cyber-threat-intel/schemas/output.schema.json` -- JSON Schema for validating structured output
 - `skills/cyber-threat-intel/examples/outputs.json` -- one example output per persona
 - `tests/invalid/` -- negative schema fixtures (must be rejected)
-- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, negative fixtures
+- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures; second job runs `mcp/` pytest suite + ruff lint
+- `mcp/` -- `threat-intel-mcp` MCP server (stdio transport); runtime counterpart to the prompt skill
+  - `mcp/src/threat_intel_mcp/adapters/qfeeds.py` -- Q-Feeds HTTP adapter (paginated fetch, 20-min cache, ioc_network normalisation)
+  - `mcp/src/threat_intel_mcp/vault/` -- credential provider abstraction; Phase 1 = `EnvCredentialProvider` (reads `QFEEDS_API_KEY`)
+  - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point exposing `qfeeds_fetch_iocs` and `list_available_feeds`
+  - `mcp/tests/` -- 31 unit + httpx-mock integration tests (no live network)
 
 Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
 

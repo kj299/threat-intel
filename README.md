@@ -101,8 +101,23 @@ threat-intel/
         +-- examples/
             +-- outputs.json                          # one example per persona
 +-- standalone/                                      # flattened single-file distributions
-    +-- cyber-threat-intel-prompt.md                 # self-contained prompt (any LLM)
-    +-- cyber-threat-intel-skill.md                  # self-contained Agent Skill
+|   +-- cyber-threat-intel-prompt.md                # self-contained prompt (any LLM)
+|   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
++-- mcp/                                             # threat-intel-mcp server (Phase 1)
+    +-- pyproject.toml                               # package definition (threat-intel-mcp)
+    +-- src/threat_intel_mcp/
+    |   +-- server.py                                # FastMCP stdio server entry point
+    |   +-- normalize.py                             # ioc_network schema validation + dedup
+    |   +-- audit.py                                 # structured audit logging + secret redaction
+    |   +-- adapters/
+    |   |   +-- base.py                              # FetchResult dataclass, SourceAdapter protocol
+    |   |   +-- qfeeds.py                            # Q-Feeds HTTP adapter (paginated, cached)
+    |   +-- vault/
+    |       +-- base.py                              # CredentialProvider protocol
+    |       +-- env.py                               # EnvCredentialProvider (Phase 1: env vars)
+    +-- tests/
+        +-- test_normalize.py                        # schema validation + dedup tests
+        +-- test_qfeeds.py                           # Q-Feeds unit + httpx mock integration tests
 ```
 
 ---
@@ -157,6 +172,37 @@ Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-t
 
 ---
 
+## MCP Server (`mcp/`)
+
+The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
+
+**Phase 1 (current):** Q-Feeds adapter with env-var credentials.
+
+```bash
+cd mcp
+pip install -e .
+QFEEDS_API_KEY=your-key threat-intel-mcp   # stdio transport; wire up in .claude/mcp.json
+```
+
+Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "threat-intel": {
+      "command": "threat-intel-mcp",
+      "env": { "QFEEDS_API_KEY": "your-key-here" }
+    }
+  }
+}
+```
+
+Tools exposed: `qfeeds_fetch_iocs`, `list_available_feeds`.
+
+See `mcp/README.md` for full setup, feed types, and planned phases (Vault credentials, additional adapters).
+
+---
+
 ## Output Validation
 
 ```bash
@@ -183,7 +229,7 @@ The skill is built to be driven programmatically (Claude Code, an OpenAI-based p
 
 - **Knowledge cutoff.** Output reflects the model's training data. For breaking threats (last 24-48 hours), consult professional threat intelligence services -- this skill cannot surface intelligence newer than the model behind it.
 - **Illustrative IOCs.** Generated IOCs (IPs, hashes, domains) are examples drawn from known patterns in training data, not real-time indicators. Validate every IOC against trusted feeds before deploying to detection or blocking systems.
-- **No live feeds.** This skill does not integrate with live threat feeds. Sources listed in the Matrix are references the AI draws from based on training data, not API integrations.
+- **No live feeds in the skill itself.** The prompt skill draws from training data, not real-time feeds. For live indicators, use the `mcp/` server with a valid Q-Feeds API key (or a future adapter). Sources listed in the Source Matrix are references, not active API integrations.
 - This skill structures AI output; it does not guarantee accuracy. Always verify critical findings.
 - Detection rules should be tested in a lab environment before production deployment.
 - This is not a replacement for professional threat intelligence services or incident response.
