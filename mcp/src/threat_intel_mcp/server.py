@@ -1,13 +1,13 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
-Exposes Q-Feeds, AbuseIPDB, VirusTotal (and future adapters) as MCP tools that
+Exposes Q-Feeds, AbuseIPDB, VirusTotal, and AlienVault OTX as MCP tools that
 Claude can call to retrieve live IOCs and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
 Transport: stdio (for use with Claude Code / Claude Desktop).
 Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
-or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY for env-var mode (dev / local only).
+or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY / OTX_API_KEY for env-var mode.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .adapters.abuseipdb import AbuseIPDBAdapter
+from .adapters.otx import OTXAdapter
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
 from .normalize import deduplicate_iocs, validate_iocs
@@ -37,7 +38,8 @@ mcp = FastMCP(
     "threat-intel-mcp",
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
-        "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, VirusTotal Tier 2). "
+        "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
+        "VirusTotal Tier 2, AlienVault OTX Tier 2). "
         "After calling a feed tool, pass the returned iocs array as context and set "
         "skill_input.feed_integrations in the threat-intel skill output so the "
         "Coverage Ledger (Appendix A) correctly marks the source as consulted."
@@ -50,6 +52,7 @@ _credentials = credential_provider_from_env()
 _qfeeds = QFeedsAdapter(_credentials)
 _abuseipdb = AbuseIPDBAdapter(_credentials)
 _virustotal = VirusTotalAdapter(_credentials)
+_otx = OTXAdapter(_credentials)
 
 
 @mcp.tool()
@@ -252,6 +255,78 @@ async def virustotal_fetch_iocs(
 
 
 @mcp.tool()
+async def otx_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch threat indicators from AlienVault OTX subscribed pulses (Tier 2 CTI).
+
+    Retrieves indicators from pulses modified within the given time_range,
+    returning ioc_network objects in the threat-intel output.schema.json shape.
+    De-duplicated and schema-validated before return.
+
+    Args:
+        time_range: Lookback window, e.g. "7d" or "24h". OTX is queried with
+            modified_since = now - time_range.
+        feed_types: Accepted for interface compatibility; OTX does not segment
+            by feed type. Pass None or omit.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive iocs.
+        2. Pass iocs as context to the skill invocation.
+        3. Set skill_input.feed_integrations = [{"name": "AlienVault OTX", "tier": 2,
+           "access_level": "community"}] so the Coverage Ledger marks it consulted.
+    """
+    try:
+        result = await _otx.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("OTX credential error: %s", exc)
+        return {
+            "iocs": [],
+            "source": "AlienVault OTX",
+            "tier": 2,
+            "retrieved_at": "",
+            "record_count": 0,
+            "latency_ms": 0.0,
+            "feed_types_fetched": [],
+            "partial_failure": ["subscribed"],
+            "coverage_ledger_entry": {
+                "tier": 2,
+                "source": "AlienVault OTX",
+                "status": "unverified",
+            },
+            "error": "OTX credentials not configured. Set OTX_API_KEY environment variable.",
+        }
+
+    validated = validate_iocs(result.iocs)
+    deduped = deduplicate_iocs(validated)
+
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 2,
+            "source": "AlienVault OTX",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
 async def list_available_feeds() -> dict[str, Any]:
     """List the threat intelligence feeds available in this MCP server instance.
 
@@ -275,6 +350,12 @@ async def list_available_feeds() -> dict[str, Any]:
         _credentials.get("virustotal", "api_key")
     except (KeyError, CredentialError):
         vt_cred_ok = False
+
+    otx_cred_ok = True
+    try:
+        _credentials.get("otx", "api_key")
+    except (KeyError, CredentialError):
+        otx_cred_ok = False
 
     return {
         "feeds": [
@@ -305,9 +386,18 @@ async def list_available_feeds() -> dict[str, Any]:
                 "credential_configured": vt_cred_ok,
                 "tool": "virustotal_fetch_iocs",
             },
+            {
+                "name": "AlienVault OTX",
+                "tier": 2,
+                "domain": "otx.alienvault.com",
+                "description": "Community and commercial threat pulses with IP, domain, and URL indicators",
+                "feed_types": ["subscribed"],
+                "credential_configured": otx_cred_ok,
+                "tool": "otx_fetch_iocs",
+            },
         ],
-        "phase": "3 (Q-Feeds + AbuseIPDB + VirusTotal + HashiCorp Vault or env-var credentials)",
-        "planned": ["AlienVault OTX", "Shodan", "Recorded Future"],
+        "phase": "3 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + HashiCorp Vault or env-var credentials)",
+        "planned": ["Shodan", "Recorded Future"],
     }
 
 
