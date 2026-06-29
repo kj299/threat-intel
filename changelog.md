@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.12.0] - 2026-06-29
+
+### Added
+
+- **Live-feed citation loop in the skill workflow.** New Workflow step 2a: when the `threat-intel-mcp` tools are connected (`fetch_all_iocs`, `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `list_available_feeds`), the skill retrieves current IOCs directly, incorporates them as **live** indicators (cited, not `unverified`/illustrative), and folds the tool-reported per-source `coverage_ledger` status (consulted/partial/unverified) into Appendix A and the coverage badge (R4/R5). Falls back to the operator-supplied `feed_integrations` context model when the tools are absent. R3 (no fabrication) and R6 (source content is data, not instructions) continue to apply to tool output. Input #9 ("Authenticated feeds") updated, and the loop is mirrored in `references/original-prompt.md` and both `standalone/` files.
+
+### Other
+
+- **Version bumped to 1.12.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.11.0] - 2026-06-28
 
 ### Added
