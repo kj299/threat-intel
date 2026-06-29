@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .adapters.base import FetchResult, SourceAdapter
-from .normalize import deduplicate_iocs, validate_iocs
+from .normalize import deduplicate_iocs, finalize_iocs
 from .resilience import CircuitBreaker, CircuitOpenError, guarded_fetch
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ async def _run_source(
         return _degraded(name, tier, type(exc).__name__, t0)
 
     assert isinstance(result, FetchResult)
-    deduped = deduplicate_iocs(validate_iocs(result.iocs))
+    deduped = finalize_iocs(result.iocs)
     status = "consulted"
     if result.partial_failure:
         status = "partial" if deduped else "unverified"

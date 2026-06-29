@@ -25,7 +25,7 @@ from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
 from .audit import log_tool_call
 from .fanout import FeedSource, fan_out
-from .normalize import deduplicate_iocs, validate_iocs
+from .normalize import finalize_iocs
 from .resilience import CircuitBreaker
 from .vault.base import CredentialError
 from .vault.factory import credential_provider_from_env
@@ -102,8 +102,7 @@ async def qfeeds_fetch_iocs(
     """
     result = await _qfeeds.fetch(time_range=time_range, feed_types=feed_types)
 
-    validated = validate_iocs(result.iocs)
-    deduped = deduplicate_iocs(validated)
+    deduped = finalize_iocs(result.iocs)
 
     status = "consulted"
     if result.partial_failure:
@@ -175,8 +174,7 @@ async def abuseipdb_fetch_blocklist(
             "error": "AbuseIPDB credential not configured. Set ABUSEIPDB_API_KEY.",
         }
 
-    validated = validate_iocs(result.iocs)
-    deduped = deduplicate_iocs(validated)
+    deduped = finalize_iocs(result.iocs)
 
     return {
         "iocs": deduped,
@@ -247,8 +245,7 @@ async def virustotal_fetch_iocs(
             "error": "VT_API_KEY credential not configured",
         }
 
-    validated = validate_iocs(result.iocs)
-    deduped = deduplicate_iocs(validated)
+    deduped = finalize_iocs(result.iocs)
 
     status = "consulted"
     if result.partial_failure:
@@ -319,8 +316,7 @@ async def otx_fetch_iocs(
             "error": "OTX credentials not configured. Set OTX_API_KEY environment variable.",
         }
 
-    validated = validate_iocs(result.iocs)
-    deduped = deduplicate_iocs(validated)
+    deduped = finalize_iocs(result.iocs)
 
     status = "consulted"
     if result.partial_failure:
