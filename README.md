@@ -105,7 +105,7 @@ threat-intel/
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- docs/
 |   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
-+-- mcp/                                             # threat-intel-mcp server (Phase 1)
++-- mcp/                                             # threat-intel-mcp server (v0.3.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
@@ -113,13 +113,22 @@ threat-intel/
     |   +-- audit.py                                 # structured audit logging + secret redaction
     |   +-- adapters/
     |   |   +-- base.py                              # FetchResult dataclass, SourceAdapter protocol
-    |   |   +-- qfeeds.py                            # Q-Feeds HTTP adapter (paginated, cached)
+    |   |   +-- qfeeds.py                            # Q-Feeds HTTP adapter (paginated, 20-min cache)
+    |   |   +-- abuseipdb.py                         # AbuseIPDB blacklist adapter (60-min cache)
+    |   |   +-- virustotal.py                        # VirusTotal Intelligence adapter (15-min cache)
+    |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
     |   +-- vault/
     |       +-- base.py                              # CredentialProvider protocol
-    |       +-- env.py                               # EnvCredentialProvider (Phase 1: env vars)
+    |       +-- env.py                               # EnvCredentialProvider (env vars)
+    |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
+    |       +-- factory.py                           # credential_provider_from_env() selector
     +-- tests/
         +-- test_normalize.py                        # schema validation + dedup tests
         +-- test_qfeeds.py                           # Q-Feeds unit + httpx mock integration tests
+        +-- test_abuseipdb.py                        # AbuseIPDB unit + integration tests
+        +-- test_virustotal.py                       # VirusTotal unit + integration tests
+        +-- test_otx.py                              # OTX unit + integration tests
+        +-- test_vault.py                            # Vault provider + factory tests
 ```
 
 ---
@@ -178,12 +187,17 @@ Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-t
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Phase 1 (current):** Q-Feeds adapter with env-var credentials.
+**Current (v0.3.0, Phase 3):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, and AlienVault OTX adapters with env-var or HashiCorp Vault credentials.
 
 ```bash
 cd mcp
 pip install -e .
-QFEEDS_API_KEY=your-key threat-intel-mcp   # stdio transport; wire up in .claude/mcp.json
+# Set whichever API keys you have:
+export QFEEDS_API_KEY=...
+export ABUSEIPDB_API_KEY=...
+export VT_API_KEY=...
+export OTX_API_KEY=...
+threat-intel-mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 
 Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
@@ -193,15 +207,20 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
   "mcpServers": {
     "threat-intel": {
       "command": "threat-intel-mcp",
-      "env": { "QFEEDS_API_KEY": "your-key-here" }
+      "env": {
+        "QFEEDS_API_KEY": "your-qfeeds-key",
+        "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
+        "VT_API_KEY": "your-vt-key",
+        "OTX_API_KEY": "your-otx-key"
+      }
     }
   }
 }
 ```
 
-Tools exposed: `qfeeds_fetch_iocs`, `list_available_feeds`.
+Tools exposed: `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `list_available_feeds`.
 
-See `mcp/README.md` for full setup, feed types, and planned phases (Vault credentials, additional adapters).
+See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details.
 
 ---
 
@@ -218,7 +237,7 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → QFeedsAdapter → Q-Feeds API → normalize.py → FetchResult → report output. Future adapters (AlienVault OTX, AbuseIPDB, VirusTotal) are shown as planned components.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX) → external feed APIs → normalize.py → FetchResult → report output.
 
 ---
 
@@ -235,9 +254,8 @@ The skill is built to be driven programmatically (Claude Code, an OpenAI-based p
 
 ## Limitations
 
-- **Knowledge cutoff.** Output reflects the model's training data. For breaking threats (last 24-48 hours), consult professional threat intelligence services -- this skill cannot surface intelligence newer than the model behind it.
-- **Illustrative IOCs.** Generated IOCs (IPs, hashes, domains) are examples drawn from known patterns in training data, not real-time indicators. Validate every IOC against trusted feeds before deploying to detection or blocking systems.
-- **No live feeds in the skill itself.** The prompt skill draws from training data, not real-time feeds. For live indicators, use the `mcp/` server with a valid Q-Feeds API key (or a future adapter). Sources listed in the Source Matrix are references, not active API integrations.
+- **Knowledge cutoff (without MCP).** Without the `threat-intel-mcp` server configured, output reflects the model's training data only. For breaking threats, configure live feed integration (see [MCP Server section](#mcp-server-mcp)) or consult professional threat intelligence services.
+- **Validate IOCs before deploying.** Whether IOCs come from training data or live feeds, validate them against additional trusted sources before deploying to detection or blocking systems. Live feed IOCs are current at retrieval time but may include false positives — treat them as indicators to investigate, not as confirmed-malicious block entries.
 - This skill structures AI output; it does not guarantee accuracy. Always verify critical findings.
 - Detection rules should be tested in a lab environment before production deployment.
 - This is not a replacement for professional threat intelligence services or incident response.

@@ -9,17 +9,17 @@ Implements the architecture described in [threat-intel issue #1](https://github.
 ```
 Claude Code
   │  skill: threat-intel  (SKILL.md + output.schema.json)
-  │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}]
+  │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}, ...]
   │
-  │  MCP tool call: qfeeds_fetch_iocs(time_range="7d")
+  │  MCP tool calls: qfeeds_fetch_iocs / abuseipdb_fetch_blocklist /
+  │                  virustotal_fetch_iocs / otx_fetch_iocs
   ▼
-threat-intel-mcp  (this repo, stdio MCP server)
-  │  reads QFEEDS_API_KEY from CredentialProvider
-  │  calls https://api.qfeeds.com/api (malware_ip, malware_domains)
-  │  normalises → ioc_network[] per output.schema.json
+threat-intel-mcp  (this package, stdio MCP server)
+  │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
+  │  calls upstream feed APIs; normalises → ioc_network[] per output.schema.json
   │  schema-validates + deduplicates before returning
   ▼
-Claude receives ioc_network[], cites "Q-Feeds" in Coverage Ledger (R2/R5)
+Claude receives ioc_network[], cites sources in Coverage Ledger (R2/R5)
 ```
 
 ## Current state
@@ -34,8 +34,13 @@ Claude receives ioc_network[], cites "Q-Feeds" in Coverage Ledger (R2/R5)
 | MCP tool: `list_available_feeds` | ✅ Phase 1 |
 | pytest suite (no live calls) | ✅ Phase 1 |
 | HashiCorp Vault credential provider | ✅ Phase 2 |
-| VirusTotal / Shodan / Recorded Future adapters | Phase 3 |
-| gRPC / MQTT / WebSocket / GraphQL adapters | Phase 3 |
+| AbuseIPDB blacklist adapter | ✅ Phase 3 |
+| VirusTotal Intelligence adapter (malicious IPs + domains) | ✅ Phase 3 |
+| AlienVault OTX subscribed-pulses adapter | ✅ Phase 3 |
+| MCP tool: `abuseipdb_fetch_blocklist` | ✅ Phase 3 |
+| MCP tool: `virustotal_fetch_iocs` | ✅ Phase 3 |
+| MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
+| gRPC / MQTT / WebSocket / GraphQL adapters | Phase 4 |
 | Circuit breakers, async fan-out, egress allowlist | Phase 4 |
 
 ## Quick start
@@ -46,14 +51,19 @@ Claude receives ioc_network[], cites "Q-Feeds" in Coverage Ledger (R2/R5)
 pip install -e ".[dev]"
 ```
 
-### 2. Set your API key
+### 2. Set your API keys
 
 ```bash
 cp .env.example .env
-# Edit .env and set QFEEDS_API_KEY
-# Obtain your key at: https://tip.qfeeds.com (Manage API Keys → Create Free API Key)
+# Edit .env and set the keys you have:
+#   QFEEDS_API_KEY      — https://tip.qfeeds.com (Manage API Keys)
+#   ABUSEIPDB_API_KEY   — https://www.abuseipdb.com/account/api
+#   VT_API_KEY          — https://www.virustotal.com/gui/user/apikey
+#   OTX_API_KEY         — https://otx.alienvault.com/settings (API Integration)
 export $(grep -v '^#' .env | xargs)
 ```
+
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger.
 
 ### 3. Run the tests
 
@@ -71,12 +81,17 @@ Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp
     "threat-intel-mcp": {
       "command": "threat-intel-mcp",
       "env": {
-        "QFEEDS_API_KEY": "your-api-key-here"
+        "QFEEDS_API_KEY": "your-qfeeds-key",
+        "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
+        "VT_API_KEY": "your-virustotal-key",
+        "OTX_API_KEY": "your-otx-key"
       }
     }
   }
 }
 ```
+
+Omit keys you don't have — the server runs with however many feeds are configured.
 
 ## Vault Credentials (Phase 2)
 
@@ -102,16 +117,13 @@ Secrets must be stored in KV v2 under:
 {mount_point}/data/{adapter_name}/{key}
 ```
 
-The default mount point is `secret`. Example for the Q-Feeds API key:
-
-```
-secret/data/qfeeds/api_key
-```
-
-Create it with:
+The default mount point is `secret`. Examples:
 
 ```bash
-vault kv put secret/qfeeds api_key=<your-qfeeds-key>
+vault kv put secret/qfeeds    api_key=<your-qfeeds-key>
+vault kv put secret/abuseipdb api_key=<your-abuseipdb-key>
+vault kv put secret/virustotal api_key=<your-vt-key>
+vault kv put secret/otx       api_key=<your-otx-key>
 ```
 
 ### Claude Code MCP config (Vault mode)
@@ -136,41 +148,52 @@ vault kv put secret/qfeeds api_key=<your-qfeeds-key>
 In Claude Code, after the MCP server is connected:
 
 ```
-/threat-intel
-feed_integrations: [{"name": "Q-Feeds", "tier": 2, "access_level": "premium"}]
+/cyber-threat-intel
+feed_integrations: [
+  {"name": "Q-Feeds",       "tier": 2, "access_level": "premium"},
+  {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
+  {"name": "VirusTotal",    "tier": 2, "access_level": "intelligence"},
+  {"name": "AlienVault OTX","tier": 2, "access_level": "community"}
+]
 ```
 
-Claude will call `qfeeds_fetch_iocs`, blend live Q-Feeds IOCs with its training-data knowledge, and cite Q-Feeds in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
+Claude will call the relevant `*_fetch_iocs` tools, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
 
 ## Security notes
 
-- `EnvCredentialProvider` reads `QFEEDS_API_KEY` from the environment. Suitable for local development only — env vars are visible in process listings and container inspection. Use `VaultCredentialProvider` for any non-local deployment (see [Vault Credentials](#vault-credentials-phase-2) above).
-- The API key is used for HTTP Basic auth. It never appears in logs — `audit.py` redacts auth headers and credential-bearing query strings.
-- Upstream responses are schema-validated before being returned to Claude. Malformed IOCs (including any prompt-injection attempt embedded in feed data) are dropped.
+- `EnvCredentialProvider` reads API keys from the environment. Suitable for local development only — env vars are visible in process listings and container inspection. Use `VaultCredentialProvider` for any non-local deployment.
+- API keys are passed as HTTP headers (or Basic auth for Q-Feeds). They never appear in logs — `audit.py` redacts auth headers and credential-bearing query strings.
+- Upstream responses are schema-validated before being returned to Claude. Malformed IOCs (including any prompt-injection attempt embedded in feed data) are dropped at the normalisation layer.
 
 ## Project structure
 
 ```
 src/threat_intel_mcp/
-├── server.py          MCP entrypoint; tool registration
+├── server.py              MCP entrypoint; tool registration
 ├── vault/
-│   ├── base.py        CredentialProvider Protocol + CredentialError
-│   ├── env.py         EnvCredentialProvider (dev only)
-│   ├── hashicorp.py   VaultCredentialProvider (AppRole + KV v2)
-│   └── factory.py     credential_provider_from_env() selector
+│   ├── base.py            CredentialProvider Protocol + CredentialError
+│   ├── env.py             EnvCredentialProvider (dev only)
+│   ├── hashicorp.py       VaultCredentialProvider (AppRole + KV v2)
+│   └── factory.py         credential_provider_from_env() selector
 ├── adapters/
-│   ├── base.py        SourceAdapter Protocol + FetchResult dataclass
-│   └── qfeeds.py      Q-Feeds REST adapter
-├── normalize.py       Schema validation + deduplication
-└── audit.py           Structured logging with secret redaction
+│   ├── base.py            SourceAdapter Protocol + FetchResult dataclass
+│   ├── qfeeds.py          Q-Feeds REST adapter (20-min cache)
+│   ├── abuseipdb.py       AbuseIPDB blacklist adapter (60-min cache)
+│   ├── virustotal.py      VirusTotal Intelligence adapter (15-min cache, 15s rate limit)
+│   └── otx.py             AlienVault OTX subscribed-pulses adapter (60-min cache)
+├── normalize.py           Schema validation + deduplication
+└── audit.py               Structured logging with secret redaction
 tests/
-├── test_qfeeds.py     Adapter tests (pytest-httpx, no live calls)
-├── test_normalize.py  Normaliser / validator tests
-└── test_vault.py      Vault provider + factory tests (hvac mocked)
+├── test_qfeeds.py         Q-Feeds adapter tests (pytest-httpx, no live calls)
+├── test_abuseipdb.py      AbuseIPDB adapter tests
+├── test_virustotal.py     VirusTotal adapter tests
+├── test_otx.py            OTX adapter tests
+├── test_normalize.py      Normaliser / validator tests
+└── test_vault.py          Vault provider + factory tests (hvac mocked)
 ```
 
 ## Relationship to threat-intel
 
-This repo provides the **runtime and live data**. [`kj299/threat-intel`](https://github.com/kj299/threat-intel) provides the **prompt and schema**. The AI assistant uses both together: the skill structures the report; this server supplies current IOCs from subscribed feeds.
+This package provides the **runtime and live data**. [`kj299/threat-intel`](https://github.com/kj299/threat-intel) provides the **prompt and schema**. The AI assistant uses both together: the skill structures the report; this server supplies current IOCs from subscribed feeds.
 
 Schema contract: `ioc_network` objects from this server match the definition in [`skills/cyber-threat-intel/schemas/output.schema.json`](https://github.com/kj299/threat-intel/blob/main/skills/cyber-threat-intel/schemas/output.schema.json) exactly.
