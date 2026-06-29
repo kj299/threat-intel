@@ -23,7 +23,10 @@ from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.otx import OTXAdapter
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
+from .audit import log_tool_call
+from .fanout import FeedSource, fan_out
 from .normalize import deduplicate_iocs, validate_iocs
+from .resilience import CircuitBreaker
 from .vault.base import CredentialError
 from .vault.factory import credential_provider_from_env
 
@@ -40,6 +43,9 @@ mcp = FastMCP(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
         "VirusTotal Tier 2, AlienVault OTX Tier 2). "
+        "Use fetch_all_iocs to query every configured feed at once (concurrent, "
+        "with per-source circuit breakers and merged deduplication), or call an "
+        "individual feed tool for a single source. "
         "After calling a feed tool, pass the returned iocs array as context and set "
         "skill_input.feed_integrations in the threat-intel skill output so the "
         "Coverage Ledger (Appendix A) correctly marks the source as consulted."
@@ -53,6 +59,17 @@ _qfeeds = QFeedsAdapter(_credentials)
 _abuseipdb = AbuseIPDBAdapter(_credentials)
 _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
+
+# Fan-out registry: each source carries its own circuit breaker so one flaky
+# feed cannot take down a fetch_all_iocs call. Credential/config errors are
+# treated as non-retryable and surface as "unverified" in the Coverage Ledger.
+_CONFIG_ERRORS: tuple[type[BaseException], ...] = (CredentialError, KeyError)
+_FEED_SOURCES = [
+    FeedSource(_qfeeds, 2, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
+    FeedSource(_abuseipdb, 3, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
+    FeedSource(_virustotal, 2, "VirusTotal", CircuitBreaker("VirusTotal"), _CONFIG_ERRORS),
+    FeedSource(_otx, 2, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
+]
 
 
 @mcp.tool()
@@ -327,6 +344,54 @@ async def otx_fetch_iocs(
 
 
 @mcp.tool()
+async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
+    """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
+
+    Queries Q-Feeds, AbuseIPDB, VirusTotal, and AlienVault OTX at the same time,
+    schema-validates and deduplicates each source, then merges everything into a
+    single deduplicated ioc_network array (cross-source duplicates collapse to the
+    highest-confidence copy). Each source is guarded by its own circuit breaker and
+    bounded backoff retry, so one slow or failing feed degrades to an "unverified"
+    Coverage-Ledger entry instead of failing the whole call.
+
+    Prefer this over calling each feed tool serially: a typical report touches all
+    four feeds, and concurrent fan-out keeps total latency near the slowest single
+    feed rather than the sum.
+
+    Args:
+        time_range: Lookback window from the calling threat-intel skill (e.g. "7d").
+            Forwarded to each adapter; feeds that only expose a current blocklist
+            record it for the Coverage Ledger but return their live set.
+
+    Returns:
+        dict with keys: iocs (merged + deduplicated), record_count, retrieved_at,
+        latency_ms, sources_consulted, sources_degraded, per_source (compact
+        per-feed breakdown), and coverage_ledger (ready for Appendix A).
+
+    Usage with the threat-intel skill:
+        1. Call this tool once; receive the merged iocs and coverage_ledger.
+        2. Pass iocs as context to the skill invocation.
+        3. Set skill_input.feed_integrations from sources_consulted so the
+           Coverage Ledger marks each consulted source correctly; degraded
+           sources map to "unverified".
+    """
+    result = await fan_out(_FEED_SOURCES, time_range=time_range)
+
+    degraded = result["sources_degraded"]
+    log_tool_call(
+        "fetch_all_iocs",
+        {"time_range": time_range},
+        record_count=result["record_count"],
+        latency_ms=result["latency_ms"],
+        status="partial" if degraded else "ok",
+        error=(
+            f"degraded sources: {[d['source'] for d in degraded]}" if degraded else None
+        ),
+    )
+    return result
+
+
+@mcp.tool()
 async def list_available_feeds() -> dict[str, Any]:
     """List the threat intelligence feeds available in this MCP server instance.
 
@@ -396,7 +461,13 @@ async def list_available_feeds() -> dict[str, Any]:
                 "tool": "otx_fetch_iocs",
             },
         ],
-        "phase": "3 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + HashiCorp Vault or env-var credentials)",
+        "aggregate_tool": "fetch_all_iocs",
+        "aggregate_description": (
+            "Queries all credential-configured feeds concurrently, with per-source "
+            "circuit breakers and merged deduplication; degraded feeds surface as "
+            "'unverified' in the returned coverage_ledger."
+        ),
+        "phase": "3 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + concurrent fan-out + HashiCorp Vault or env-var credentials)",
         "planned": ["Shodan", "Recorded Future"],
     }
 

@@ -11,15 +11,18 @@ Claude Code
   │  skill: threat-intel  (SKILL.md + output.schema.json)
   │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}, ...]
   │
-  │  MCP tool calls: qfeeds_fetch_iocs / abuseipdb_fetch_blocklist /
-  │                  virustotal_fetch_iocs / otx_fetch_iocs
+  │  MCP tool calls: fetch_all_iocs            (all feeds at once)
+  │                  qfeeds_fetch_iocs         (single feed)
+  │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs / otx_fetch_iocs
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
+  │  fetch_all_iocs fans out concurrently, each source behind a circuit breaker
   │  calls upstream feed APIs; normalises → ioc_network[] per output.schema.json
-  │  schema-validates + deduplicates before returning
+  │  schema-validates + deduplicates (per-source and across sources) before returning
+  │  a failing/unconfigured/open-circuit feed degrades to "unverified", never crashes
   ▼
-Claude receives ioc_network[], cites sources in Coverage Ledger (R2/R5)
+Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 ```
 
 ## Current state
@@ -40,8 +43,11 @@ Claude receives ioc_network[], cites sources in Coverage Ledger (R2/R5)
 | MCP tool: `abuseipdb_fetch_blocklist` | ✅ Phase 3 |
 | MCP tool: `virustotal_fetch_iocs` | ✅ Phase 3 |
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
-| gRPC / MQTT / WebSocket / GraphQL adapters | Phase 4 |
-| Circuit breakers, async fan-out, egress allowlist | Phase 4 |
+| Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
+| Circuit breakers + backoff retry per source | ✅ Phase 4 |
+| Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
+| Egress allowlist, response sanitization, rotation playbook | Phase 4 (pending) |
+| gRPC / MQTT / WebSocket / GraphQL adapters | Phase 3+ (needs named feeds) |
 
 ## Quick start
 
@@ -181,6 +187,8 @@ src/threat_intel_mcp/
 │   ├── abuseipdb.py       AbuseIPDB blacklist adapter (60-min cache)
 │   ├── virustotal.py      VirusTotal Intelligence adapter (15-min cache, 15s rate limit)
 │   └── otx.py             AlienVault OTX subscribed-pulses adapter (60-min cache)
+├── fanout.py              fetch_all_iocs: concurrent multi-source merge + dedup
+├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── normalize.py           Schema validation + deduplication
 └── audit.py               Structured logging with secret redaction
 tests/
@@ -188,6 +196,8 @@ tests/
 ├── test_abuseipdb.py      AbuseIPDB adapter tests
 ├── test_virustotal.py     VirusTotal adapter tests
 ├── test_otx.py            OTX adapter tests
+├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
+├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_normalize.py      Normaliser / validator tests
 └── test_vault.py          Vault provider + factory tests (hvac mocked)
 ```

@@ -12,7 +12,10 @@ flowchart TD
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
-        Server["MCP Server\nserver.py\ntools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       virustotal_fetch_iocs\n       otx_fetch_iocs"]
+        Server["MCP Server\nserver.py\ntools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       virustotal_fetch_iocs\n       otx_fetch_iocs\n       fetch_all_iocs\n       list_available_feeds"]
+
+        FanOut["fetch_all_iocs fan-out\nfanout.py\nasyncio.gather over all sources\nmerge + cross-source dedup"]
+        Resilience["resilience.py\nguarded_fetch per source\nCircuitBreaker + backoff retry"]
 
         subgraph Cred["CredentialProvider"]
             EnvCred["Phase 1: EnvCredentialProvider\nreads QFEEDS_API_KEY\nreads ABUSEIPDB_API_KEY\nreads VT_API_KEY\nreads OTX_API_KEY"]
@@ -39,6 +42,13 @@ flowchart TD
 
     User -->|"invokes skill"| Skill
     Skill -->|"calls MCP tool"| Server
+    Server -->|"fetch_all_iocs"| FanOut
+    FanOut -->|"concurrent per-source call"| Resilience
+    Resilience -->|"guarded_fetch"| QFeeds
+    Resilience -->|"guarded_fetch"| AbuseIPDB
+    Resilience -->|"guarded_fetch"| VT
+    Resilience -->|"guarded_fetch"| OTX
+    FanOut -->|"merged + deduped IOCs\npartial/open-circuit -> coverage_ledger"| Server
     Server --> EnvCred
     Server -.->|"Phase 2"| VaultCred
     EnvCred -->|"api_key"| QFeeds
@@ -73,7 +83,9 @@ flowchart TD
 | Component | File | Role |
 |-----------|------|------|
 | Skill | `skills/cyber-threat-intel/SKILL.md` | Entrypoint; guides analysis workflow and report structure |
-| MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, and `list_available_feeds` |
+| MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `fetch_all_iocs`, and `list_available_feeds` |
+| Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
+| Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest |
 | EnvCredentialProvider | `mcp/src/threat_intel_mcp/vault/env.py` | Phase 1: reads `QFEEDS_API_KEY`, `ABUSEIPDB_API_KEY`, `VT_API_KEY`, and `OTX_API_KEY` from environment |
 | VaultCredentialProvider | `mcp/src/threat_intel_mcp/vault/` | Phase 2: reads credentials from HashiCorp Vault |
 | QFeedsAdapter | `mcp/src/threat_intel_mcp/adapters/qfeeds.py` | Fetches paginated malware IP and domain feeds; 20-min in-process cache |
