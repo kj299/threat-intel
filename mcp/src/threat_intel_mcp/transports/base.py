@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..adapters.base import FetchResult
-from ..normalize import deduplicate_iocs, validate_iocs
+from ..normalize import finalize_iocs
 
 
 class ProtocolAdapter(ABC):
@@ -77,7 +77,7 @@ class ProtocolAdapter(ABC):
             for raw in raw_records
             if (ioc := self._normalize(raw)) is not None
         ]
-        deduped = deduplicate_iocs(validate_iocs(normalized))
+        deduped = finalize_iocs(normalized)
         latency_ms = round((time.monotonic() - t0) * 1000, 1)
 
         return FetchResult(

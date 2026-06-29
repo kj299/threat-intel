@@ -30,6 +30,7 @@ from typing import Any
 import httpx
 
 from ..audit import log_tool_call, redact_url
+from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
 from .base import FetchResult
 
@@ -141,6 +142,7 @@ class VirusTotalAdapter:
                 "Accept": "application/json",
             },
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
+            event_hooks=egress_event_hooks("www.virustotal.com"),
         )
 
     async def fetch(

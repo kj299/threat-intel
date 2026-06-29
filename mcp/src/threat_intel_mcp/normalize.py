@@ -12,6 +12,8 @@ from typing import Any
 
 import jsonschema
 
+from .sanitize import sanitize_iocs
+
 logger = logging.getLogger(__name__)
 
 # Inline the ioc_network schema so this package has no file-system dependency
@@ -84,3 +86,14 @@ def deduplicate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if new_rank > existing_rank:
                 seen[key] = ioc
     return list(seen.values())
+
+
+def finalize_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Validate, sanitise, then deduplicate — the standard adapter output pipeline.
+
+    Order matters: schema validation first (drop malformed objects), then
+    sanitisation of feed-controlled free-text (strip control/zero-width chars,
+    cap lengths, drop emptied values), then dedup on the cleaned values so that
+    hidden-character variants of the same indicator collapse together.
+    """
+    return deduplicate_iocs(sanitize_iocs(validate_iocs(iocs)))

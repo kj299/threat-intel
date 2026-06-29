@@ -29,7 +29,7 @@ flowchart TD
             OTX["OTXAdapter\nadapters/otx.py\nX-OTX-API-KEY header\n60-min cache"]
         end
 
-        Normalize["normalize.py\nvalidate_iocs + deduplicate_iocs\nioc_network schema"]
+        Normalize["normalize.py\nfinalize_iocs:\nvalidate + sanitize + dedupe\nioc_network schema"]
         FetchResult["FetchResult\niocs · source · tier\nrecord_count · retrieved_at"]
     end
 
@@ -94,6 +94,8 @@ flowchart TD
 | AbuseIPDBAdapter | `mcp/src/threat_intel_mcp/adapters/abuseipdb.py` | Fetches IP blacklist (up to 10,000 IPs, confidenceMinimum=90); 60-min in-process cache |
 | VirusTotalAdapter | `mcp/src/threat_intel_mcp/adapters/virustotal.py` | Fetches recent malicious IPs and domains from VT Intelligence feeds; 15-min cache; 15s inter-request rate limit |
 | OTXAdapter | `mcp/src/threat_intel_mcp/adapters/otx.py` | Fetches subscribed OTX pulses (IPv4, IPv6, Domain, URL); 60-min in-process cache |
-| normalize.py | `mcp/src/threat_intel_mcp/normalize.py` | Validates `ioc_network` objects against inline schema; deduplicates by `(type, value)` |
+| normalize.py | `mcp/src/threat_intel_mcp/normalize.py` | `finalize_iocs` = validate against inline `ioc_network` schema → sanitize → deduplicate by `(type, value)`; the single pipeline used by every tool, the fan-out, and protocol adapters |
+| sanitize.py | `mcp/src/threat_intel_mcp/sanitize.py` | Strips control / zero-width / bidi characters and caps lengths on feed-controlled free-text; drops IOCs whose value cleans to empty (runtime R6 defence) |
+| netpolicy.py | `mcp/src/threat_intel_mcp/netpolicy.py` | Per-adapter egress allowlist enforced as an httpx request hook — blocks outbound requests to non-allowlisted hosts before they leave the process |
 | FetchResult | `mcp/src/threat_intel_mcp/adapters/base.py` | Dataclass: `iocs`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms` |
 | Output schema | `skills/cyber-threat-intel/schemas/output.schema.json` | JSON Schema the final report is validated against |
