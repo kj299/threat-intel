@@ -46,8 +46,10 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
 | Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
+| Protocol credential bundles (gRPC/MQTT/WebSocket/GraphQL) | ✅ Phase 3 |
+| `ProtocolAdapter` bring-your-own-endpoint base | ✅ Phase 3 |
 | Egress allowlist, response sanitization, rotation playbook | Phase 4 (pending) |
-| gRPC / MQTT / WebSocket / GraphQL adapters | Phase 3+ (needs named feeds) |
+| Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start
 
@@ -165,6 +167,22 @@ feed_integrations: [
 
 Claude will call the relevant `*_fetch_iocs` tools, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
 
+## Protocol feeds (gRPC / MQTT / WebSocket / GraphQL)
+
+Beyond the REST adapters, the server ships secure **credential storage** and a
+**bring-your-own-endpoint adapter base** for non-REST intel transports. Typed
+credential bundles (cert/key/CA for gRPC mTLS, host/port/topic for MQTT,
+URL/token for WebSocket, endpoint/token for GraphQL) load through the same
+env-var / Vault `CredentialProvider`, and `ProtocolAdapter` standardises
+validation, dedup, and `FetchResult` assembly so a concrete feed implements only
+`_collect` + `_normalize`.
+
+No live protocol feed (and no protocol client library) ships here: a concrete
+adapter is wired to a **real, operator-supplied endpoint** — inventing one would
+violate the repo's no-fabrication rule. See
+[`docs/protocol-adapters.md`](../docs/protocol-adapters.md) for the credential
+paths and a worked GraphQL example.
+
 ## Security notes
 
 - `EnvCredentialProvider` reads API keys from the environment. Suitable for local development only — env vars are visible in process listings and container inspection. Use `VaultCredentialProvider` for any non-local deployment.
@@ -180,7 +198,10 @@ src/threat_intel_mcp/
 │   ├── base.py            CredentialProvider Protocol + CredentialError
 │   ├── env.py             EnvCredentialProvider (dev only)
 │   ├── hashicorp.py       VaultCredentialProvider (AppRole + KV v2)
-│   └── factory.py         credential_provider_from_env() selector
+│   ├── factory.py         credential_provider_from_env() selector
+│   └── protocols.py       Typed gRPC/MQTT/WebSocket/GraphQL credential bundles
+├── transports/
+│   └── base.py            ProtocolAdapter: bring-your-own-endpoint base class
 ├── adapters/
 │   ├── base.py            SourceAdapter Protocol + FetchResult dataclass
 │   ├── qfeeds.py          Q-Feeds REST adapter (20-min cache)
@@ -198,6 +219,8 @@ tests/
 ├── test_otx.py            OTX adapter tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
+├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests
+├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
 ├── test_normalize.py      Normaliser / validator tests
 └── test_vault.py          Vault provider + factory tests (hvac mocked)
 ```
