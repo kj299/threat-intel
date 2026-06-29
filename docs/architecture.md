@@ -86,6 +86,8 @@ flowchart TD
 | MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `fetch_all_iocs`, and `list_available_feeds` |
 | Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
 | Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest |
+| Protocol credentials | `mcp/src/threat_intel_mcp/vault/protocols.py` | Typed, validated credential bundles for gRPC / MQTT / WebSocket / GraphQL feeds, loaded via the same `CredentialProvider` |
+| Protocol adapter base | `mcp/src/threat_intel_mcp/transports/base.py` | `ProtocolAdapter`: abstract bring-your-own-endpoint `SourceAdapter` (impl `_collect` + `_normalize`); ships **no live feed / no hardcoded endpoint**. See [protocol-adapters.md](protocol-adapters.md) |
 | EnvCredentialProvider | `mcp/src/threat_intel_mcp/vault/env.py` | Phase 1: reads `QFEEDS_API_KEY`, `ABUSEIPDB_API_KEY`, `VT_API_KEY`, and `OTX_API_KEY` from environment |
 | VaultCredentialProvider | `mcp/src/threat_intel_mcp/vault/` | Phase 2: reads credentials from HashiCorp Vault |
 | QFeedsAdapter | `mcp/src/threat_intel_mcp/adapters/qfeeds.py` | Fetches paginated malware IP and domain feeds; 20-min in-process cache |
