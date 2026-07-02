@@ -168,6 +168,7 @@ class VirusTotalAdapter:
         t_start = time.monotonic()
         all_iocs: list[dict[str, Any]] = []
         failed: list[str] = []
+        last_exc: Exception | None = None
 
         async with self._make_client() as client:
             # Fetch feed types sequentially (rate limit enforced inside _fetch_feed).
@@ -180,6 +181,21 @@ class VirusTotalAdapter:
                         "VirusTotal feed_type=%s fetch failed: %s", feed_type, exc
                     )
                     failed.append(feed_type)
+                    last_exc = exc
+
+        # Every requested feed type failed: total failure — propagate so the
+        # caller's retry/circuit-breaker layer can act on it (issue #56).
+        # Partial results still return below.
+        if last_exc is not None and len(failed) == len(requested):
+            log_tool_call(
+                "virustotal_fetch_iocs",
+                {"time_range": time_range, "feed_types": requested},
+                record_count=0,
+                latency_ms=(time.monotonic() - t_start) * 1000,
+                status="error",
+                error=type(last_exc).__name__,
+            )
+            raise last_exc
 
         latency_ms = (time.monotonic() - t_start) * 1000
         fetched = [t for t in requested if t not in failed]

@@ -46,6 +46,17 @@ class TestSanitizeIoc:
         out = sanitize_ioc(_ioc(associated_threat="x" * 5000))
         assert len(out["associated_threat"]) == 512
 
+    def test_over_length_value_dropped_not_truncated(self):
+        # Truncating an indicator value fabricates a different, plausible-but-
+        # wrong IOC (R3) — over-length values must drop the whole IOC.
+        long_url = "https://evil.example/" + "a" * 3000
+        assert sanitize_ioc(_ioc(type="URL", value=long_url)) is None
+
+    def test_value_at_length_limit_kept(self):
+        exact = "a" * 2048
+        out = sanitize_ioc(_ioc(value=exact))
+        assert out["value"] == exact
+
     def test_tags_cleaned_filtered_and_capped(self):
         # "ev‍il" has a zero-width joiner (200d) inside → cleans to "evil".
         out = sanitize_ioc(

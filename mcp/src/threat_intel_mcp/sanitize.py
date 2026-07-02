@@ -14,7 +14,10 @@ bounds field length. Enum-constrained fields (``type``, ``confidence``, ``tlp``,
 ``action``) are left untouched because the schema already restricts them.
 
 An IOC whose ``value`` is emptied by cleaning (it was pure control/zero-width
-junk) is dropped — a malformed indicator is worse than a missing one.
+junk) or exceeds the length bound is **dropped**, never truncated — a truncated
+indicator is a *different*, plausible-looking indicator, which is fabrication
+(R3). Truncation is applied only to annotation fields (tags, threat/actor
+names), where clipping loses detail but cannot mint a false indicator.
 """
 
 from __future__ import annotations
@@ -43,11 +46,16 @@ _MAX_TAGS = 32
 _FREE_TEXT_FIELDS = ("associated_threat", "associated_actor", "kill_chain_phase")
 
 
-def _clean_str(value: str, max_len: int) -> str:
-    """Strip control + zero-width/bidi chars, trim, and cap length."""
+def _strip_chars(value: str) -> str:
+    """Strip control + zero-width/bidi chars and trim whitespace."""
     cleaned = _ZERO_WIDTH_RE.sub("", value)
     cleaned = _CONTROL_RE.sub("", cleaned)
-    cleaned = cleaned.strip()
+    return cleaned.strip()
+
+
+def _clean_str(value: str, max_len: int) -> str:
+    """Strip disallowed chars and cap length (annotation fields only)."""
+    cleaned = _strip_chars(value)
     if len(cleaned) > max_len:
         cleaned = cleaned[:max_len]
     return cleaned
@@ -59,9 +67,16 @@ def sanitize_ioc(ioc: dict[str, Any]) -> dict[str, Any] | None:
 
     raw_value = out.get("value")
     if isinstance(raw_value, str):
-        cleaned_value = _clean_str(raw_value, _MAX_VALUE_LEN)
+        cleaned_value = _strip_chars(raw_value)
         if not cleaned_value:
             logger.warning("Dropping IOC whose value sanitised to empty.")
+            return None
+        if len(cleaned_value) > _MAX_VALUE_LEN:
+            # Never truncate an indicator value: a clipped URL/domain is a
+            # different, plausible-but-wrong IOC — that's fabrication (R3).
+            logger.warning(
+                "Dropping IOC whose value exceeds %d chars.", _MAX_VALUE_LEN
+            )
             return None
         out["value"] = cleaned_value
 

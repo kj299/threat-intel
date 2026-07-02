@@ -63,7 +63,31 @@ _otx = OTXAdapter(_credentials)
 # Fan-out registry: each source carries its own circuit breaker so one flaky
 # feed cannot take down a fetch_all_iocs call. Credential/config errors are
 # treated as non-retryable and surface as "unverified" in the Coverage Ledger.
-_CONFIG_ERRORS: tuple[type[BaseException], ...] = (CredentialError, KeyError)
+# ValueError covers caller mistakes (bad time_range / feed_types) — not an
+# upstream-health signal, so it must not trip a breaker or be retried.
+_CONFIG_ERRORS: tuple[type[BaseException], ...] = (CredentialError, KeyError, ValueError)
+
+
+def _degraded_tool_result(
+    source: str, tier: int, partial: list[str], error: str
+) -> dict[str, Any]:
+    """Uniform degraded response for a single-feed tool that could not fetch."""
+    return {
+        "iocs": [],
+        "source": source,
+        "tier": tier,
+        "retrieved_at": "",
+        "record_count": 0,
+        "latency_ms": 0.0,
+        "feed_types_fetched": [],
+        "partial_failure": partial,
+        "coverage_ledger_entry": {
+            "tier": tier,
+            "source": source,
+            "status": "unverified",
+        },
+        "error": error,
+    }
 _FEED_SOURCES = [
     FeedSource(_qfeeds, 2, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
     FeedSource(_abuseipdb, 3, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
@@ -100,7 +124,26 @@ async def qfeeds_fetch_iocs(
         3. Set skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2,
            "access_level": "premium"}] so the Coverage Ledger marks it consulted.
     """
-    result = await _qfeeds.fetch(time_range=time_range, feed_types=feed_types)
+    try:
+        result = await _qfeeds.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("Q-Feeds credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Q-Feeds",
+            2,
+            feed_types or list(QFEEDS_FEED_TYPES.keys()),
+            "Q-Feeds credential not configured. Set QFEEDS_API_KEY.",
+        )
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("Q-Feeds upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Q-Feeds",
+            2,
+            feed_types or list(QFEEDS_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
 
     deduped = finalize_iocs(result.iocs)
 
@@ -156,23 +199,18 @@ async def abuseipdb_fetch_blocklist(
     try:
         result = await _abuseipdb.fetch(time_range=time_range, feed_types=feed_types)
     except (CredentialError, KeyError) as exc:
-        logger.warning("AbuseIPDB credential error: %s", exc)
-        return {
-            "iocs": [],
-            "source": "AbuseIPDB",
-            "tier": 3,
-            "retrieved_at": "",
-            "record_count": 0,
-            "latency_ms": 0.0,
-            "feed_types_fetched": [],
-            "partial_failure": ["blacklist"],
-            "coverage_ledger_entry": {
-                "tier": 3,
-                "source": "AbuseIPDB",
-                "status": "unverified",
-            },
-            "error": "AbuseIPDB credential not configured. Set ABUSEIPDB_API_KEY.",
-        }
+        logger.warning("AbuseIPDB credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "AbuseIPDB",
+            3,
+            ["blacklist"],
+            "AbuseIPDB credential not configured. Set ABUSEIPDB_API_KEY.",
+        )
+    except Exception as exc:
+        logger.warning("AbuseIPDB upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "AbuseIPDB", 3, ["blacklist"], f"upstream fetch failed: {type(exc).__name__}"
+        )
 
     deduped = finalize_iocs(result.iocs)
 
@@ -228,22 +266,22 @@ async def virustotal_fetch_iocs(
         result = await _virustotal.fetch(time_range=time_range, feed_types=feed_types)
     except (CredentialError, KeyError) as exc:
         logger.warning("VirusTotal credential error: %s", type(exc).__name__)
-        return {
-            "iocs": [],
-            "source": "VirusTotal",
-            "tier": 2,
-            "retrieved_at": "",
-            "record_count": 0,
-            "latency_ms": 0.0,
-            "feed_types_fetched": [],
-            "partial_failure": feed_types or list(VT_FEED_TYPES.keys()),
-            "coverage_ledger_entry": {
-                "tier": 2,
-                "source": "VirusTotal",
-                "status": "unverified",
-            },
-            "error": "VT_API_KEY credential not configured",
-        }
+        return _degraded_tool_result(
+            "VirusTotal",
+            2,
+            feed_types or list(VT_FEED_TYPES.keys()),
+            "VT_API_KEY credential not configured",
+        )
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("VirusTotal upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "VirusTotal",
+            2,
+            feed_types or list(VT_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
 
     deduped = finalize_iocs(result.iocs)
 
@@ -298,23 +336,23 @@ async def otx_fetch_iocs(
     try:
         result = await _otx.fetch(time_range=time_range, feed_types=feed_types)
     except (CredentialError, KeyError) as exc:
-        logger.warning("OTX credential error: %s", exc)
-        return {
-            "iocs": [],
-            "source": "AlienVault OTX",
-            "tier": 2,
-            "retrieved_at": "",
-            "record_count": 0,
-            "latency_ms": 0.0,
-            "feed_types_fetched": [],
-            "partial_failure": ["subscribed"],
-            "coverage_ledger_entry": {
-                "tier": 2,
-                "source": "AlienVault OTX",
-                "status": "unverified",
-            },
-            "error": "OTX credentials not configured. Set OTX_API_KEY environment variable.",
-        }
+        logger.warning("OTX credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "AlienVault OTX",
+            2,
+            ["subscribed"],
+            "OTX credentials not configured. Set OTX_API_KEY environment variable.",
+        )
+    except ValueError:
+        raise  # invalid time_range — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("OTX upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "AlienVault OTX",
+            2,
+            ["subscribed"],
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
 
     deduped = finalize_iocs(result.iocs)
 
