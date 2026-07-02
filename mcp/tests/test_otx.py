@@ -291,14 +291,15 @@ class TestOTXAdapterFetch:
         assert result.partial_failure == []
 
     @pytest.mark.asyncio
-    async def test_http_error_recorded_as_partial_failure(self, adapter, httpx_mock: HTTPXMock):
+    async def test_http_error_raises(self, adapter, httpx_mock: HTTPXMock):
+        # OTX has a single feed, so an upstream failure is total: it must
+        # propagate so the fan-out's retry/circuit-breaker layer sees it.
         httpx_mock.add_callback(
             lambda req: _make_error_response(401),
             url=_OTX_SUBSCRIBED_RE,
         )
-        result = await adapter.fetch(time_range="7d")
-        assert "subscribed" in result.partial_failure
-        assert result.record_count == 0
+        with pytest.raises(httpx.HTTPStatusError):
+            await adapter.fetch(time_range="7d")
 
     @pytest.mark.asyncio
     async def test_otx_tag_present_on_all_iocs(self, adapter, httpx_mock: HTTPXMock):

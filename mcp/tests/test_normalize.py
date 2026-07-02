@@ -1,6 +1,6 @@
 """Tests for the normaliser: schema validation and deduplication."""
 
-from threat_intel_mcp.normalize import deduplicate_iocs, validate_iocs
+from threat_intel_mcp.normalize import deduplicate_iocs, finalize_iocs, validate_iocs
 
 
 def _ioc(type_: str, value: str, confidence: str = "High", source: str = "Q-Feeds") -> dict:
@@ -82,3 +82,35 @@ class TestDeduplicateIocs:
         iocs = [_ioc("IPv4", "1.1.1.1"), _ioc("Domain", "1.1.1.1")]
         result = deduplicate_iocs(iocs)
         assert len(result) == 2
+
+
+class TestFinalizeIocs:
+    """finalize_iocs = sanitize -> validate -> dedupe (issue #57 ordering)."""
+
+    def test_sanitizes_before_validating(self):
+        # Dirty-but-salvageable value is cleaned, then validated, then kept.
+        iocs = [
+            {"type": "IPv4", "value": "1.2.3.4\x00", "confidence": "High", "source": "F"},
+        ]
+        out = finalize_iocs(iocs)
+        assert [i["value"] for i in out] == ["1.2.3.4"]
+
+    def test_drops_over_length_and_emptied_values(self):
+        long_url = "https://evil.example/" + "a" * 3000
+        iocs = [
+            {"type": "URL", "value": long_url, "confidence": "High", "source": "F"},
+            {"type": "IPv4", "value": "\x00\x07", "confidence": "High", "source": "F"},
+            {"type": "IPv4", "value": "5.5.5.5", "confidence": "High", "source": "F"},
+        ]
+        out = finalize_iocs(iocs)
+        assert [i["value"] for i in out] == ["5.5.5.5"]
+
+    def test_dedupes_on_cleaned_values(self):
+        # Hidden-character variant of the same indicator collapses after cleaning.
+        iocs = [
+            {"type": "IPv4", "value": "1.2.3.4", "confidence": "Low", "source": "A"},
+            {"type": "IPv4", "value": "1.2\u200b.3.4", "confidence": "High", "source": "B"},
+        ]
+        out = finalize_iocs(iocs)
+        assert len(out) == 1
+        assert out[0]["confidence"] == "High"

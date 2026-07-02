@@ -7,6 +7,7 @@ feed type; the adapter's normaliser must produce valid ioc_network objects.
 
 from __future__ import annotations
 
+import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
@@ -226,6 +227,20 @@ class TestVirusTotalAdapterFetch:
         result = await adapter.fetch(feed_types=["malicious_ips", "malicious_domains"])
         assert "malicious_domains" in result.partial_failure
         assert result.record_count > 0  # IP feed still returned data
+
+    @pytest.mark.asyncio
+    async def test_total_failure_raises(self, adapter, httpx_mock: HTTPXMock):
+        # Every requested feed type fails -> the adapter must propagate so the
+        # fan-out's retry/circuit-breaker layer can act on it (issue #56).
+        httpx_mock.add_response(
+            url=_IP_FEED_URL, match_params=_IP_PARAMS, status_code=500
+        )
+        httpx_mock.add_response(
+            url=_DOMAIN_FEED_URL, match_params=_DOMAIN_PARAMS, status_code=503
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await adapter.fetch(feed_types=["malicious_ips", "malicious_domains"])
 
     @pytest.mark.asyncio
     async def test_domain_feed_returns_domain_type(self, adapter, httpx_mock: HTTPXMock):

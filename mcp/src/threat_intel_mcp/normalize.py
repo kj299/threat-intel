@@ -89,11 +89,11 @@ def deduplicate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def finalize_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Validate, sanitise, then deduplicate — the standard adapter output pipeline.
+    """Sanitise, validate, then deduplicate — the standard adapter output pipeline.
 
-    Order matters: schema validation first (drop malformed objects), then
-    sanitisation of feed-controlled free-text (strip control/zero-width chars,
-    cap lengths, drop emptied values), then dedup on the cleaned values so that
+    Order matters: sanitisation first (strip control/zero-width chars, drop
+    emptied or over-length values), so that schema validation always runs on
+    the *cleaned* values, then dedup on those cleaned values so that
     hidden-character variants of the same indicator collapse together.
     """
-    return deduplicate_iocs(sanitize_iocs(validate_iocs(iocs)))
+    return deduplicate_iocs(validate_iocs(sanitize_iocs(iocs)))

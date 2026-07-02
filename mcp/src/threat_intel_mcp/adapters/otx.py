@@ -166,18 +166,26 @@ class OTXAdapter:
             FetchResult with normalised ioc_network objects.
         """
         t_start = time.monotonic()
-        failed: list[str] = []
 
         since_dt = _parse_time_range(time_range)
         since_iso = since_dt.strftime("%Y-%m-%dT%H:%M:%S")
 
+        # OTX has a single feed, so any upstream failure is a total failure.
+        # Propagate it: the caller's retry/circuit-breaker layer owns failure
+        # policy, and swallowing here would blind it (issue #56).
         try:
             async with self._make_client() as client:
                 iocs = await self._fetch_subscribed(client, since_iso)
         except Exception as exc:
-            logger.warning("OTX fetch failed: %s", exc)
-            failed.append("subscribed")
-            iocs = []
+            log_tool_call(
+                "otx_fetch_iocs",
+                {"time_range": time_range, "modified_since": since_iso},
+                record_count=0,
+                latency_ms=(time.monotonic() - t_start) * 1000,
+                status="error",
+                error=type(exc).__name__,
+            )
+            raise
 
         latency_ms = (time.monotonic() - t_start) * 1000
 
@@ -186,8 +194,7 @@ class OTXAdapter:
             {"time_range": time_range, "modified_since": since_iso},
             record_count=len(iocs),
             latency_ms=latency_ms,
-            status="partial" if failed else "ok",
-            error=f"failed: {failed}" if failed else None,
+            status="ok",
         )
 
         return FetchResult(
@@ -197,8 +204,8 @@ class OTXAdapter:
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(iocs),
             latency_ms=round(latency_ms, 1),
-            feed_types_fetched=[] if failed else ["subscribed"],
-            partial_failure=failed,
+            feed_types_fetched=["subscribed"],
+            partial_failure=[],
         )
 
     async def _fetch_subscribed(

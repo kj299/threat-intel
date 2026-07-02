@@ -5,6 +5,7 @@ Each test provides a mock response matching what Q-Feeds returns for that
 feed type; the adapter's normaliser must produce valid ioc_network objects.
 """
 
+import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
@@ -157,6 +158,16 @@ class TestQFeedsAdapterFetch:
         result = await adapter.fetch()
         assert "malware_domains" in result.partial_failure
         assert result.record_count > 0  # IP feed still returned
+
+    @pytest.mark.asyncio
+    async def test_total_failure_raises(self, adapter, httpx_mock: HTTPXMock):
+        # Every requested feed type fails -> the adapter must propagate so the
+        # fan-out's retry/circuit-breaker layer can act on it (issue #56).
+        httpx_mock.add_response(url=_API_URL, match_params=_ip_params(), status_code=500)
+        httpx_mock.add_response(url=_API_URL, match_params=_domain_params(), status_code=503)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await adapter.fetch()
 
     @pytest.mark.asyncio
     async def test_cache_avoids_second_request(self, adapter, httpx_mock: HTTPXMock):

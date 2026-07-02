@@ -130,11 +130,15 @@ Secrets must be stored in KV v2 under:
 The default mount point is `secret`. Examples:
 
 ```bash
-vault kv put secret/qfeeds    api_key=<your-qfeeds-key>
-vault kv put secret/abuseipdb api_key=<your-abuseipdb-key>
-vault kv put secret/virustotal api_key=<your-vt-key>
-vault kv put secret/otx       api_key=<your-otx-key>
+vault kv put secret/qfeeds/api_key     api_key=<your-qfeeds-key>
+vault kv put secret/abuseipdb/api_key  api_key=<your-abuseipdb-key>
+vault kv put secret/virustotal/api_key api_key=<your-vt-key>
+vault kv put secret/otx/api_key        api_key=<your-otx-key>
 ```
+
+Note the path is `{adapter}/{key}` and the field inside the secret repeats the
+key name — the provider reads field `api_key` from the secret at
+`secret/data/{adapter}/api_key`.
 
 ### Claude Code MCP config (Vault mode)
 
@@ -197,7 +201,7 @@ paths and a worked GraphQL example.
 Rotate a feed's credential without downtime:
 
 1. **Issue** the new key in the provider's console (most allow two live keys during overlap).
-2. **Store** it: env mode — update the env var and restart the server; Vault mode — `vault kv put secret/<adapter> api_key=<new-key>` (KV v2 keeps the prior version, so rollback is `vault kv rollback`). Multi-field protocol creds rotate the same way, key by key.
+2. **Store** it: env mode — update the env var and restart the server; Vault mode — `vault kv put secret/<adapter>/api_key api_key=<new-key>` (KV v2 keeps the prior version, so rollback is `vault kv rollback -mount=secret <adapter>/api_key`). Multi-field protocol creds rotate the same way, key by key.
 3. **Verify** with `list_available_feeds` (`credential_configured: true`) and a `fetch_all_iocs` call — the rotated source should return `consulted`, not `unverified`.
 4. **Revoke** the old key once traffic is confirmed on the new one.
 
