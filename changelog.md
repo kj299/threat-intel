@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.14.0] - 2026-07-02
+
+### Added
+
+- **Shodan live-feed adapter** in `threat-intel-mcp` (v0.9.0): new `shodan_fetch_iocs` tool queries Shodan's documented search API (`/shodan/host/search`, `category:malware`) for Malware Hunter C2/infrastructure detections and joins the `fetch_all_iocs` fan-out with its own circuit breaker. Detections are crawler heuristics, so IOCs carry `action: alert` and Medium/High confidence; Shodan's naive crawl timestamps are normalised to RFC 3339 so runtime date-time validation holds. Workflow step 2a's tool list and input #9's examples updated across `SKILL.md` and both `standalone/` files (Shodan was already a Tier 3 `[MUST]` matrix source).
+- **Credential-safe HTTP logging**: Shodan authenticates via a `key` query parameter, and httpx logs request URLs at INFO — `audit.py` now installs a redaction filter on the `httpx`/`httpcore` loggers so credential-bearing query strings never reach the log (regression-tested).
+
+### Other
+
+- Recorded Future remains deferred: its API documentation is subscription-gated, and building the adapter without access would mean guessing at response shapes (fabrication).
+- **Version bumped to 1.14.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.13.0] - 2026-07-02
 
 ### Added

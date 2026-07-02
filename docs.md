@@ -164,7 +164,7 @@ The skill can map findings to:
 
 ## Limitations
 
-- Without the optional `threat-intel-mcp` server connected, the AI draws from training data only and results reflect knowledge up to the model's cutoff date. With it connected (skill v1.12.0+), the skill retrieves live IOCs from configured feeds (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX) and cites them as live.
+- Without the optional `threat-intel-mcp` server connected, the AI draws from training data only and results reflect knowledge up to the model's cutoff date. With it connected (skill v1.12.0+), the skill retrieves live IOCs from configured feeds (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan) and cites them as live.
 - Generated IOCs are illustrative examples based on known patterns, not real-time indicators.
 - Detection rules should be tested in a lab environment before production deployment.
 - This skill does not replace professional threat intelligence services or incident response capabilities.

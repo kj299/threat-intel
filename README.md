@@ -105,7 +105,7 @@ threat-intel/
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- docs/
 |   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
-+-- mcp/                                             # threat-intel-mcp server (v0.8.0)
++-- mcp/                                             # threat-intel-mcp server (v0.9.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
@@ -121,6 +121,7 @@ threat-intel/
     |   |   +-- abuseipdb.py                         # AbuseIPDB blacklist adapter (60-min cache)
     |   |   +-- virustotal.py                        # VirusTotal Intelligence adapter (15-min cache)
     |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
+    |   |   +-- shodan.py                            # Shodan Malware Hunter adapter (60-min cache)
     |   +-- transports/
     |   |   +-- base.py                              # ProtocolAdapter: bring-your-own-endpoint base
     |   +-- vault/
@@ -129,7 +130,7 @@ threat-intel/
     |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
     |       +-- factory.py                           # credential_provider_from_env() selector
     |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
-    +-- tests/                                       # 193 unit + httpx-mock integration tests
+    +-- tests/                                       # 214 unit + httpx-mock integration tests
 ```
 
 ---
@@ -188,7 +189,7 @@ Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-t
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.8.0, Phase 4):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, and AlienVault OTX adapters; concurrent fan-out with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
+**Current (v0.9.0, Phase 4):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, and Shodan adapters; concurrent fan-out with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
 
 ```bash
 cd mcp
@@ -198,6 +199,7 @@ export QFEEDS_API_KEY=...
 export ABUSEIPDB_API_KEY=...
 export VT_API_KEY=...
 export OTX_API_KEY=...
+export SHODAN_API_KEY=...
 threat-intel-mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 
@@ -212,14 +214,15 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
         "QFEEDS_API_KEY": "your-qfeeds-key",
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
         "VT_API_KEY": "your-vt-key",
-        "OTX_API_KEY": "your-otx-key"
+        "OTX_API_KEY": "your-otx-key",
+        "SHODAN_API_KEY": "your-shodan-key"
       }
     }
   }
 }
 ```
 
-Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `list_available_feeds`.
+Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `list_available_feeds`.
 
 See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details.
 
@@ -238,7 +241,7 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX) → external feed APIs → normalize.py → FetchResult → report output.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan) → external feed APIs → normalize.py → FetchResult → report output.
 
 ---
 
