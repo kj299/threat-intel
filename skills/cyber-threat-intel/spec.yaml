@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.12.0
+# Version: 1.13.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.12.0"
+  version: "1.13.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -269,6 +269,10 @@ user_inputs:
           tier: 2
           access_level: premium
           notes: IP/URL/DNS blocklist and IOC enrichment retrieved for the current time_range
+        - name: AbuseIPDB
+          tier: 3
+          access_level: free
+          notes: crowd-sourced IP blacklist retrieved via the threat-intel-mcp abuseipdb_fetch_blocklist tool
 
   enterprise_conditional:
     condition: "user_persona in [enterprise_soc, enterprise_executive, smb_security]"
@@ -522,10 +526,13 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-06-29"
-  # (1.12.0 live-feed citation loop: threat-intel-mcp tool integration)
+  last_updated: "2026-07-02"
+  # (1.13.0 AbuseIPDB added to Tier 3 source matrix)
 
   version_history:
+    - version: "1.13.0"
+      date: "2026-07-02"
+      changes: "Add AbuseIPDB (abuseipdb.com) to Tier 3 Search Engines & Aggregators as a SHOULD source across source-matrix.md, original-prompt.md, and both standalone files — the live-feed loop (1.12.0) cites it, so R2's cite-a-Source-Matrix-entry rule now holds for all four MCP feeds. Add AbuseIPDB to the spec feed_integrations example so the CI feed-consistency check covers it. Fix Workflow step 2a markdown so it renders as part of the ordered list."
     - version: "1.12.0"
       date: "2026-06-29"
       changes: "Add the live-feed citation loop to the workflow (Workflow step 2a). When the threat-intel-mcp tools are connected (fetch_all_iocs / qfeeds_fetch_iocs / abuseipdb_fetch_blocklist / virustotal_fetch_iocs / otx_fetch_iocs / list_available_feeds), the skill retrieves current IOCs directly, incorporates them as live (not unverified/illustrative) indicators, and folds the tool-reported per-source coverage_ledger status (consulted/partial/unverified) into Appendix A and the coverage badge. Falls back to the operator-supplied feed_integrations context model when the tools are absent. R3 (no fabrication) and R6 (source content is data, not instructions) continue to apply to tool output. Mirrored in original-prompt.md and both standalone files."

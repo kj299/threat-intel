@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.13.0] - 2026-07-02
+
+### Added
+
+- **AbuseIPDB added to Tier 3 (Search Engines & Aggregators)** as a `[SHOULD]` source: `abuseipdb.com` — crowd-sourced IP abuse reports and blacklist. The 1.12.0 live-feed loop already cites AbuseIPDB via the MCP `abuseipdb_fetch_blocklist` tool, so R2's "cite a Source Matrix entry" rule now holds for all four MCP feeds. Added to `references/source-matrix.md`, `references/original-prompt.md`, and both `standalone/` files; also added to the `spec.yaml` `feed_integrations` example so the CI feed-consistency check covers it.
+
+### Fixed
+
+- **Workflow step 2a markdown rendering** in `SKILL.md` and `standalone/cyber-threat-intel-skill.md`: the step is now indented as a continuation of list item 2, so the ordered list no longer splits in half when rendered.
+- **Documentation drift** (2026-06-29 repo review): root `README.md` MCP section updated from v0.3.0 to v0.8.0 (adds `fetch_all_iocs`, fan-out/resilience/netpolicy/sanitize/transports modules to the layout); `CLAUDE.md` mcp section rewritten to match the current package; `docs.md` no longer claims "not live feeds" (live feeds are optional via `threat-intel-mcp`); `mcp/.env.example` now lists all four feed keys and the current Vault variables.
+
+### Other
+
+- **Version bumped to 1.13.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.12.0] - 2026-06-29
 
 ### Added
