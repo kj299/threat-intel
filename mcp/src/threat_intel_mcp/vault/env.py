@@ -1,6 +1,8 @@
 import logging
 import os
 
+from .base import CredentialNotFoundError
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ class EnvCredentialProvider:
         env_var = f"{adapter_name.upper()}_{key.upper()}"
         value = os.environ.get(env_var)
         if value is None:
-            raise KeyError(
+            raise CredentialNotFoundError(
                 f"Credential not found. Expected environment variable {env_var!r} "
                 f"to be set. Set it with: export {env_var}=<your-key>"
             )

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threat-intel-mcp"
-version = "0.7.0"
+version = "0.8.0"
 description = "MCP server that delivers live threat intelligence feeds to Claude, normalised to the threat-intel skill schema"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,6 +13,7 @@ dependencies = [
     "mcp>=1.0",
     "httpx>=0.27",
     "jsonschema>=4.23",
+    "rfc3339-validator>=0.1",
     "anyio>=4.4",
     "hvac>=2.0",
 ]

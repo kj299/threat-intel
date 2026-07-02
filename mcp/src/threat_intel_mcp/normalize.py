@@ -49,7 +49,11 @@ _IOC_NETWORK_SCHEMA: dict[str, Any] = {
     },
 }
 
-_validator = jsonschema.Draft7Validator(_IOC_NETWORK_SCHEMA)
+# FormatChecker enforces "format": "date-time" on first_seen/last_seen at
+# runtime (requires the rfc3339-validator package, declared in pyproject).
+_validator = jsonschema.Draft7Validator(
+    _IOC_NETWORK_SCHEMA, format_checker=jsonschema.FormatChecker()
+)
 
 
 def validate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -72,19 +76,52 @@ def validate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return valid
 
 
+_CONF_RANK = {"High": 3, "Medium": 2, "Low": 1}
+
+
+def _merge_duplicate(kept: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
+    """Fold a duplicate IOC into the kept copy without losing corroboration.
+
+    Returns a NEW dict — the inputs are often references into adapters'
+    in-process caches, so in-place mutation would corrupt cached results.
+    Tags are unioned, and an independent second source is recorded as a
+    ``corroborated-by:<source>`` tag (two feeds reporting the same indicator
+    is signal, not noise).
+    """
+    merged = {**kept}
+    tags = list(merged.get("tags", []))
+    for tag in other.get("tags", []):
+        if tag not in tags:
+            tags.append(tag)
+    other_source = other.get("source")
+    if other_source and other_source != merged.get("source"):
+        corroboration = f"corroborated-by:{other_source}"
+        if corroboration not in tags:
+            tags.append(corroboration)
+    if tags:
+        merged["tags"] = tags
+    return merged
+
+
 def deduplicate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate by (type, value), keeping the highest-confidence copy."""
-    _conf_rank = {"High": 3, "Medium": 2, "Low": 1}
+    """Deduplicate by (type, value), keeping the highest-confidence copy.
+
+    Duplicates are merged, not discarded: tags are unioned and cross-source
+    duplicates gain a ``corroborated-by:<source>`` tag on the kept copy.
+    """
     seen: dict[tuple[str, str], dict[str, Any]] = {}
     for ioc in iocs:
         key = (ioc["type"], ioc["value"])
         if key not in seen:
             seen[key] = ioc
+            continue
+        existing = seen[key]
+        existing_rank = _CONF_RANK.get(existing.get("confidence", "Low"), 1)
+        new_rank = _CONF_RANK.get(ioc.get("confidence", "Low"), 1)
+        if new_rank > existing_rank:
+            seen[key] = _merge_duplicate(ioc, existing)
         else:
-            existing_rank = _conf_rank.get(seen[key].get("confidence", "Low"), 1)
-            new_rank = _conf_rank.get(ioc.get("confidence", "Low"), 1)
-            if new_rank > existing_rank:
-                seen[key] = ioc
+            seen[key] = _merge_duplicate(existing, ioc)
     return list(seen.values())
 
 

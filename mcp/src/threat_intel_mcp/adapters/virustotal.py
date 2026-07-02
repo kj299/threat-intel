@@ -138,7 +138,7 @@ class VirusTotalAdapter:
         return httpx.AsyncClient(
             headers={
                 "x-apikey": api_key,
-                "User-Agent": "threat-intel-mcp/0.3 (kj299/threat-intel)",
+                "User-Agent": "threat-intel-mcp/0.8 (kj299/threat-intel)",
                 "Accept": "application/json",
             },
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),

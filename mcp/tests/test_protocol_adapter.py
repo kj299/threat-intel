@@ -26,7 +26,7 @@ class FakeGraphQLAdapter(ProtocolAdapter):
         self._records = records
         self.collect_calls = 0
 
-    async def _collect(self, *, time_range, feed_types):
+    async def _collect(self, *, time_range, feed_types, partial_failure):
         self.collect_calls += 1
         return self._records
 
@@ -102,3 +102,17 @@ async def test_drops_into_fanout_unchanged():
     assert result["record_count"] == 1
     assert result["sources_consulted"] == ["FakeGraphQL"]
     assert result["iocs"][0]["value"] == "9.9.9.9"
+
+
+@pytest.mark.asyncio
+async def test_collect_can_report_partial_failure():
+    class PartialAdapter(FakeGraphQLAdapter):
+        async def _collect(self, *, time_range, feed_types, partial_failure):
+            partial_failure.append("topic-b")
+            return self._records
+
+    adapter = PartialAdapter([{"ip": "1.1.1.1", "confidence": "High"}])
+    result = await adapter.fetch(feed_types=["topic-a", "topic-b"])
+    assert result.partial_failure == ["topic-b"]
+    assert result.feed_types_fetched == ["topic-a"]
+    assert result.record_count == 1

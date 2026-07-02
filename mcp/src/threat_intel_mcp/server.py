@@ -88,6 +88,8 @@ def _degraded_tool_result(
         },
         "error": error,
     }
+
+
 _FEED_SOURCES = [
     FeedSource(_qfeeds, 2, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
     FeedSource(_abuseipdb, 3, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
@@ -501,7 +503,7 @@ async def list_available_feeds() -> dict[str, Any]:
             "circuit breakers and merged deduplication; degraded feeds surface as "
             "'unverified' in the returned coverage_ledger."
         ),
-        "phase": "3 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + concurrent fan-out + HashiCorp Vault or env-var credentials)",
+        "phase": "4 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
         "planned": ["Shodan", "Recorded Future"],
     }
 

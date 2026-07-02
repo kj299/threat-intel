@@ -114,3 +114,61 @@ class TestFinalizeIocs:
         out = finalize_iocs(iocs)
         assert len(out) == 1
         assert out[0]["confidence"] == "High"
+
+
+class TestCorroborationDedupe:
+    """Cross-source duplicates preserve corroboration (issue #61)."""
+
+    def _ioc(self, source, confidence="High", tags=None):
+        out = {"type": "IPv4", "value": "1.2.3.4", "confidence": confidence, "source": source}
+        if tags is not None:
+            out["tags"] = tags
+        return out
+
+    def test_cross_source_duplicate_gains_corroboration_tag(self):
+        out = deduplicate_iocs([self._ioc("A", "High"), self._ioc("B", "Low")])
+        assert len(out) == 1
+        assert out[0]["source"] == "A"
+        assert "corroborated-by:B" in out[0]["tags"]
+
+    def test_lower_confidence_first_still_corroborates(self):
+        out = deduplicate_iocs([self._ioc("A", "Low"), self._ioc("B", "High")])
+        assert out[0]["source"] == "B"
+        assert "corroborated-by:A" in out[0]["tags"]
+
+    def test_same_source_duplicate_gets_no_corroboration_tag(self):
+        out = deduplicate_iocs([self._ioc("A"), self._ioc("A")])
+        assert "tags" not in out[0] or not any(
+            t.startswith("corroborated-by:") for t in out[0]["tags"]
+        )
+
+    def test_tags_unioned(self):
+        out = deduplicate_iocs(
+            [self._ioc("A", tags=["x"]), self._ioc("B", "Low", tags=["y", "x"])]
+        )
+        assert out[0]["tags"][:2] == ["x", "y"]
+
+    def test_originals_not_mutated(self):
+        a = self._ioc("A", tags=["x"])
+        b = self._ioc("B", "Low")
+        deduplicate_iocs([a, b])
+        assert a["tags"] == ["x"]        # no corroboration tag leaked into input
+        assert "tags" not in b
+
+
+class TestRuntimeFormatChecking:
+    """date-time format enforced at runtime (issue #61)."""
+
+    def test_invalid_first_seen_rejected(self):
+        bad = {
+            "type": "IPv4", "value": "1.2.3.4", "confidence": "High",
+            "source": "F", "first_seen": "not-a-date",
+        }
+        assert validate_iocs([bad]) == []
+
+    def test_valid_first_seen_accepted(self):
+        good = {
+            "type": "IPv4", "value": "1.2.3.4", "confidence": "High",
+            "source": "F", "first_seen": "2026-01-01T00:00:00+00:00",
+        }
+        assert len(validate_iocs([good])) == 1

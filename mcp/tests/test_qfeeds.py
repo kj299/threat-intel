@@ -184,3 +184,21 @@ class TestQFeedsAdapterFetch:
         result = await adapter.fetch(feed_types=["malware_ip"])
         from datetime import datetime
         datetime.fromisoformat(result.retrieved_at)
+
+
+class TestIpValidation:
+    """Real address parsing (issue #61): no out-of-range octets, no colon junk."""
+
+    def test_out_of_range_octets_skipped(self):
+        assert _normalize_line("999.999.999.999", "malware_ip") is None
+
+    def test_colon_junk_not_classified_as_ipv6(self):
+        assert _normalize_line("foo:bar", "malware_ip") is None
+
+    def test_valid_ipv6_kept(self):
+        out = _normalize_line("2001:db8::1", "malware_ip")
+        assert out is not None and out["type"] == "IPv6"
+
+    def test_valid_ipv4_kept(self):
+        out = _normalize_line("203.0.113.7", "malware_ip")
+        assert out is not None and out["type"] == "IPv4"

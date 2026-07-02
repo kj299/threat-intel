@@ -7,7 +7,7 @@ import logging
 import hvac
 import hvac.exceptions
 
-from .base import CredentialError
+from .base import CredentialError, CredentialNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class VaultCredentialProvider:
             # Let Forbidden propagate so get() can attempt token renewal.
             raise
         except hvac.exceptions.InvalidPath:
-            raise CredentialError(
+            raise CredentialNotFoundError(
                 f"Secret not found at path '{self._mount_point}/data/{path}'. "
                 "Ensure the secret exists in Vault."
             )
@@ -90,7 +90,7 @@ class VaultCredentialProvider:
         try:
             value = response["data"]["data"][key]
         except (KeyError, TypeError):
-            raise CredentialError(
+            raise CredentialNotFoundError(
                 f"Key '{key}' not present in Vault secret at "
                 f"'{self._mount_point}/data/{path}'."
             )

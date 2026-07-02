@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from threat_intel_mcp.vault.base import CredentialError
+from threat_intel_mcp.vault.base import CredentialError, CredentialNotFoundError
 from threat_intel_mcp.vault.protocols import (
     GRPCCredentials,
     GraphQLCredentials,
@@ -28,7 +28,16 @@ class DictCredentials:
         try:
             return self._values[(adapter_name, key)]
         except KeyError:
-            raise CredentialError(f"no such secret {adapter_name}/{key}") from None
+            raise CredentialNotFoundError(
+                f"no such secret {adapter_name}/{key}"
+            ) from None
+
+
+class OutageCredentials:
+    """Provider whose backend is down: every lookup is a failure, not a miss."""
+
+    def get(self, adapter_name: str, key: str) -> str:
+        raise CredentialError("vault sealed / connection refused")
 
 
 # ---------------------------------------------------------------------------
@@ -196,3 +205,30 @@ class TestDispatch:
     def test_unsupported_protocol_raises(self):
         with pytest.raises(CredentialError, match="Unsupported protocol"):
             load_protocol_credentials("smtp", DictCredentials({}), "x")
+
+
+class TestProviderOutage:
+    """A provider failure must propagate — never silently default (issue #58)."""
+
+    def test_outage_propagates_from_optional_field(self):
+        # Required field resolves; the OPTIONAL token lookup hits the outage.
+        # Silently defaulting here would mean unauthenticated feed requests.
+        class MixedOutage:
+            def get(self, adapter_name: str, key: str) -> str:
+                if key == "endpoint":
+                    return "https://e/graphql"
+                raise CredentialError("vault sealed / connection refused")
+
+        with pytest.raises(CredentialError, match="sealed"):
+            GraphQLCredentials.from_provider(MixedOutage(), "g")
+
+    def test_outage_propagates_from_required_field(self):
+        # Must NOT be rewritten into a "missing credential" config message.
+        with pytest.raises(CredentialError, match="sealed"):
+            MQTTCredentials.from_provider(OutageCredentials(), "mq")
+
+    def test_not_found_error_is_both_credential_and_key_error(self):
+        err = CredentialNotFoundError("x")
+        assert isinstance(err, CredentialError)
+        assert isinstance(err, KeyError)
+        assert str(err) == "x"  # KeyError repr-quoting undone
