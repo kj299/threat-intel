@@ -54,6 +54,7 @@ class CircuitBreaker:
     _consecutive_failures: int = field(default=0, init=False)
     _opened_at: float | None = field(default=None, init=False)
     _half_open: bool = field(default=False, init=False)
+    _trial_pending: bool = field(default=False, init=False)
 
     @property
     def state(self) -> str:
@@ -72,12 +73,22 @@ class CircuitBreaker:
             logger.info("circuit %s -> half_open", self.name)
 
     def allow(self) -> bool:
-        """Return True if a call may proceed right now."""
+        """Return True if a call may proceed right now.
+
+        In half-open state exactly one trial call is admitted; further callers
+        are rejected until the trial's outcome is recorded via
+        :meth:`record_success` / :meth:`record_failure`.
+        """
         self._maybe_half_open()
         if self._opened_at is None:
             return True
-        # Open: only the single half-open trial call is allowed through.
-        return self._half_open
+        if not self._half_open:
+            return False
+        # Half-open: admit a single trial call.
+        if self._trial_pending:
+            return False
+        self._trial_pending = True
+        return True
 
     def record_success(self) -> None:
         if self._opened_at is not None or self._consecutive_failures:
@@ -85,9 +96,11 @@ class CircuitBreaker:
         self._consecutive_failures = 0
         self._opened_at = None
         self._half_open = False
+        self._trial_pending = False
 
     def record_failure(self) -> None:
         self._consecutive_failures += 1
+        self._trial_pending = False
         if self._half_open:
             # The half-open trial failed: re-open and restart the cooldown.
             self._opened_at = self.clock()

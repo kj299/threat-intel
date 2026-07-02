@@ -88,7 +88,7 @@ class AbuseIPDBAdapter:
             headers={
                 "Key": api_key,
                 "Accept": "application/json",
-                "User-Agent": "threat-intel-mcp/0.1 (kj299/threat-intel)",
+                "User-Agent": "threat-intel-mcp/0.8 (kj299/threat-intel)",
             },
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
             event_hooks=egress_event_hooks("api.abuseipdb.com"),

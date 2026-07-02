@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
-import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -51,9 +50,6 @@ CACHE_TTL_SECONDS = 1200
 # Q-Feeds paginates at 4,000 records per page.
 PAGE_SIZE = 4000
 
-_IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
-_IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")
-
 
 class QFeedsAdapter:
     """Adapter for Q-Feeds (qfeeds.com) threat intelligence feeds."""
@@ -72,7 +68,7 @@ class QFeedsAdapter:
         return httpx.AsyncClient(
             auth=("api_token", api_key),
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
-            headers={"User-Agent": "threat-intel-mcp/0.1 (kj299/threat-intel)"},
+            headers={"User-Agent": "threat-intel-mcp/0.8 (kj299/threat-intel)"},
             event_hooks=egress_event_hooks("api.qfeeds.com"),
         )
 
@@ -220,13 +216,15 @@ def _normalize_line(line: str, feed_type: str) -> dict[str, Any] | None:
                 logger.debug("Invalid CIDR, skipping: %r", line)
                 return None
             ioc_type = "CIDR_Range"
-        elif ":" in line:
-            ioc_type = "IPv6"
-        elif _IPV4_RE.match(line):
-            ioc_type = "IPv4"
         else:
-            logger.debug("Unrecognised IP-feed line, skipping: %r", line)
-            return None
+            # Real address parsing — rejects out-of-range octets (999.1.1.1)
+            # and colon-containing junk a regex would misclassify as IPv6.
+            try:
+                addr = ipaddress.ip_address(line)
+            except ValueError:
+                logger.debug("Unrecognised IP-feed line, skipping: %r", line)
+                return None
+            ioc_type = "IPv4" if addr.version == 4 else "IPv6"
 
     elif feed_type == "malware_domains":
         if line.startswith(("http://", "https://")):

@@ -83,6 +83,27 @@ class TestCircuitBreaker:
         assert cb.state == "closed"
         assert cb.allow() is True
 
+    def test_half_open_admits_exactly_one_trial(self):
+        clock = FakeClock()
+        cb = CircuitBreaker("x", failure_threshold=1, reset_timeout=10.0, clock=clock)
+        cb.record_failure()
+        clock.advance(11.0)
+        assert cb.allow() is True   # the single trial
+        assert cb.allow() is False  # concurrent caller rejected
+        assert cb.allow() is False
+        cb.record_success()
+        assert cb.allow() is True   # closed again
+
+    def test_half_open_trial_slot_freed_after_failure(self):
+        clock = FakeClock()
+        cb = CircuitBreaker("x", failure_threshold=1, reset_timeout=10.0, clock=clock)
+        cb.record_failure()
+        clock.advance(11.0)
+        assert cb.allow() is True
+        cb.record_failure()          # trial failed -> open, cooldown restarts
+        clock.advance(11.0)
+        assert cb.allow() is True    # next half-open window admits a new trial
+
     def test_half_open_failure_reopens_and_restarts_cooldown(self):
         clock = FakeClock()
         cb = CircuitBreaker("x", failure_threshold=1, reset_timeout=10.0, clock=clock)

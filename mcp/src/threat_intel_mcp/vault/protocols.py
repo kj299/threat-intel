@@ -22,17 +22,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .base import CredentialError, CredentialProvider
+from .base import CredentialError, CredentialNotFoundError, CredentialProvider
 
 _TRUTHY = {"1", "true", "yes", "on"}
 
 
 def _require(provider: CredentialProvider, adapter: str, key: str) -> str:
-    """Fetch a mandatory credential field, normalising the not-found error."""
+    """Fetch a mandatory credential field, normalising the not-found error.
+
+    A definitive not-found gets the friendly "store it here" message; a provider
+    failure (Vault outage, auth error) propagates untouched — it is not a
+    configuration problem and must not be reported as one.
+    """
     try:
         value = provider.get(adapter, key)
-    except (CredentialError, KeyError):
-        raise CredentialError(
+    except (CredentialNotFoundError, KeyError):
+        raise CredentialNotFoundError(
             f"Missing required credential '{key}' for protocol feed '{adapter}'. "
             f"Store it as env {adapter.upper()}_{key.upper()} or Vault "
             f"{adapter}/{key}."
@@ -47,10 +52,15 @@ def _require(provider: CredentialProvider, adapter: str, key: str) -> str:
 def _optional(
     provider: CredentialProvider, adapter: str, key: str, default: str | None = None
 ) -> str | None:
-    """Fetch an optional credential field, returning ``default`` if absent/empty."""
+    """Fetch an optional credential field, returning ``default`` only if absent.
+
+    Only a definitive not-found falls back to the default. A provider *failure*
+    propagates: silently defaulting on a Vault outage would downgrade a feed to
+    unauthenticated/default settings (issue #58).
+    """
     try:
         value = provider.get(adapter, key)
-    except (CredentialError, KeyError):
+    except (CredentialNotFoundError, KeyError):
         return default
     return value or default
 

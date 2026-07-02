@@ -48,13 +48,20 @@ class ProtocolAdapter(ABC):
 
     @abstractmethod
     async def _collect(
-        self, *, time_range: str, feed_types: list[str] | None
+        self,
+        *,
+        time_range: str,
+        feed_types: list[str] | None,
+        partial_failure: list[str],
     ) -> list[Any]:
         """Pull raw records from the upstream transport. Implemented per feed.
 
         Should return a list of raw, un-normalised records (dicts, protobuf
-        messages, decoded frames — whatever the transport yields). Network and
-        auth errors should propagate; the fan-out's circuit breaker handles them.
+        messages, decoded frames — whatever the transport yields). A *total*
+        failure should propagate (the fan-out's retry/circuit breaker handles
+        it); a *partial* one (some sub-feeds/topics failed but records were
+        retrieved) should append the failed sub-feed names to
+        ``partial_failure`` and return what succeeded.
         """
 
     @abstractmethod
@@ -71,7 +78,12 @@ class ProtocolAdapter(ABC):
     ) -> FetchResult:
         """Collect, normalise, validate, and deduplicate into a ``FetchResult``."""
         t0 = time.monotonic()
-        raw_records = await self._collect(time_range=time_range, feed_types=feed_types)
+        partial_failure: list[str] = []
+        raw_records = await self._collect(
+            time_range=time_range,
+            feed_types=feed_types,
+            partial_failure=partial_failure,
+        )
         normalized = [
             ioc
             for raw in raw_records
@@ -80,6 +92,7 @@ class ProtocolAdapter(ABC):
         deduped = finalize_iocs(normalized)
         latency_ms = round((time.monotonic() - t0) * 1000, 1)
 
+        requested = feed_types or ([self.protocol] if self.protocol else [])
         return FetchResult(
             iocs=deduped,
             source=self.name,
@@ -87,6 +100,6 @@ class ProtocolAdapter(ABC):
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(deduped),
             latency_ms=latency_ms,
-            feed_types_fetched=feed_types or ([self.protocol] if self.protocol else []),
-            partial_failure=[],
+            feed_types_fetched=[t for t in requested if t not in partial_failure],
+            partial_failure=partial_failure,
         )
