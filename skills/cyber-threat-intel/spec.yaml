@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.13.0
+# Version: 1.14.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.13.0"
+  version: "1.14.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -527,9 +527,13 @@ execution:
 metadata:
   created: "2026-03-30"
   last_updated: "2026-07-02"
-  # (1.13.0 AbuseIPDB added to Tier 3 source matrix)
+  # (1.14.0 Shodan live-feed tool: shodan_fetch_iocs)
 
   version_history:
+    - version: "1.14.0"
+      date: "2026-07-02"
+      changes: "Shodan joins the live-feed loop: the threat-intel-mcp server now exposes shodan_fetch_iocs (Tier 3, Malware Hunter category:malware detections via the documented search API, action=alert since detections are crawler heuristics). Workflow step 2a's single-feed tool list and input #9's feed examples updated in SKILL.md and both standalone files. Shodan was already a Tier 3 MUST source in the matrix, so no matrix change."
+
     - version: "1.13.0"
       date: "2026-07-02"
       changes: "Add AbuseIPDB (abuseipdb.com) to Tier 3 Search Engines & Aggregators as a SHOULD source across source-matrix.md, original-prompt.md, and both standalone files — the live-feed loop (1.12.0) cites it, so R2's cite-a-Source-Matrix-entry rule now holds for all four MCP feeds. Add AbuseIPDB to the spec feed_integrations example so the CI feed-consistency check covers it. Fix Workflow step 2a markdown so it renders as part of the ordered list."

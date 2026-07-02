@@ -40,6 +40,32 @@ def redact_headers(headers: dict[str, str]) -> dict[str, str]:
     }
 
 
+class _RedactingFilter(logging.Filter):
+    """Redact credential-bearing substrings from third-party log records.
+
+    httpx logs every request at INFO including the full URL — for APIs that
+    authenticate via a query parameter (Shodan's ``key=``), that would write
+    the API key to the server log. This filter rewrites such records in place.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:
+            return True
+        redacted = redact_url(message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
+# Installed at import time: every adapter imports this module, so the HTTP
+# client libraries' request logging is always credential-safe.
+for _logger_name in ("httpx", "httpcore"):
+    logging.getLogger(_logger_name).addFilter(_RedactingFilter())
+
+
 def log_tool_call(
     tool_name: str,
     params: dict[str, Any],
