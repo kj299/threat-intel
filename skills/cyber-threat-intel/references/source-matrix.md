@@ -57,6 +57,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Shodan — shodan.io — exposed services [MUST]
 - Censys — censys.io — attack surface [MUST]
 - VirusTotal — virustotal.com — file/URL intel [SHOULD]
+- AbuseIPDB — abuseipdb.com — crowd-sourced IP abuse reports and blacklist [SHOULD]
 - URLScan.io — urlscan.io [SHOULD]
 - Pulsedive — pulsedive.com [SHOULD]
 - AlienVault OTX — otx.alienvault.com [SHOULD]
