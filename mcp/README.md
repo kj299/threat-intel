@@ -267,20 +267,29 @@ The seven numbered points are the whole recipe; the rest (pagination, caching, r
 8. **Register it.** Add a `{name}_fetch_iocs` tool in `server.py` (copy an existing one — they're identical except for names/tiers), append a `FeedSource(..., CircuitBreaker("Name"), _CONFIG_ERRORS)` to `_FEED_SOURCES` so `fetch_all_iocs` picks it up, and add a `list_available_feeds` entry.
 9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set.
 
-### Where to find each source's API contract
+### API contract for each paid subscription source
 
-Consult the vendor's official reference for the base URL, auth, endpoints, and response shape — do not copy the shapes below from memory, and treat any endpoint you can't confirm in the live docs as unbuilt:
+Base URL and auth below were read from each vendor's **official SDK source** (GitHub/PyPI) — not from memory — so they are safe to build against. The endpoint paths and response shapes still come from the vendor's own API reference: read it (portal in the last column) and treat any endpoint you can't confirm there as unbuilt.
 
-| Source (tier) | Access | Official API documentation |
-|---|---|---|
-| VirusTotal (T2) | Intelligence/Enterprise licence | `docs.virustotal.com` |
-| Recorded Future (T2) | Connect API subscription | `support.recordedfuture.com` → API & Integrations |
-| Mandiant Advantage (T2) | subscription | `docs.mandiant.com` |
-| GreyNoise (T3) | Enterprise / GNQL subscription | `docs.greynoise.io` |
-| Censys (T3) | paid Search/Platform tiers | `docs.censys.com` |
-| Shodan (T3) | membership + query credits | `developer.shodan.io` — **implemented**, see `shodan.py` |
-| AbuseIPDB (T3) | free + paid tiers | `docs.abuseipdb.com` — **implemented**, see `abuseipdb.py` |
-| AlienVault OTX (T2) | free/commercial pulses | `otx.alienvault.com/api` — **implemented**, see `otx.py` |
+| Source (tier) | Access | Base URL | Auth (from official SDK) | Provenance |
+|---|---|---|---|---|
+| Q-Feeds (T2) | subscription | `https://api.qfeeds.com/api` | HTTP Basic (`api_token`:key) | **implemented** — `qfeeds.py` |
+| VirusTotal (T3) | Intelligence/Enterprise licence | `https://www.virustotal.com/api/v3` | header `x-apikey` | **implemented** — `virustotal.py`; SDK `VirusTotal/vt-py` |
+| Shodan (T3) | membership + query credits | `https://api.shodan.io` | `key` query param | **implemented** — `shodan.py`; SDK `achillean/shodan-python` |
+| AbuseIPDB (T3) | free + paid tiers | `https://api.abuseipdb.com/api/v2` | header `Key` | **implemented** — `abuseipdb.py` |
+| AlienVault OTX (T3) | free/commercial pulses | `https://otx.alienvault.com` | header `X-OTX-API-KEY` | **implemented** — `otx.py`; SDK `AlienVault-OTX/OTX-Python-SDK` |
+| GreyNoise (T3) | Enterprise / GNQL subscription | `https://api.greynoise.io` (v2/v3) | header `key` | SDK `GreyNoise-Intelligence/pygreynoise` |
+| Censys (T3) | paid Search/Platform tiers | Search `https://search.censys.io/api/v2`; Platform `https://app.censys.io/api` | HTTP Basic (API ID + secret) | SDK `censys/censys-python` |
+| ONYPHE (T2) | subscription | `https://www.onyphe.io/api/v2` | `apikey` param | SDK `sebdraven/pyonyphe` |
+| BinaryEdge (T2) | subscription | `https://api.binaryedge.io/v2` | header `X-Key` | SDK `Te-k/pybinaryedge` |
+| Intelligence X (T3) | subscription | `https://2.intelx.io` | header `x-key` | SDK `IntelligenceX/SDK` |
+| Intel 471 (T2/T7) | subscription | `https://api.intel471.com/v1` | HTTP Basic / Bearer — confirm in docs | SDK `intel471/titan-client-python` |
+| Any.Run (T9) | subscription | `https://api.any.run/v1` | header `Authorization: API-Key …` (also a TAXII2 STIX feed) | SDK `anyrun/anyrun-sdk` |
+| Hybrid Analysis (T9) | free + paid tiers | `https://www.hybrid-analysis.com/api/v2` | header `api-key` | SDK `PayloadSecurity/VxAPI` |
+
+Sources with **no reachable public SDK** — base URL/auth left blank rather than guessed; read the vendor's docs before building: Recorded Future (`support.recordedfuture.com`), Mandiant / Google TI (`cloud.google.com/security`), CrowdStrike Falcon Intel (`falcon.crowdstrike.com`, OAuth2), SecurityTrails (`docs.securitytrails.com`), Pulsedive (`pulsedive.com/api`), and the Tier-7 dark-web feeds Flashpoint / Cybersixgill / DarkOwl / Kela / SOCRadar / ReliaQuest / ZeroFox / Searchlight.
+
+> The base URLs above were verified by cloning each vendor's official SDK and reading the source; the "no reachable public SDK" list is left deliberately blank because asserting an endpoint you haven't confirmed is the exact fabrication this repo forbids.
 
 For **non-REST** subscription sources (a gRPC feed like Chronicle, an MQTT partner broker, a GraphQL intel endpoint), use the protocol credential bundles and `ProtocolAdapter` base instead — see the next section and [`docs/protocol-adapters.md`](../docs/protocol-adapters.md).
 
