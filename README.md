@@ -224,7 +224,7 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
 
 Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `list_available_feeds`.
 
-See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details.
+See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter) grounded in the VirusTotal Intelligence adapter, with a table of subscription sources and their official API-documentation portals.
 
 ---
 
