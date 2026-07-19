@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.15.0] - 2026-07-19
+
+### Added
+
+- **GreyNoise live-feed adapter** in `threat-intel-mcp` (v0.10.0): new `greynoise_fetch_iocs` tool runs a GNQL `classification:malicious` search against the documented `/v3/gnql` endpoint and returns confirmed-malicious internet scanners/attackers as `ioc_network` IPs (confidence High, action block), joining the `fetch_all_iocs` fan-out with its own circuit breaker. GreyNoise's bare `last_seen` dates are promoted to RFC 3339 datetimes so runtime date-time validation holds; both the nested and flat GNQL record forms are read. Endpoint/response shape verified against the official `pygreynoise` SDK. Workflow step 2a's tool list and input #9's examples updated across `SKILL.md` and both `standalone/` files (GreyNoise was already a Tier 3 `[MUST]` matrix source).
+
+### Other
+
+- **Version bumped to 1.15.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.14.0] - 2026-07-02
 
 ### Added

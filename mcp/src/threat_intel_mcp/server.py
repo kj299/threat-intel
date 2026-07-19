@@ -1,14 +1,14 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
-Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, and Shodan as MCP tools that
+Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, and GreyNoise as MCP tools that
 Claude can call to retrieve live IOCs and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
 Transport: stdio (for use with Claude Code / Claude Desktop).
 Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
-or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY / OTX_API_KEY / SHODAN_API_KEY
-for env-var mode.
+or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
+GREYNOISE_API_KEY for env-var mode.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from mcp.server.fastmcp import FastMCP
 from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.otx import OTXAdapter
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
+from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
 from .audit import log_tool_call
@@ -44,7 +45,7 @@ mcp = FastMCP(
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
-        "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3). "
+        "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3). "
         "Use fetch_all_iocs to query every configured feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
@@ -62,6 +63,7 @@ _abuseipdb = AbuseIPDBAdapter(_credentials)
 _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
+_greynoise = GreyNoiseAdapter(_credentials)
 
 # Fan-out registry: each source carries its own circuit breaker so one flaky
 # feed cannot take down a fetch_all_iocs call. Credential/config errors are
@@ -99,6 +101,7 @@ _FEED_SOURCES = [
     FeedSource(_virustotal, 2, "VirusTotal", CircuitBreaker("VirusTotal"), _CONFIG_ERRORS),
     FeedSource(_otx, 2, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
     FeedSource(_shodan, 3, "Shodan", CircuitBreaker("Shodan"), _CONFIG_ERRORS),
+    FeedSource(_greynoise, 3, "GreyNoise", CircuitBreaker("GreyNoise"), _CONFIG_ERRORS),
 ]
 
 
@@ -461,10 +464,86 @@ async def shodan_fetch_iocs(
 
 
 @mcp.tool()
+async def greynoise_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch GreyNoise malicious-scanner IPs (Tier 3 CTI).
+
+    Runs a GNQL ``classification:malicious`` search and returns the confirmed-
+    malicious internet scanners/attackers as ioc_network objects in the
+    threat-intel output.schema.json shape. De-duplicated and schema-validated
+    before return. GreyNoise's "malicious" is its own high-confidence verdict,
+    so IOCs carry confidence=High and action=block.
+
+    Requires a GreyNoise Enterprise/GNQL subscription. Set GREYNOISE_API_KEY
+    (env-var mode) or the Vault path ``greynoise/api_key``.
+
+    Args:
+        time_range: Lookback window (e.g. "7d"); folded into the GNQL query as a
+            last_seen filter when expressed in days.
+        feed_types: Feed types to fetch. Defaults to all available types.
+            Available: malicious_scanners.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive iocs.
+        2. Pass iocs as context to the skill invocation.
+        3. Set skill_input.feed_integrations = [{"name": "GreyNoise", "tier": 3,
+           "access_level": "enterprise"}] so the Coverage Ledger marks it consulted.
+    """
+    try:
+        result = await _greynoise.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("GreyNoise credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "GreyNoise",
+            3,
+            feed_types or list(GREYNOISE_FEED_TYPES.keys()),
+            "GreyNoise credential not configured. Set GREYNOISE_API_KEY.",
+        )
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("GreyNoise upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "GreyNoise",
+            3,
+            feed_types or list(GREYNOISE_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 3,
+            "source": "GreyNoise",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
 
-    Queries Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, and Shodan at the same time,
+    Queries Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, and GreyNoise at the same time,
     schema-validates and deduplicates each source, then merges everything into a
     single deduplicated ioc_network array (cross-source duplicates collapse to the
     highest-confidence copy). Each source is guarded by its own circuit breaker and
@@ -472,7 +551,7 @@ async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     Coverage-Ledger entry instead of failing the whole call.
 
     Prefer this over calling each feed tool serially: a typical report touches all
-    five feeds, and concurrent fan-out keeps total latency near the slowest single
+    six feeds, and concurrent fan-out keeps total latency near the slowest single
     feed rather than the sum.
 
     Args:
@@ -545,6 +624,12 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         shodan_cred_ok = False
 
+    greynoise_cred_ok = True
+    try:
+        _credentials.get("greynoise", "api_key")
+    except (KeyError, CredentialError):
+        greynoise_cred_ok = False
+
     return {
         "feeds": [
             {
@@ -592,6 +677,15 @@ async def list_available_feeds() -> dict[str, Any]:
                 "credential_configured": shodan_cred_ok,
                 "tool": "shodan_fetch_iocs",
             },
+            {
+                "name": "GreyNoise",
+                "tier": 3,
+                "domain": "greynoise.io",
+                "description": "GNQL classification:malicious — confirmed-malicious internet scanners/attackers",
+                "feed_types": list(GREYNOISE_FEED_TYPES.keys()),
+                "credential_configured": greynoise_cred_ok,
+                "tool": "greynoise_fetch_iocs",
+            },
         ],
         "aggregate_tool": "fetch_all_iocs",
         "aggregate_description": (
@@ -599,7 +693,7 @@ async def list_available_feeds() -> dict[str, Any]:
             "circuit breakers and merged deduplication; degraded feeds surface as "
             "'unverified' in the returned coverage_ledger."
         ),
-        "phase": "4 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + Shodan + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
+        "phase": "4 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + Shodan + GreyNoise + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 
