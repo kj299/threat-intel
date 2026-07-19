@@ -14,7 +14,7 @@ Claude Code
   │  MCP tool calls: fetch_all_iocs            (all feeds at once)
   │                  qfeeds_fetch_iocs         (single feed)
   │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
-  │                  otx_fetch_iocs / shodan_fetch_iocs
+  │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
@@ -45,6 +45,7 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | MCP tool: `virustotal_fetch_iocs` | ✅ Phase 3 |
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
 | Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
@@ -73,6 +74,7 @@ cp .env.example .env
 #   VT_API_KEY          — https://www.virustotal.com/gui/user/apikey
 #   OTX_API_KEY         — https://otx.alienvault.com/settings (API Integration)
 #   SHODAN_API_KEY      — https://account.shodan.io (membership plan with query credits)
+#   GREYNOISE_API_KEY   — https://viz.greynoise.io/account/ (Enterprise / GNQL plan)
 export $(grep -v '^#' .env | xargs)
 ```
 
@@ -98,7 +100,8 @@ Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
         "VT_API_KEY": "your-virustotal-key",
         "OTX_API_KEY": "your-otx-key",
-        "SHODAN_API_KEY": "your-shodan-key"
+        "SHODAN_API_KEY": "your-shodan-key",
+        "GREYNOISE_API_KEY": "your-greynoise-key"
       }
     }
   }
@@ -139,6 +142,7 @@ vault kv put secret/abuseipdb/api_key  api_key=<your-abuseipdb-key>
 vault kv put secret/virustotal/api_key api_key=<your-vt-key>
 vault kv put secret/otx/api_key        api_key=<your-otx-key>
 vault kv put secret/shodan/api_key     api_key=<your-shodan-key>
+vault kv put secret/greynoise/api_key  api_key=<your-greynoise-key>
 ```
 
 Note the path is `{adapter}/{key}` and the field inside the secret repeats the
@@ -173,7 +177,8 @@ feed_integrations: [
   {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
   {"name": "VirusTotal",    "tier": 2, "access_level": "intelligence"},
   {"name": "AlienVault OTX","tier": 2, "access_level": "community"},
-  {"name": "Shodan",        "tier": 3, "access_level": "membership"}
+  {"name": "Shodan",        "tier": 3, "access_level": "membership"},
+  {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"}
 ]
 ```
 
@@ -278,7 +283,7 @@ Base URL and auth below were read from each vendor's **official SDK source** (Gi
 | Shodan (T3) | membership + query credits | `https://api.shodan.io` | `key` query param | **implemented** — `shodan.py`; SDK `achillean/shodan-python` |
 | AbuseIPDB (T3) | free + paid tiers | `https://api.abuseipdb.com/api/v2` | header `Key` | **implemented** — `abuseipdb.py` |
 | AlienVault OTX (T3) | free/commercial pulses | `https://otx.alienvault.com` | header `X-OTX-API-KEY` | **implemented** — `otx.py`; SDK `AlienVault-OTX/OTX-Python-SDK` |
-| GreyNoise (T3) | Enterprise / GNQL subscription | `https://api.greynoise.io` (v2/v3) | header `key` | SDK `GreyNoise-Intelligence/pygreynoise` |
+| GreyNoise (T3) | Enterprise / GNQL subscription | `https://api.greynoise.io/v3/gnql` | header `key` | **implemented** — `greynoise.py`; SDK `pygreynoise` |
 | Censys (T3) | paid Search/Platform tiers | Search `https://search.censys.io/api/v2`; Platform `https://app.censys.io/api` | HTTP Basic (API ID + secret) | SDK `censys/censys-python` |
 | ONYPHE (T2) | subscription | `https://www.onyphe.io/api/v2` | `apikey` param | SDK `sebdraven/pyonyphe` |
 | BinaryEdge (T2) | subscription | `https://api.binaryedge.io/v2` | header `X-Key` | SDK `Te-k/pybinaryedge` |
@@ -346,7 +351,8 @@ src/threat_intel_mcp/
 │   ├── abuseipdb.py       AbuseIPDB blacklist adapter (60-min cache)
 │   ├── virustotal.py      VirusTotal Intelligence adapter (15-min cache, 15s rate limit)
 │   ├── otx.py             AlienVault OTX subscribed-pulses adapter (60-min cache)
-│   └── shodan.py          Shodan Malware Hunter adapter (key param log-redacted, 60-min cache)
+│   ├── shodan.py          Shodan Malware Hunter adapter (key param log-redacted, 60-min cache)
+│   └── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
 ├── fanout.py              fetch_all_iocs: concurrent multi-source merge + dedup
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
@@ -359,6 +365,7 @@ tests/
 ├── test_virustotal.py     VirusTotal adapter tests
 ├── test_otx.py            OTX adapter tests
 ├── test_shodan.py         Shodan adapter tests (incl. key-never-logged regression)
+├── test_greynoise.py      GreyNoise adapter tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_sanitize.py       Feed-data sanitization tests
