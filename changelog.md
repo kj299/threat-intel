@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.16.0] - 2026-07-19
+
+### Added
+
+- **Three SDK-verified live-feed adapters** in `threat-intel-mcp` (v0.11.0), each with endpoint + response shape verified against the vendor's official SDK before building:
+  - **ANY.RUN** (`anyrun_fetch_iocs`, Tier 9): TAXII 2.1 STIX feed (`/v1/feeds/taxii2/api1/collections/{ip|domain|url}/objects`); a shared `stix_patterns` helper extracts network IOCs from STIX `[ipv4-addr:value = '…']`-style patterns. action=block.
+  - **Intel 471** (`intel471_fetch_iocs`, Tier 2): Titan malware indicators stream (`/v1/indicators/stream`, HTTP Basic email:key, cursor pagination); maps IP + URL indicators (file hashes are ioc_host, skipped). action=block.
+  - **Censys** (`censys_fetch_iocs`, Tier 3): Search v2 hosts labelled malware/C2 (`/api/v2/hosts/search?q=labels:malware`, HTTP Basic id:secret); attack-surface observations, so action=alert (Shodan precedent).
+  - All join the `fetch_all_iocs` fan-out (now 9 feeds) with their own circuit breakers. Workflow step 2a + input #9 examples updated in `SKILL.md` and both standalone files; no matrix change (all three were already named sources).
+
+### Other
+
+- **Version bumped to 1.16.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.15.0] - 2026-07-19
 
 ### Added

@@ -1,6 +1,7 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
-Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, and GreyNoise as MCP tools that
+Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
+Intel 471, and Censys as MCP tools that
 Claude can call to retrieve live IOCs and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
@@ -8,7 +9,8 @@ Transport: stdio (for use with Claude Code / Claude Desktop).
 Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
 or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
-GREYNOISE_API_KEY for env-var mode.
+GREYNOISE_API_KEY / ANYRUN_API_KEY / INTEL471_EMAIL + INTEL471_API_KEY /
+CENSYS_API_ID + CENSYS_API_SECRET for env-var mode.
 """
 
 from __future__ import annotations
@@ -23,7 +25,10 @@ from mcp.server.fastmcp import FastMCP
 from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.otx import OTXAdapter
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
+from .adapters.anyrun import AnyRunAdapter, FEED_TYPES as ANYRUN_FEED_TYPES
+from .adapters.censys import CensysAdapter, FEED_TYPES as CENSYS_FEED_TYPES
 from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
+from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
 from .audit import log_tool_call
@@ -45,7 +50,8 @@ mcp = FastMCP(
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
-        "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3). "
+        "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
+        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3). "
         "Use fetch_all_iocs to query every configured feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
@@ -64,6 +70,9 @@ _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
+_anyrun = AnyRunAdapter(_credentials)
+_intel471 = Intel471Adapter(_credentials)
+_censys = CensysAdapter(_credentials)
 
 # Fan-out registry: each source carries its own circuit breaker so one flaky
 # feed cannot take down a fetch_all_iocs call. Credential/config errors are
@@ -102,6 +111,9 @@ _FEED_SOURCES = [
     FeedSource(_otx, 2, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
     FeedSource(_shodan, 3, "Shodan", CircuitBreaker("Shodan"), _CONFIG_ERRORS),
     FeedSource(_greynoise, 3, "GreyNoise", CircuitBreaker("GreyNoise"), _CONFIG_ERRORS),
+    FeedSource(_anyrun, 9, "ANY.RUN", CircuitBreaker("ANY.RUN"), _CONFIG_ERRORS),
+    FeedSource(_intel471, 2, "Intel 471", CircuitBreaker("Intel 471"), _CONFIG_ERRORS),
+    FeedSource(_censys, 3, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
 ]
 
 
@@ -540,18 +552,169 @@ async def greynoise_fetch_iocs(
 
 
 @mcp.tool()
+async def anyrun_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch ANY.RUN TAXII/STIX malicious network indicators (Tier 9 CTI).
+
+    Returns ioc_network objects in the threat-intel output.schema.json shape,
+    de-duplicated and schema-validated before return.
+    Requires an ANY.RUN TI subscription. Set ANYRUN_API_KEY (the full
+    Authorization value). Feed types: ip, domain, url.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _anyrun.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("ANY.RUN credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "ANY.RUN", 9, feed_types or list(ANYRUN_FEED_TYPES.keys()),
+            "ANY.RUN credential not configured. Set ANYRUN_API_KEY.",
+        )
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.warning("ANY.RUN upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "ANY.RUN", 9, feed_types or list(ANYRUN_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {"tier": 9, "source": "ANY.RUN", "status": status},
+    }
+
+
+@mcp.tool()
+async def intel471_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch Intel 471 malware network indicators (Tier 2 CTI).
+
+    Returns ioc_network objects in the threat-intel output.schema.json shape,
+    de-duplicated and schema-validated before return.
+    Requires an Intel 471 subscription. Set INTEL471_EMAIL + INTEL471_API_KEY
+    (HTTP Basic). Maps IP and URL indicators; file hashes are skipped.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _intel471.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("Intel 471 credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Intel 471", 2, feed_types or list(INTEL471_FEED_TYPES.keys()),
+            "Intel 471 credentials not configured. Set INTEL471_EMAIL and INTEL471_API_KEY.",
+        )
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.warning("Intel 471 upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Intel 471", 2, feed_types or list(INTEL471_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {"tier": 2, "source": "Intel 471", "status": status},
+    }
+
+
+@mcp.tool()
+async def censys_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch Censys malware/C2-labelled infrastructure hosts (Tier 3 CTI).
+
+    Returns ioc_network objects in the threat-intel output.schema.json shape,
+    de-duplicated and schema-validated before return.
+    Requires a Censys subscription. Set CENSYS_API_ID + CENSYS_API_SECRET.
+    Detections are attack-surface observations, so IOCs carry action=alert.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _censys.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        logger.warning("Censys credential error: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Censys", 3, feed_types or list(CENSYS_FEED_TYPES.keys()),
+            "Censys credentials not configured. Set CENSYS_API_ID and CENSYS_API_SECRET.",
+        )
+    except ValueError:
+        raise
+    except Exception as exc:
+        logger.warning("Censys upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Censys", 3, feed_types or list(CENSYS_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {"tier": 3, "source": "Censys", "status": status},
+    }
+
+
+@mcp.tool()
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
 
-    Queries Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, and GreyNoise at the same time,
+    Queries all configured feeds (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX,
+    Shodan, GreyNoise, ANY.RUN, Intel 471, Censys) at the same time,
     schema-validates and deduplicates each source, then merges everything into a
     single deduplicated ioc_network array (cross-source duplicates collapse to the
     highest-confidence copy). Each source is guarded by its own circuit breaker and
     bounded backoff retry, so one slow or failing feed degrades to an "unverified"
     Coverage-Ledger entry instead of failing the whole call.
 
-    Prefer this over calling each feed tool serially: a typical report touches all
-    six feeds, and concurrent fan-out keeps total latency near the slowest single
+    Prefer this over calling each feed tool serially: a typical report touches
+    many feeds, and concurrent fan-out keeps total latency near the slowest single
     feed rather than the sum.
 
     Args:
@@ -630,6 +793,26 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         greynoise_cred_ok = False
 
+    anyrun_cred_ok = True
+    try:
+        _credentials.get("anyrun", "api_key")
+    except (KeyError, CredentialError):
+        anyrun_cred_ok = False
+
+    intel471_cred_ok = True
+    try:
+        _credentials.get("intel471", "email")
+        _credentials.get("intel471", "api_key")
+    except (KeyError, CredentialError):
+        intel471_cred_ok = False
+
+    censys_cred_ok = True
+    try:
+        _credentials.get("censys", "api_id")
+        _credentials.get("censys", "api_secret")
+    except (KeyError, CredentialError):
+        censys_cred_ok = False
+
     return {
         "feeds": [
             {
@@ -686,6 +869,33 @@ async def list_available_feeds() -> dict[str, Any]:
                 "credential_configured": greynoise_cred_ok,
                 "tool": "greynoise_fetch_iocs",
             },
+            {
+                "name": "ANY.RUN",
+                "tier": 9,
+                "domain": "any.run",
+                "description": "TAXII 2.1 STIX feed of sandbox-derived malicious IPs, domains, and URLs",
+                "feed_types": list(ANYRUN_FEED_TYPES.keys()),
+                "credential_configured": anyrun_cred_ok,
+                "tool": "anyrun_fetch_iocs",
+            },
+            {
+                "name": "Intel 471",
+                "tier": 2,
+                "domain": "intel471.com",
+                "description": "Titan malware indicators stream (IP + URL network indicators)",
+                "feed_types": list(INTEL471_FEED_TYPES.keys()),
+                "credential_configured": intel471_cred_ok,
+                "tool": "intel471_fetch_iocs",
+            },
+            {
+                "name": "Censys",
+                "tier": 3,
+                "domain": "censys.io",
+                "description": "Search v2 hosts labelled malware/C2 (attack-surface observations, action=alert)",
+                "feed_types": list(CENSYS_FEED_TYPES.keys()),
+                "credential_configured": censys_cred_ok,
+                "tool": "censys_fetch_iocs",
+            },
         ],
         "aggregate_tool": "fetch_all_iocs",
         "aggregate_description": (
@@ -693,7 +903,7 @@ async def list_available_feeds() -> dict[str, Any]:
             "circuit breakers and merged deduplication; degraded feeds surface as "
             "'unverified' in the returned coverage_ledger."
         ),
-        "phase": "4 (Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + Shodan + GreyNoise + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
+        "phase": "4 (9 feeds: Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + Shodan + GreyNoise + ANY.RUN + Intel 471 + Censys + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 

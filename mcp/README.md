@@ -14,7 +14,8 @@ Claude Code
   │  MCP tool calls: fetch_all_iocs            (all feeds at once)
   │                  qfeeds_fetch_iocs         (single feed)
   │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
-  │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs
+  │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs /
+  │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
@@ -46,6 +47,9 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
 | Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
@@ -75,6 +79,9 @@ cp .env.example .env
 #   OTX_API_KEY         — https://otx.alienvault.com/settings (API Integration)
 #   SHODAN_API_KEY      — https://account.shodan.io (membership plan with query credits)
 #   GREYNOISE_API_KEY   — https://viz.greynoise.io/account/ (Enterprise / GNQL plan)
+#   ANYRUN_API_KEY      — https://app.any.run (TI subscription; full Authorization value)
+#   INTEL471_EMAIL + INTEL471_API_KEY — https://portal.intel471.com/api
+#   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 export $(grep -v '^#' .env | xargs)
 ```
 
@@ -101,7 +108,12 @@ Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp
         "VT_API_KEY": "your-virustotal-key",
         "OTX_API_KEY": "your-otx-key",
         "SHODAN_API_KEY": "your-shodan-key",
-        "GREYNOISE_API_KEY": "your-greynoise-key"
+        "GREYNOISE_API_KEY": "your-greynoise-key",
+        "ANYRUN_API_KEY": "API-Key your-anyrun-token",
+        "INTEL471_EMAIL": "you@example.com",
+        "INTEL471_API_KEY": "your-intel471-key",
+        "CENSYS_API_ID": "your-censys-id",
+        "CENSYS_API_SECRET": "your-censys-secret"
       }
     }
   }
@@ -143,6 +155,11 @@ vault kv put secret/virustotal/api_key api_key=<your-vt-key>
 vault kv put secret/otx/api_key        api_key=<your-otx-key>
 vault kv put secret/shodan/api_key     api_key=<your-shodan-key>
 vault kv put secret/greynoise/api_key  api_key=<your-greynoise-key>
+vault kv put secret/anyrun/api_key     api_key=<your-anyrun-authorization>
+vault kv put secret/intel471/email     api_key=<you@example.com>
+vault kv put secret/intel471/api_key   api_key=<your-intel471-key>
+vault kv put secret/censys/api_id      api_key=<your-censys-id>
+vault kv put secret/censys/api_secret  api_key=<your-censys-secret>
 ```
 
 Note the path is `{adapter}/{key}` and the field inside the secret repeats the
@@ -178,7 +195,10 @@ feed_integrations: [
   {"name": "VirusTotal",    "tier": 2, "access_level": "intelligence"},
   {"name": "AlienVault OTX","tier": 2, "access_level": "community"},
   {"name": "Shodan",        "tier": 3, "access_level": "membership"},
-  {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"}
+  {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"},
+  {"name": "ANY.RUN",       "tier": 9, "access_level": "ti"},
+  {"name": "Intel 471",     "tier": 2, "access_level": "titan"},
+  {"name": "Censys",        "tier": 3, "access_level": "search"}
 ]
 ```
 
@@ -284,12 +304,12 @@ Base URL and auth below were read from each vendor's **official SDK source** (Gi
 | AbuseIPDB (T3) | free + paid tiers | `https://api.abuseipdb.com/api/v2` | header `Key` | **implemented** — `abuseipdb.py` |
 | AlienVault OTX (T3) | free/commercial pulses | `https://otx.alienvault.com` | header `X-OTX-API-KEY` | **implemented** — `otx.py`; SDK `AlienVault-OTX/OTX-Python-SDK` |
 | GreyNoise (T3) | Enterprise / GNQL subscription | `https://api.greynoise.io/v3/gnql` | header `key` | **implemented** — `greynoise.py`; SDK `pygreynoise` |
-| Censys (T3) | paid Search/Platform tiers | Search `https://search.censys.io/api/v2`; Platform `https://app.censys.io/api` | HTTP Basic (API ID + secret) | SDK `censys/censys-python` |
+| Censys (T3) | paid Search/Platform tiers | `https://search.censys.io/api/v2/hosts/search` | HTTP Basic (API ID + secret) | **implemented** — `censys.py` |
 | ONYPHE (T2) | subscription | `https://www.onyphe.io/api/v2` | `apikey` param | SDK `sebdraven/pyonyphe` |
 | BinaryEdge (T2) | subscription | `https://api.binaryedge.io/v2` | header `X-Key` | SDK `Te-k/pybinaryedge` |
 | Intelligence X (T3) | subscription | `https://2.intelx.io` | header `x-key` | SDK `IntelligenceX/SDK` |
-| Intel 471 (T2/T7) | subscription | `https://api.intel471.com/v1` | HTTP Basic / Bearer — confirm in docs | SDK `intel471/titan-client-python` |
-| Any.Run (T9) | subscription | `https://api.any.run/v1` | header `Authorization: API-Key …` (also a TAXII2 STIX feed) | SDK `anyrun/anyrun-sdk` |
+| Intel 471 (T2/T7) | subscription | `https://api.intel471.com/v1/indicators/stream` | HTTP Basic (email + key) | **implemented** — `intel471.py` |
+| Any.Run (T9) | subscription | `https://api.any.run/v1/feeds/taxii2/...` | header `Authorization` | **implemented** — `anyrun.py` |
 | Hybrid Analysis (T9) | free + paid tiers | `https://www.hybrid-analysis.com/api/v2` | header `api-key` | SDK `PayloadSecurity/VxAPI` |
 
 Sources with **no reachable public SDK** — base URL/auth left blank rather than guessed; read the vendor's docs before building: Recorded Future (`support.recordedfuture.com`), Mandiant / Google TI (`cloud.google.com/security`), CrowdStrike Falcon Intel (`falcon.crowdstrike.com`, OAuth2), SecurityTrails (`docs.securitytrails.com`), Pulsedive (`pulsedive.com/api`), and the Tier-7 dark-web feeds Flashpoint / Cybersixgill / DarkOwl / Kela / SOCRadar / ReliaQuest / ZeroFox / Searchlight.
@@ -352,7 +372,10 @@ src/threat_intel_mcp/
 │   ├── virustotal.py      VirusTotal Intelligence adapter (15-min cache, 15s rate limit)
 │   ├── otx.py             AlienVault OTX subscribed-pulses adapter (60-min cache)
 │   ├── shodan.py          Shodan Malware Hunter adapter (key param log-redacted, 60-min cache)
-│   └── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
+│   ├── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
+│   ├── anyrun.py          ANY.RUN TAXII 2.1 STIX feed adapter (60-min cache)
+│   ├── intel471.py        Intel 471 Titan indicators-stream adapter (60-min cache)
+│   └── censys.py          Censys Search v2 hosts adapter (60-min cache)
 ├── fanout.py              fetch_all_iocs: concurrent multi-source merge + dedup
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
@@ -366,6 +389,10 @@ tests/
 ├── test_otx.py            OTX adapter tests
 ├── test_shodan.py         Shodan adapter tests (incl. key-never-logged regression)
 ├── test_greynoise.py      GreyNoise adapter tests
+├── test_anyrun.py         ANY.RUN adapter tests
+├── test_intel471.py       Intel 471 adapter tests
+├── test_censys.py         Censys adapter tests
+├── test_stix_patterns.py  STIX pattern extractor tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_sanitize.py       Feed-data sanitization tests
