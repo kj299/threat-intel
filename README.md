@@ -105,7 +105,7 @@ threat-intel/
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- docs/
 |   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
-+-- mcp/                                             # threat-intel-mcp server (v0.10.0)
++-- mcp/                                             # threat-intel-mcp server (v0.11.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
@@ -123,6 +123,9 @@ threat-intel/
     |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
     |   |   +-- shodan.py                            # Shodan Malware Hunter adapter (60-min cache)
     |   |   +-- greynoise.py                         # GreyNoise GNQL malicious-scanner adapter (60-min cache)
+    |   |   +-- anyrun.py                            # ANY.RUN TAXII 2.1 STIX feed adapter
+    |   |   +-- intel471.py                          # Intel 471 Titan indicators-stream adapter
+    |   |   +-- censys.py                            # Censys Search v2 hosts adapter
     |   +-- transports/
     |   |   +-- base.py                              # ProtocolAdapter: bring-your-own-endpoint base
     |   +-- vault/
@@ -131,7 +134,7 @@ threat-intel/
     |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
     |       +-- factory.py                           # credential_provider_from_env() selector
     |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
-    +-- tests/                                       # 232 unit + httpx-mock integration tests
+    +-- tests/                                       # 265 unit + httpx-mock integration tests
 ```
 
 ---
@@ -190,7 +193,7 @@ Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-t
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.10.0, Phase 4):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, and GreyNoise adapters; concurrent fan-out with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
+**Current (v0.11.0, Phase 4):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, and Censys adapters; concurrent fan-out with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
 
 ```bash
 cd mcp
@@ -202,6 +205,7 @@ export VT_API_KEY=...
 export OTX_API_KEY=...
 export SHODAN_API_KEY=...
 export GREYNOISE_API_KEY=...
+export ANYRUN_API_KEY=... INTEL471_EMAIL=... INTEL471_API_KEY=... CENSYS_API_ID=... CENSYS_API_SECRET=...
 threat-intel-mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 
@@ -218,14 +222,17 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
         "VT_API_KEY": "your-vt-key",
         "OTX_API_KEY": "your-otx-key",
         "SHODAN_API_KEY": "your-shodan-key",
-        "GREYNOISE_API_KEY": "your-greynoise-key"
+        "GREYNOISE_API_KEY": "your-greynoise-key",
+        "ANYRUN_API_KEY": "API-Key your-anyrun-token",
+        "INTEL471_EMAIL": "you@example.com", "INTEL471_API_KEY": "your-intel471-key",
+        "CENSYS_API_ID": "your-censys-id", "CENSYS_API_SECRET": "your-censys-secret"
       }
     }
   }
 }
 ```
 
-Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `list_available_feeds`.
+Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `list_available_feeds`.
 
 See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter) grounded in the VirusTotal Intelligence adapter, with a table of subscription sources and their official API-documentation portals.
 

@@ -27,13 +27,13 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `tests/invalid/` -- negative schema fixtures (must be rejected)
 - `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures; second job runs `mcp/` pytest suite + ruff lint
 - `mcp/` -- `threat-intel-mcp` MCP server (stdio transport); runtime counterpart to the prompt skill
-  - `mcp/src/threat_intel_mcp/adapters/` -- live feed adapters: Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise (each with in-process cache + egress allowlist)
+  - `mcp/src/threat_intel_mcp/adapters/` -- live feed adapters: Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN (TAXII/STIX), Intel 471, Censys (each with in-process cache + egress allowlist)
   - `mcp/src/threat_intel_mcp/fanout.py` + `resilience.py` -- `fetch_all_iocs` concurrent fan-out; per-source circuit breaker + backoff retry
   - `mcp/src/threat_intel_mcp/normalize.py` + `sanitize.py` -- `finalize_iocs` = sanitize -> validate (ioc_network schema, runtime date-time checking) -> dedupe (corroboration-preserving)
   - `mcp/src/threat_intel_mcp/vault/` -- credential providers: `EnvCredentialProvider` (dev) and `VaultCredentialProvider` (HashiCorp AppRole + KV v2); `protocols.py` = typed gRPC/MQTT/WebSocket/GraphQL credential bundles
   - `mcp/src/threat_intel_mcp/transports/` -- `ProtocolAdapter` bring-your-own-endpoint base (no live protocol feed ships; see docs/protocol-adapters.md)
-  - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs`, six single-feed tools, `list_available_feeds`
-  - `mcp/tests/` -- 232 unit + httpx-mock integration tests (no live network)
+  - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs`, nine single-feed tools, `list_available_feeds`
+  - `mcp/tests/` -- 265 unit + httpx-mock integration tests (no live network)
 
 Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
 
