@@ -33,7 +33,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `mcp/src/threat_intel_mcp/vault/` -- credential providers: `EnvCredentialProvider` (dev) and `VaultCredentialProvider` (HashiCorp AppRole + KV v2); `protocols.py` = typed gRPC/MQTT/WebSocket/GraphQL credential bundles
   - `mcp/src/threat_intel_mcp/transports/` -- `ProtocolAdapter` bring-your-own-endpoint base (no live protocol feed ships; see docs/protocol-adapters.md)
   - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs`, nine single-feed tools, `list_available_feeds`
-  - `mcp/tests/` -- 284 unit + httpx-mock integration tests (no live network)
+  - `mcp/tests/` -- 312 unit + httpx-mock integration tests (no live network)
 
 Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
 
