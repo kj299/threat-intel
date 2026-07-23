@@ -8,7 +8,7 @@ reports using the threat-intel skill (kj299/threat-intel).
 Transport: stdio (for use with Claude Code / Claude Desktop).
 Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
-or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VT_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
+or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VIRUSTOTAL_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
 GREYNOISE_API_KEY / ANYRUN_API_KEY / INTEL471_EMAIL + INTEL471_API_KEY /
 CENSYS_API_ID + CENSYS_API_SECRET for env-var mode.
 """
@@ -263,7 +263,7 @@ async def virustotal_fetch_iocs(
     ready to incorporate into a threat intelligence report. De-duplicated and
     schema-validated before return.
 
-    Requires a VirusTotal Intelligence subscription. Set VT_API_KEY (env-var mode)
+    Requires a VirusTotal Intelligence subscription. Set VIRUSTOTAL_API_KEY (env-var mode)
     or configure the HashiCorp Vault path ``virustotal/api_key``.
 
     Args:
@@ -291,7 +291,7 @@ async def virustotal_fetch_iocs(
             "VirusTotal",
             2,
             feed_types or list(VT_FEED_TYPES.keys()),
-            "VT_API_KEY credential not configured",
+            "VIRUSTOTAL_API_KEY credential not configured",
         )
     except ValueError:
         raise  # invalid feed_types — a caller error worth surfacing verbatim

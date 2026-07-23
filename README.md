@@ -134,7 +134,7 @@ threat-intel/
     |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
     |       +-- factory.py                           # credential_provider_from_env() selector
     |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
-    +-- tests/                                       # 265 unit + httpx-mock integration tests
+    +-- tests/                                       # 284 unit + httpx-mock integration tests
 ```
 
 ---
@@ -201,7 +201,7 @@ pip install -e .
 # Set whichever API keys you have:
 export QFEEDS_API_KEY=...
 export ABUSEIPDB_API_KEY=...
-export VT_API_KEY=...
+export VIRUSTOTAL_API_KEY=...
 export OTX_API_KEY=...
 export SHODAN_API_KEY=...
 export GREYNOISE_API_KEY=...
@@ -219,7 +219,7 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
       "env": {
         "QFEEDS_API_KEY": "your-qfeeds-key",
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
-        "VT_API_KEY": "your-vt-key",
+        "VIRUSTOTAL_API_KEY": "your-vt-key",
         "OTX_API_KEY": "your-otx-key",
         "SHODAN_API_KEY": "your-shodan-key",
         "GREYNOISE_API_KEY": "your-greynoise-key",

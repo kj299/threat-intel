@@ -6,7 +6,7 @@ from kj299/threat-intel.
 
 Authentication: HTTP header ``x-apikey: <api_key>``.
 Credentials are sourced exclusively from the injected CredentialProvider via
-``credentials.get("virustotal", "api_key")`` → env var ``VT_API_KEY``.
+``credentials.get("virustotal", "api_key")`` → env var ``VIRUSTOTAL_API_KEY``.
 
 API characteristics (VirusTotal Intelligence, as of 2026):
   - Endpoint: ``GET /api/v3/feeds/{feed_type}?cursor=initial&limit=40``

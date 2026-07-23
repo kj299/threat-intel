@@ -75,7 +75,7 @@ cp .env.example .env
 # Edit .env and set the keys you have:
 #   QFEEDS_API_KEY      — https://tip.qfeeds.com (Manage API Keys)
 #   ABUSEIPDB_API_KEY   — https://www.abuseipdb.com/account/api
-#   VT_API_KEY          — https://www.virustotal.com/gui/user/apikey
+#   VIRUSTOTAL_API_KEY          — https://www.virustotal.com/gui/user/apikey
 #   OTX_API_KEY         — https://otx.alienvault.com/settings (API Integration)
 #   SHODAN_API_KEY      — https://account.shodan.io (membership plan with query credits)
 #   GREYNOISE_API_KEY   — https://viz.greynoise.io/account/ (Enterprise / GNQL plan)
@@ -105,7 +105,7 @@ Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp
       "env": {
         "QFEEDS_API_KEY": "your-qfeeds-key",
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
-        "VT_API_KEY": "your-virustotal-key",
+        "VIRUSTOTAL_API_KEY": "your-virustotal-key",
         "OTX_API_KEY": "your-otx-key",
         "SHODAN_API_KEY": "your-shodan-key",
         "GREYNOISE_API_KEY": "your-greynoise-key",
@@ -395,6 +395,9 @@ tests/
 ├── test_stix_patterns.py  STIX pattern extractor tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
+├── test_integration.py    Real adapter -> fan-out -> guarded_fetch -> breaker (end-to-end)
+├── test_server_smoke.py   Server wiring: tools registered, all 9 sources degrade gracefully
+├── test_docs_consistency.py  Docs-as-code: env-var + Vault-path guards match the code
 ├── test_sanitize.py       Feed-data sanitization tests
 ├── test_netpolicy.py      Egress allowlist tests (incl. mock-transport e2e)
 ├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests
