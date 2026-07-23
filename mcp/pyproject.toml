@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threat-intel-mcp"
-version = "0.11.0"
+version = "0.11.1"
 description = "MCP server that delivers live threat intelligence feeds to Claude, normalised to the threat-intel skill schema"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,3 +37,11 @@ packages = ["src/threat_intel_mcp"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+# Pin the rule set explicitly so `ruff check` is deterministic across ruff
+# releases. CI installs ruff unpinned; without this, a new ruff version that
+# expands its default rules (e.g. 0.16.0 adding FLY / import-sort to defaults)
+# would break lint across the whole repo regardless of the diff. This is
+# ruff's historical default selection, which the codebase already satisfies.
+select = ["E4", "E7", "E9", "F"]
