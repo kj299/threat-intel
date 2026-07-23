@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.17.0] - 2026-07-23
+
+### Added
+
+- **Free public abuse.ch feeds** in `threat-intel-mcp` (v0.12.0): `urlhaus_fetch_iocs` (Tier 9, recent confirmed-malicious URLs) and `threatfox_fetch_iocs` (Tier 9, recent malicious network IOCs — IPs/domains/URLs; hashes excluded). Both are **public CSV feeds requiring no credential**, joining the `fetch_all_iocs` fan-out with their own circuit breakers. Endpoint + CSV column layout verified against the OpenCTI URLhaus/ThreatFox connectors. Workflow step 2a's tool list and input #9's examples updated across `SKILL.md` and both `standalone/` files (both were already Tier 9 `[MUST]` matrix sources).
+
+### Other
+
+- **Version bumped to 1.17.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog.
+
+---
+
 ## [1.16.0] - 2026-07-19
 
 ### Added

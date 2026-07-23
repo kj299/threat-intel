@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.16.0
+# Version: 1.17.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.16.0"
+  version: "1.17.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -526,10 +526,13 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-07-19"
-  # (1.16.0 ANY.RUN + Intel 471 + Censys live-feed tools)
+  last_updated: "2026-07-23"
+  # (1.17.0 free abuse.ch feeds: urlhaus_fetch_iocs + threatfox_fetch_iocs)
 
   version_history:
+    - version: "1.17.0"
+      date: "2026-07-23"
+      changes: "Add the free/public abuse.ch feeds to the live-feed loop: threat-intel-mcp now exposes urlhaus_fetch_iocs (Tier 9, recent malicious URLs) and threatfox_fetch_iocs (Tier 9, recent malicious network IOCs). Both are public CSV feeds requiring no credential. Workflow step 2a's single-feed tool list and input #9's feed examples updated in SKILL.md and both standalone files. URLhaus and ThreatFox were already Tier 9 MUST matrix sources, so no matrix change."
     - version: "1.16.0"
       date: "2026-07-19"
       changes: "Three SDK-verified live feeds join the loop: anyrun_fetch_iocs (Tier 9, ANY.RUN TAXII 2.1 STIX feed -> network IOCs), intel471_fetch_iocs (Tier 2, Intel 471 Titan malware indicators stream -> IP/URL), censys_fetch_iocs (Tier 3, Censys Search v2 hosts labelled malware/C2, action=alert). Workflow step 2a's single-feed tool list and input #9's feed examples updated in SKILL.md and both standalone files. All three were already named sources in the matrix (ANY.RUN T9, Intel 471 T7, Censys T3), so no matrix change."

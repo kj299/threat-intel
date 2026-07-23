@@ -105,7 +105,7 @@ threat-intel/
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- docs/
 |   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
-+-- mcp/                                             # threat-intel-mcp server (v0.11.0)
++-- mcp/                                             # threat-intel-mcp server (v0.12.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
@@ -123,6 +123,8 @@ threat-intel/
     |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
     |   |   +-- shodan.py                            # Shodan Malware Hunter adapter (60-min cache)
     |   |   +-- greynoise.py                         # GreyNoise GNQL malicious-scanner adapter (60-min cache)
+    |   |   +-- urlhaus.py                           # URLhaus public malicious-URL feed (no key)
+    |   |   +-- threatfox.py                         # ThreatFox public IOC feed (no key)
     |   |   +-- anyrun.py                            # ANY.RUN TAXII 2.1 STIX feed adapter
     |   |   +-- intel471.py                          # Intel 471 Titan indicators-stream adapter
     |   |   +-- censys.py                            # Censys Search v2 hosts adapter
@@ -134,7 +136,7 @@ threat-intel/
     |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
     |       +-- factory.py                           # credential_provider_from_env() selector
     |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
-    +-- tests/                                       # 284 unit + httpx-mock integration tests
+    +-- tests/                                       # 312 unit + httpx-mock integration tests
 ```
 
 ---

@@ -47,6 +47,7 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| URLhaus + ThreatFox adapters (free public abuse.ch feeds, no key) | ✅ Phase 2 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -85,7 +86,7 @@ cp .env.example .env
 export $(grep -v '^#' .env | xargs)
 ```
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger.
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus and ThreatFox need no key** (free public abuse.ch feeds) and are always available.
 
 ### 3. Run the tests
 
@@ -389,6 +390,8 @@ tests/
 ├── test_otx.py            OTX adapter tests
 ├── test_shodan.py         Shodan adapter tests (incl. key-never-logged regression)
 ├── test_greynoise.py      GreyNoise adapter tests
+├── test_urlhaus.py        URLhaus adapter tests
+├── test_threatfox.py      ThreatFox adapter tests
 ├── test_anyrun.py         ANY.RUN adapter tests
 ├── test_intel471.py       Intel 471 adapter tests
 ├── test_censys.py         Censys adapter tests
