@@ -1,8 +1,9 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
 Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
-Intel 471, Censys, and the free abuse.ch feeds URLhaus + ThreatFox as MCP tools that
-Claude can call to retrieve live IOCs and incorporate them into threat intelligence
+Intel 471, Censys, and the free abuse.ch feeds URLhaus + ThreatFox as IOC tools, plus
+the government CVE feeds CISA KEV + NVD as vulnerability tools, that Claude can call to
+retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
 Transport: stdio (for use with Claude Code / Claude Desktop).
@@ -23,6 +24,8 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .adapters.abuseipdb import AbuseIPDBAdapter
+from .adapters.cisa_kev import CISAKEVAdapter, FEED_TYPES as CISA_KEV_FEED_TYPES
+from .adapters.nvd import NVDAdapter, FEED_TYPES as NVD_FEED_TYPES
 from .adapters.otx import OTXAdapter
 from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
 from .adapters.anyrun import AnyRunAdapter, FEED_TYPES as ANYRUN_FEED_TYPES
@@ -39,6 +42,7 @@ from .normalize import finalize_iocs
 from .resilience import CircuitBreaker
 from .vault.base import CredentialError
 from .vault.factory import credential_provider_from_env
+from .vulns import VulnFeedSource, fan_out_vulns, finalize_vulns
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,7 +59,11 @@ mcp = FastMCP(
         "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
         "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus the free abuse.ch "
         "feeds URLhaus + ThreatFox Tier 9, no credential needed). "
-        "Use fetch_all_iocs to query every configured feed at once (concurrent, "
+        "For vulnerabilities, call the government CVE feeds CISA KEV and NVD "
+        "(Tier 1, no credential needed; NVD accepts an optional key for a higher "
+        "rate limit) via cisa_kev_fetch_cves / nvd_fetch_cves, or fetch_all_cves "
+        "for both at once — these return CVE-keyed vulnerability records, not IOCs. "
+        "Use fetch_all_iocs to query every configured IOC feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
         "After calling a feed tool, pass the returned iocs array as context and set "
@@ -78,6 +86,8 @@ _threatfox = ThreatFoxAdapter()  # public feed, no credential
 _anyrun = AnyRunAdapter(_credentials)
 _intel471 = Intel471Adapter(_credentials)
 _censys = CensysAdapter(_credentials)
+_cisa_kev = CISAKEVAdapter()  # public feed, no credential
+_nvd = NVDAdapter(_credentials)  # credential optional (higher rate limit if set)
 
 # Fan-out registry: each source carries its own circuit breaker so one flaky
 # feed cannot take down a fetch_all_iocs call. Credential/config errors are
@@ -122,6 +132,36 @@ _FEED_SOURCES = [
     FeedSource(_urlhaus, 9, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
     FeedSource(_threatfox, 9, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
 ]
+
+# Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
+# ioc_network indicators, so they run through their own fan-out/dedup path and
+# a separate aggregate tool (fetch_all_cves). Both are Tier 1 government sources.
+_VULN_SOURCES = [
+    VulnFeedSource(_cisa_kev, 1, "CISA KEV", CircuitBreaker("CISA KEV"), _CONFIG_ERRORS),
+    VulnFeedSource(_nvd, 1, "NVD", CircuitBreaker("NVD"), _CONFIG_ERRORS),
+]
+
+
+def _degraded_vuln_result(
+    source: str, tier: int, partial: list[str], error: str
+) -> dict[str, Any]:
+    """Uniform degraded response for a single vuln-feed tool that could not fetch."""
+    return {
+        "vulns": [],
+        "source": source,
+        "tier": tier,
+        "retrieved_at": "",
+        "record_count": 0,
+        "latency_ms": 0.0,
+        "feed_types_fetched": [],
+        "partial_failure": partial,
+        "coverage_ledger_entry": {
+            "tier": tier,
+            "source": source,
+            "status": "unverified",
+        },
+        "error": error,
+    }
 
 
 @mcp.tool()
@@ -878,6 +918,191 @@ async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
 
 
 @mcp.tool()
+async def cisa_kev_fetch_cves(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch the CISA Known Exploited Vulnerabilities (KEV) catalog (Tier 1 gov).
+
+    Returns vulnerability records (NOT ioc_network objects) keyed by CVE ID:
+    every entry is a CVE with confirmed in-the-wild exploitation, carrying
+    exploit_status=known_exploited plus the KEV due-date, required action, and
+    ransomware-campaign flag. Sanitised, schema-validated, and de-duplicated by
+    CVE ID before return. **No credential required** — public government feed.
+
+    Args:
+        time_range: Accepted for interface compatibility; the KEV catalog is a
+            full standing list, not a time-windowed feed, so it is recorded for
+            the Coverage Ledger but does not filter results.
+        feed_types: Defaults to all available. Available: kev_catalog.
+
+    Returns:
+        dict with keys: vulns, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive vulns.
+        2. Pass vulns as context to the skill invocation (vulnerability section).
+        3. Set skill_input.feed_integrations = [{"name": "CISA KEV", "tier": 1,
+           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+    """
+    try:
+        result = await _cisa_kev.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("CISA KEV upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_vuln_result(
+            "CISA KEV",
+            1,
+            feed_types or list(CISA_KEV_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    finalized = finalize_vulns(result.vulns)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if finalized else "unverified"
+    return {
+        "vulns": finalized,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(finalized),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 1,
+            "source": "CISA KEV",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
+async def nvd_fetch_cves(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch recently-modified CVEs from the NIST NVD 2.0 API (Tier 1 gov).
+
+    Returns vulnerability records (NOT ioc_network objects) keyed by CVE ID,
+    enriched with CVSS base score/severity, CWEs, and references. Sanitised,
+    schema-validated, and de-duplicated by CVE ID before return. **Credential is
+    optional** — NVD serves the API unauthenticated at a lower rate limit; set
+    NVD_API_KEY (or Vault path ``nvd/api_key``) for the higher limit.
+
+    Args:
+        time_range: Lookback window (e.g. "7d", "24h") mapped to NVD's
+            lastModStartDate/lastModEndDate. Capped at NVD's 120-day maximum
+            window; sub-day windows round up to one day.
+        feed_types: Defaults to all available. Available: recent_cves.
+
+    Returns:
+        dict with keys: vulns, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive vulns.
+        2. Pass vulns as context to the skill invocation (vulnerability section).
+        3. Set skill_input.feed_integrations = [{"name": "NVD", "tier": 1,
+           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+    """
+    try:
+        result = await _nvd.fetch(time_range=time_range, feed_types=feed_types)
+    except (CredentialError, KeyError) as exc:
+        # Only a provider *failure* (e.g. Vault outage) reaches here — a missing
+        # key falls back to unauthenticated inside the adapter.
+        logger.warning("NVD credential provider error: %s", type(exc).__name__)
+        return _degraded_vuln_result(
+            "NVD",
+            1,
+            feed_types or list(NVD_FEED_TYPES.keys()),
+            "NVD credential provider unavailable",
+        )
+    except ValueError:
+        raise  # invalid feed_types / time_range — a caller error, surface verbatim
+    except Exception as exc:
+        logger.warning("NVD upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_vuln_result(
+            "NVD",
+            1,
+            feed_types or list(NVD_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    finalized = finalize_vulns(result.vulns)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if finalized else "unverified"
+    return {
+        "vulns": finalized,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(finalized),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 1,
+            "source": "NVD",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
+async def fetch_all_cves(time_range: str = "7d") -> dict[str, Any]:
+    """Fetch and merge CVE records from ALL vulnerability feeds concurrently (Tier 1).
+
+    Queries the government CVE feeds (CISA KEV, NVD) at the same time,
+    sanitises/validates/deduplicates each source, then merges everything into a
+    single set de-duplicated by CVE ID (a CVE present in both keeps the
+    highest-CVSS copy and gains a corroborated-by tag plus KEV's
+    exploit_status/due-date enrichment). Each source is guarded by its own
+    circuit breaker and bounded backoff retry, so one slow or failing feed
+    degrades to an "unverified" Coverage-Ledger entry instead of failing the
+    whole call.
+
+    This is the vulnerability counterpart to fetch_all_iocs — use it to populate
+    the vulnerability/exposure section of a threat-intel report, then use
+    fetch_all_iocs for network indicators.
+
+    Args:
+        time_range: Lookback window (e.g. "7d") forwarded to each feed; KEV
+            returns its full standing catalog, NVD filters by last-modified.
+
+    Returns:
+        dict with keys: vulns (merged + deduplicated), record_count,
+        retrieved_at, latency_ms, sources_consulted, sources_degraded,
+        per_source, and coverage_ledger (ready for Appendix A).
+
+    Usage with the threat-intel skill:
+        1. Call this tool once; receive the merged vulns and coverage_ledger.
+        2. Pass vulns as context to the skill invocation.
+        3. Set skill_input.feed_integrations from sources_consulted so the
+           Coverage Ledger marks each consulted source correctly; degraded
+           sources map to "unverified".
+    """
+    result = await fan_out_vulns(_VULN_SOURCES, time_range=time_range)
+
+    degraded = result["sources_degraded"]
+    log_tool_call(
+        "fetch_all_cves",
+        {"time_range": time_range},
+        record_count=result["record_count"],
+        latency_ms=result["latency_ms"],
+        status="partial" if degraded else "ok",
+        error=(
+            f"degraded sources: {[d['source'] for d in degraded]}" if degraded else None
+        ),
+    )
+    return result
+
+
+@mcp.tool()
 async def list_available_feeds() -> dict[str, Any]:
     """List the threat intelligence feeds available in this MCP server instance.
 
@@ -939,6 +1164,14 @@ async def list_available_feeds() -> dict[str, Any]:
         _credentials.get("censys", "api_secret")
     except (KeyError, CredentialError):
         censys_cred_ok = False
+
+    # NVD's API key is optional (unauthenticated access works at a lower rate
+    # limit); report whether the higher-limit key is configured.
+    nvd_cred_ok = True
+    try:
+        _credentials.get("nvd", "api_key")
+    except (KeyError, CredentialError):
+        nvd_cred_ok = False
 
     return {
         "feeds": [
@@ -1042,13 +1275,40 @@ async def list_available_feeds() -> dict[str, Any]:
                 "tool": "threatfox_fetch_iocs",
             },
         ],
+        "cve_sources": [
+            {
+                "name": "CISA KEV",
+                "tier": 1,
+                "domain": "cisa.gov",
+                "description": "Known Exploited Vulnerabilities catalog — CVEs with confirmed in-the-wild exploitation (no credential required)",
+                "feed_types": list(CISA_KEV_FEED_TYPES.keys()),
+                "credential_configured": True,
+                "tool": "cisa_kev_fetch_cves",
+            },
+            {
+                "name": "NVD",
+                "tier": 1,
+                "domain": "nvd.nist.gov",
+                "description": "NIST National Vulnerability Database CVE 2.0 API — recently-modified CVEs with CVSS, CWEs, references (credential optional)",
+                "feed_types": list(NVD_FEED_TYPES.keys()),
+                "credential_configured": nvd_cred_ok,
+                "tool": "nvd_fetch_cves",
+            },
+        ],
         "aggregate_tool": "fetch_all_iocs",
         "aggregate_description": (
             "Queries all credential-configured feeds concurrently, with per-source "
             "circuit breakers and merged deduplication; degraded feeds surface as "
             "'unverified' in the returned coverage_ledger."
         ),
-        "phase": "4 (9 feeds: Q-Feeds + AbuseIPDB + VirusTotal + AlienVault OTX + Shodan + GreyNoise + ANY.RUN + Intel 471 + Censys + concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
+        "cve_aggregate_tool": "fetch_all_cves",
+        "cve_aggregate_description": (
+            "Queries all government CVE feeds (CISA KEV, NVD) concurrently and "
+            "merges into one set de-duplicated by CVE ID; degraded feeds surface "
+            "as 'unverified' in the returned coverage_ledger. Emits vulnerability "
+            "records (CVE-keyed), not ioc_network indicators."
+        ),
+        "phase": "5 (11 IOC feeds + 2 government CVE feeds: CISA KEV + NVD via a CVE-keyed vulnerability-output path; concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 

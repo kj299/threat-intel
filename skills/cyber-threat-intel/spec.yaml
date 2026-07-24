@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.17.0"
+  version: "1.18.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -526,10 +526,13 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-07-23"
-  # (1.17.0 free abuse.ch feeds: urlhaus_fetch_iocs + threatfox_fetch_iocs)
+  last_updated: "2026-07-24"
+  # (1.18.0 government CVE feeds: cisa_kev_fetch_cves + nvd_fetch_cves + fetch_all_cves)
 
   version_history:
+    - version: "1.18.0"
+      date: "2026-07-24"
+      changes: "Add the Tier 1 government CVE feeds to the live-feed loop: threat-intel-mcp now exposes cisa_kev_fetch_cves (CISA Known Exploited Vulnerabilities catalog, exploit_status=known_exploited), nvd_fetch_cves (NIST NVD 2.0 recently-modified CVEs with CVSS/CWEs/references; credential optional), and fetch_all_cves (concurrent fan-out over both). These return CVE-keyed vulnerability records via a new vulnerability-output path (not ioc_network objects). Workflow step 2a in SKILL.md and the standalone skill file updated to cite the CVE tools and fold vulnerability records into the Vulnerability/Exposure section. CISA KEV and NVD were already Tier 1 MUST matrix sources (public feeds, not operator-authenticated), so the source matrix and input #9 are unchanged."
     - version: "1.17.0"
       date: "2026-07-23"
       changes: "Add the free/public abuse.ch feeds to the live-feed loop: threat-intel-mcp now exposes urlhaus_fetch_iocs (Tier 9, recent malicious URLs) and threatfox_fetch_iocs (Tier 9, recent malicious network IOCs). Both are public CSV feeds requiring no credential. Workflow step 2a's single-feed tool list and input #9's feed examples updated in SKILL.md and both standalone files. URLhaus and ThreatFox were already Tier 9 MUST matrix sources, so no matrix change."

@@ -11,20 +11,23 @@ Claude Code
   │  skill: threat-intel  (SKILL.md + output.schema.json)
   │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}, ...]
   │
-  │  MCP tool calls: fetch_all_iocs            (all feeds at once)
+  │  IOC tool calls: fetch_all_iocs            (all IOC feeds at once)
   │                  qfeeds_fetch_iocs         (single feed)
   │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
   │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs /
-  │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs
+  │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs /
+  │                  urlhaus_fetch_iocs / threatfox_fetch_iocs
+  │  CVE tool calls: fetch_all_cves            (all CVE feeds at once)
+  │                  cisa_kev_fetch_cves / nvd_fetch_cves
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
-  │  fetch_all_iocs fans out concurrently, each source behind a circuit breaker
-  │  calls upstream feed APIs; normalises → ioc_network[] per output.schema.json
+  │  fetch_all_iocs / fetch_all_cves fan out concurrently, each source behind a breaker
+  │  calls upstream feed APIs; IOC feeds → ioc_network[]; CVE feeds → vuln records[]
   │  schema-validates + deduplicates (per-source and across sources) before returning
   │  a failing/unconfigured/open-circuit feed degrades to "unverified", never crashes
   ▼
-Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
+Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources (R2/R5)
 ```
 
 ## Current state
@@ -51,6 +54,9 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| CISA KEV adapter + `cisa_kev_fetch_cves` (public, no key) | ✅ Phase 5 |
+| NVD 2.0 adapter + `nvd_fetch_cves` (key optional) | ✅ Phase 5 |
+| Vulnerability-output path (`vulns.py`) + `fetch_all_cves` fan-out | ✅ Phase 5 |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
 | Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
@@ -83,10 +89,11 @@ cp .env.example .env
 #   ANYRUN_API_KEY      — https://app.any.run (TI subscription; full Authorization value)
 #   INTEL471_EMAIL + INTEL471_API_KEY — https://portal.intel471.com/api
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
+#   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
 export $(grep -v '^#' .env | xargs)
 ```
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus and ThreatFox need no key** (free public abuse.ch feeds) and are always available.
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus, ThreatFox, and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 
@@ -376,8 +383,13 @@ src/threat_intel_mcp/
 │   ├── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
 │   ├── anyrun.py          ANY.RUN TAXII 2.1 STIX feed adapter (60-min cache)
 │   ├── intel471.py        Intel 471 Titan indicators-stream adapter (60-min cache)
-│   └── censys.py          Censys Search v2 hosts adapter (60-min cache)
-├── fanout.py              fetch_all_iocs: concurrent multi-source merge + dedup
+│   ├── censys.py          Censys Search v2 hosts adapter (60-min cache)
+│   ├── urlhaus.py         URLhaus public malicious-URL CSV adapter (no key, 15-min cache)
+│   ├── threatfox.py       ThreatFox public IOC CSV adapter (no key, 15-min cache)
+│   ├── cisa_kev.py        CISA KEV catalog adapter (public JSON, no key, 6-hr cache)
+│   └── nvd.py             NIST NVD 2.0 CVE adapter (key optional, 60-min cache)
+├── fanout.py              fetch_all_iocs: concurrent multi-source IOC merge + dedup
+├── vulns.py               CVE-keyed vuln path: finalize_vulns + fetch_all_cves fan-out
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
 ├── sanitize.py            Strip control/zero-width/bidi + cap feed free-text
@@ -395,11 +407,14 @@ tests/
 ├── test_anyrun.py         ANY.RUN adapter tests
 ├── test_intel471.py       Intel 471 adapter tests
 ├── test_censys.py         Censys adapter tests
+├── test_cisa_kev.py       CISA KEV adapter tests
+├── test_nvd.py            NVD adapter tests (incl. optional-key + provider-outage paths)
+├── test_vulns.py          Vuln pipeline: validate / sanitize / dedup / fan-out tests
 ├── test_stix_patterns.py  STIX pattern extractor tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_integration.py    Real adapter -> fan-out -> guarded_fetch -> breaker (end-to-end)
-├── test_server_smoke.py   Server wiring: tools registered, all 9 sources degrade gracefully
+├── test_server_smoke.py   Server wiring: IOC + CVE tools registered, sources degrade gracefully
 ├── test_docs_consistency.py  Docs-as-code: env-var + Vault-path guards match the code
 ├── test_sanitize.py       Feed-data sanitization tests
 ├── test_netpolicy.py      Egress allowlist tests (incl. mock-transport e2e)
