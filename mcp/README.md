@@ -11,20 +11,23 @@ Claude Code
   │  skill: threat-intel  (SKILL.md + output.schema.json)
   │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}, ...]
   │
-  │  MCP tool calls: fetch_all_iocs            (all feeds at once)
+  │  IOC tool calls: fetch_all_iocs            (all IOC feeds at once)
   │                  qfeeds_fetch_iocs         (single feed)
   │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
   │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs /
-  │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs
+  │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs /
+  │                  urlhaus_fetch_iocs / threatfox_fetch_iocs
+  │  CVE tool calls: fetch_all_cves            (all CVE feeds at once)
+  │                  cisa_kev_fetch_cves / nvd_fetch_cves
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
-  │  fetch_all_iocs fans out concurrently, each source behind a circuit breaker
-  │  calls upstream feed APIs; normalises → ioc_network[] per output.schema.json
+  │  fetch_all_iocs / fetch_all_cves fan out concurrently, each source behind a breaker
+  │  calls upstream feed APIs; IOC feeds → ioc_network[]; CVE feeds → vuln records[]
   │  schema-validates + deduplicates (per-source and across sources) before returning
   │  a failing/unconfigured/open-circuit feed degrades to "unverified", never crashes
   ▼
-Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
+Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources (R2/R5)
 ```
 
 ## Current state
@@ -51,6 +54,9 @@ Claude receives ioc_network[] + coverage_ledger, cites sources (R2/R5)
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
+| CISA KEV adapter + `cisa_kev_fetch_cves` (public, no key) | ✅ Phase 5 |
+| NVD 2.0 adapter + `nvd_fetch_cves` (key optional) | ✅ Phase 5 |
+| Vulnerability-output path (`vulns.py`) + `fetch_all_cves` fan-out | ✅ Phase 5 |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
 | Partial-failure surfacing → Coverage Ledger | ✅ Phase 4 |
@@ -83,10 +89,11 @@ cp .env.example .env
 #   ANYRUN_API_KEY      — https://app.any.run (TI subscription; full Authorization value)
 #   INTEL471_EMAIL + INTEL471_API_KEY — https://portal.intel471.com/api
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
+#   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
 export $(grep -v '^#' .env | xargs)
 ```
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus and ThreatFox need no key** (free public abuse.ch feeds) and are always available.
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus, ThreatFox, and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 
@@ -221,7 +228,19 @@ tier: int
 async def fetch(self, *, time_range: str, feed_types: list[str] | None = None) -> FetchResult
 ```
 
-`FetchResult` carries `iocs` (raw `ioc_network` dicts), `source`, `tier`, `retrieved_at`, `record_count`, `latency_ms`, `feed_types_fetched`, and `partial_failure`. You do **not** validate, sanitize, or deduplicate in the adapter — the tool layer runs `normalize.finalize_iocs` (sanitize → validate → dedup) on your output.
+`FetchResult` carries `iocs` (raw `ioc_network` dicts), `source`, `tier`, `retrieved_at`, `record_count`, `latency_ms`, `feed_types_fetched`, and `partial_failure`. You do **not** validate, sanitize, or deduplicate in the adapter — the tool layer runs `normalize.finalize_iocs` (sanitize → validate → dedup) on your output. (CVE feeds return a `VulnFetchResult` with `vulns` instead of `iocs`, and the tool layer runs `vulns.finalize_vulns`; everything below applies identically.)
+
+### Error taxonomy (which exception to raise)
+
+An adapter signals three different failures with three different exception classes, and **the class decides whether a single-feed tool crashes or degrades**. This is the full contract (also stated authoritatively in `adapters/base.py`):
+
+| Situation | Raise | Tool behaviour | Fan-out behaviour |
+|---|---|---|---|
+| Bad **caller** input (unknown `feed_types`, malformed `time_range`) | `ValueError` | re-raised **verbatim** (surfaces the caller's mistake) | non-retryable config error |
+| Missing / unreadable **credential** | `CredentialError` / `KeyError` | degrade → `unverified` | non-retryable, breaker untouched |
+| **Upstream / transient** (HTTP error, **malformed 200 body**, parse failure) | `httpx` error, `RuntimeError`, … (anything else) | degrade → `unverified` | retryable; backoff + breaker engage |
+
+**The trap:** a malformed upstream body (a 200 with an unexpected shape) is the *third* row, **not** the first — never raise `ValueError` for it, or the tool re-raises and crashes instead of degrading. Raise `RuntimeError` (or let the underlying `httpx`/parse exception propagate). See `adapters/cisa_kev.py::_parse_catalog` for the reference pattern; `tests/test_server_smoke.py` has a parametrized guard that every single-feed tool degrades — never raises — when its upstream returns a malformed body.
 
 ### Worked example: VirusTotal Intelligence (a real paid feed already in this repo)
 
@@ -286,12 +305,12 @@ The seven numbered points are the whole recipe; the rest (pagination, caching, r
 1. **Store the credential** under a new adapter name. Env mode reads `{ADAPTER}_{KEY}` — `credentials.get("recordedfuture", "api_key")` → `RECORDEDFUTURE_API_KEY`. Vault mode reads `secret/data/recordedfuture/api_key` (see the rotation section above). Nothing else in the codebase needs the raw key.
 2. **Copy the real auth scheme from the vendor docs.** Header (`x-apikey`, `Key`, `X-OTX-API-KEY`), HTTP Basic (`auth=(user, key)`, as Q-Feeds uses), or a `key` **query parameter** (Shodan). If the key rides in the URL, it will otherwise land in httpx's INFO logs — `audit.py` already installs a redaction filter for that case; keep your own logging to endpoint/query-name/exception-*type* only.
 3. **Add the host to the egress allowlist**: `event_hooks=egress_event_hooks("api.vendor.com")`. A compromised or buggy adapter then physically cannot exfiltrate to another host.
-4. **Fail fast on a missing credential** by fetching the key before opening the client, so an unconfigured feed raises `CredentialError`/`KeyError` cleanly (the tool layer turns that into an `unverified` Coverage-Ledger entry, not a crash).
-5. **Return partial failures, raise total ones.** If some feed types succeed, return them with `partial_failure` populated. If *every* requested feed type fails, `raise` — that lets the fan-out's circuit breaker and backoff retry engage (a swallowed failure disables both).
+4. **Fail fast on a missing credential** by fetching the key before opening the client, so an unconfigured feed raises `CredentialError`/`KeyError` cleanly (the tool layer turns that into an `unverified` Coverage-Ledger entry, not a crash). See the Error taxonomy table above.
+5. **Return partial failures, raise total ones — with the right exception class.** If some feed types succeed, return them with `partial_failure` populated. If *every* requested feed type fails, `raise` — that lets the fan-out's circuit breaker and backoff retry engage (a swallowed failure disables both). When you `raise` for an upstream problem (including a **malformed response body**), raise `RuntimeError` or let the `httpx`/parse exception propagate — **never `ValueError`**, which the tool reserves for caller errors and re-raises verbatim (it would crash the single-feed tool instead of degrading).
 6. **Set honest confidence and `action`.** Map the vendor's own score/verdict to `High`/`Medium`/`Low`; use `action: block` only for high-confidence blocklists, `action: alert` for heuristic/crawler detections (as `shodan.py` does). Never invent a confidence the source doesn't support (R3).
 7. **Normalize to `ioc_network`** with at least `type`, `value`, `confidence`, `source`. Parse IPs with `ipaddress` (rejects malformed octets), and normalise any naive timestamps to RFC 3339 so runtime date-time validation passes (see `shodan.py::_normalize_timestamp`). Return `None` to skip a record rather than emitting a half-populated one.
 8. **Register it.** Add a `{name}_fetch_iocs` tool in `server.py` (copy an existing one — they're identical except for names/tiers), append a `FeedSource(..., CircuitBreaker("Name"), _CONFIG_ERRORS)` to `_FEED_SOURCES` so `fetch_all_iocs` picks it up, and add a `list_available_feeds` entry.
-9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set.
+9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is automatically covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` (add it to the tool list there) — that guard is what catches the "raised `ValueError` on a bad body" mistake.
 
 ### API contract for each paid subscription source
 
@@ -376,8 +395,13 @@ src/threat_intel_mcp/
 │   ├── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
 │   ├── anyrun.py          ANY.RUN TAXII 2.1 STIX feed adapter (60-min cache)
 │   ├── intel471.py        Intel 471 Titan indicators-stream adapter (60-min cache)
-│   └── censys.py          Censys Search v2 hosts adapter (60-min cache)
-├── fanout.py              fetch_all_iocs: concurrent multi-source merge + dedup
+│   ├── censys.py          Censys Search v2 hosts adapter (60-min cache)
+│   ├── urlhaus.py         URLhaus public malicious-URL CSV adapter (no key, 15-min cache)
+│   ├── threatfox.py       ThreatFox public IOC CSV adapter (no key, 15-min cache)
+│   ├── cisa_kev.py        CISA KEV catalog adapter (public JSON, no key, 6-hr cache)
+│   └── nvd.py             NIST NVD 2.0 CVE adapter (key optional, 60-min cache)
+├── fanout.py              fetch_all_iocs: concurrent multi-source IOC merge + dedup
+├── vulns.py               CVE-keyed vuln path: finalize_vulns + fetch_all_cves fan-out
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
 ├── sanitize.py            Strip control/zero-width/bidi + cap feed free-text
@@ -395,11 +419,14 @@ tests/
 ├── test_anyrun.py         ANY.RUN adapter tests
 ├── test_intel471.py       Intel 471 adapter tests
 ├── test_censys.py         Censys adapter tests
+├── test_cisa_kev.py       CISA KEV adapter tests
+├── test_nvd.py            NVD adapter tests (incl. optional-key + provider-outage paths)
+├── test_vulns.py          Vuln pipeline: validate / sanitize / dedup / fan-out tests
 ├── test_stix_patterns.py  STIX pattern extractor tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_integration.py    Real adapter -> fan-out -> guarded_fetch -> breaker (end-to-end)
-├── test_server_smoke.py   Server wiring: tools registered, all 9 sources degrade gracefully
+├── test_server_smoke.py   Server wiring: IOC + CVE tools registered, sources degrade gracefully
 ├── test_docs_consistency.py  Docs-as-code: env-var + Vault-path guards match the code
 ├── test_sanitize.py       Feed-data sanitization tests
 ├── test_netpolicy.py      Egress allowlist tests (incl. mock-transport e2e)

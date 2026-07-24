@@ -147,6 +147,7 @@ Format: `<type>: <description>` where type is one of:
 - Typo fixes
 - Expanding compliance framework mappings
 - Translations or localization efforts
+- New `threat-intel-mcp` feed adapters (verified against the vendor's own API docs/SDK — see the adapter guide and **error taxonomy** in [`mcp/README.md`](mcp/README.md) and `mcp/src/threat_intel_mcp/adapters/base.py`)
 
 **Not Accepted:**
 - Changes that weaken the no-fabrication rule (R3) or the honest-reporting framing of the Source Coverage Protocol (R1-R6) — e.g. re-introducing "pad the coverage to hit the number" behavior

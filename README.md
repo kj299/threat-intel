@@ -105,13 +105,14 @@ threat-intel/
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- docs/
 |   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
-+-- mcp/                                             # threat-intel-mcp server (v0.12.0)
++-- mcp/                                             # threat-intel-mcp server (v0.13.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
     |   +-- normalize.py                             # ioc_network schema validation + dedup
     |   +-- audit.py                                 # structured audit logging + secret redaction
-    |   +-- fanout.py                                # fetch_all_iocs: concurrent multi-source merge
+    |   +-- fanout.py                                # fetch_all_iocs: concurrent multi-source IOC merge
+    |   +-- vulns.py                                 # fetch_all_cves: CVE-keyed vuln validate/dedup/fan-out
     |   +-- resilience.py                            # circuit breaker + backoff retry (guarded_fetch)
     |   +-- netpolicy.py                             # per-adapter egress allowlist (httpx hook)
     |   +-- sanitize.py                              # feed free-text sanitization (R6 runtime defense)
@@ -128,6 +129,8 @@ threat-intel/
     |   |   +-- anyrun.py                            # ANY.RUN TAXII 2.1 STIX feed adapter
     |   |   +-- intel471.py                          # Intel 471 Titan indicators-stream adapter
     |   |   +-- censys.py                            # Censys Search v2 hosts adapter
+    |   |   +-- cisa_kev.py                          # CISA KEV catalog adapter (public JSON, no key)
+    |   |   +-- nvd.py                               # NIST NVD 2.0 CVE adapter (key optional)
     |   +-- transports/
     |   |   +-- base.py                              # ProtocolAdapter: bring-your-own-endpoint base
     |   +-- vault/
@@ -195,7 +198,7 @@ Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-t
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.11.0, Phase 4):** Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, and Censys adapters; concurrent fan-out with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
+**Current (v0.13.0, Phase 5):** IOC feeds — Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feeds URLhaus + ThreatFox; government CVE feeds — CISA KEV and NVD (Tier 1) via a CVE-keyed vulnerability-output path; concurrent fan-out (`fetch_all_iocs` / `fetch_all_cves`) with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
 
 ```bash
 cd mcp
@@ -208,6 +211,8 @@ export OTX_API_KEY=...
 export SHODAN_API_KEY=...
 export GREYNOISE_API_KEY=...
 export ANYRUN_API_KEY=... INTEL471_EMAIL=... INTEL471_API_KEY=... CENSYS_API_ID=... CENSYS_API_SECRET=...
+export NVD_API_KEY=...   # optional — NVD works without a key at a lower rate limit
+# URLhaus, ThreatFox, and CISA KEV are free public feeds and need no key
 threat-intel-mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 
@@ -234,7 +239,7 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
 }
 ```
 
-Tools exposed: `fetch_all_iocs` (all feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `list_available_feeds`.
+Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `urlhaus_fetch_iocs`, `threatfox_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`; plus `list_available_feeds`.
 
 See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter) grounded in the VirusTotal Intelligence adapter, with a table of subscription sources and their official API-documentation portals.
 
@@ -253,7 +258,7 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan) → external feed APIs → normalize.py → FetchResult → report output.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, ThreatFox; CVE feeds CISA KEV, NVD) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
 
 ---
 

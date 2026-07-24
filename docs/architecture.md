@@ -12,9 +12,10 @@ flowchart TD
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
-        Server["MCP Server\nserver.py\ntools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       virustotal_fetch_iocs\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       urlhaus_fetch_iocs\n       threatfox_fetch_iocs\n       fetch_all_iocs\n       list_available_feeds"]
+        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       virustotal_fetch_iocs\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       urlhaus_fetch_iocs\n       threatfox_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       fetch_all_cves\n       list_available_feeds"]
 
         FanOut["fetch_all_iocs fan-out\nfanout.py\nasyncio.gather over all sources\nmerge + cross-source dedup"]
+        VulnFanOut["fetch_all_cves fan-out\nvulns.py\nfan_out_vulns over CVE sources\nmerge + dedup by CVE ID"]
         Resilience["resilience.py\nguarded_fetch per source\nCircuitBreaker + backoff retry"]
 
         subgraph Cred["CredentialProvider"]
@@ -36,8 +37,15 @@ flowchart TD
             Censys["CensysAdapter\nadapters/censys.py\nHTTP Basic\nhosts/search labels:malware\n60-min cache"]
         end
 
+        subgraph VulnAdapters["CVE Adapters (Tier 1 gov)"]
+            CISAKEV["CISAKEVAdapter\nadapters/cisa_kev.py\npublic JSON (no key)\nexploit_status=known_exploited\n6-hr cache"]
+            NVD["NVDAdapter\nadapters/nvd.py\napiKey header (OPTIONAL)\nNVD 2.0 lastMod window\n60-min cache"]
+        end
+
         Normalize["normalize.py\nfinalize_iocs:\nsanitize + validate + dedupe\nioc_network schema"]
+        VulnNormalize["vulns.py\nfinalize_vulns:\nsanitize + validate + dedupe\nCVE-keyed vuln record schema"]
         FetchResult["FetchResult\niocs · source · tier\nrecord_count · retrieved_at"]
+        VulnFetchResult["VulnFetchResult\nvulns · source · tier\nrecord_count · retrieved_at"]
     end
 
     subgraph Ext["External Feeds"]
@@ -52,12 +60,16 @@ flowchart TD
         AnyRun_API["ANY.RUN API\nhttps://api.any.run/v1\nGET /feeds/taxii2/... · STIX"]
         Intel471_API["Intel 471 API\nhttps://api.intel471.com/v1\nGET /indicators/stream · cursor"]
         Censys_API["Censys API v2\nhttps://search.censys.io/api/v2\nGET /hosts/search · labels:malware"]
+        CISAKEV_API["CISA KEV catalog\nhttps://www.cisa.gov/sites/default/files/feeds/\nknown_exploited_vulnerabilities.json\npublic JSON"]
+        NVD_API["NIST NVD API 2.0\nhttps://services.nvd.nist.gov/rest/json/cves/2.0\nlastModStartDate/EndDate · paginated"]
     end
 
     User -->|"invokes skill"| Skill
     Skill -->|"calls MCP tool"| Server
     Server -->|"fetch_all_iocs"| FanOut
+    Server -->|"fetch_all_cves"| VulnFanOut
     FanOut -->|"concurrent per-source call"| Resilience
+    VulnFanOut -->|"concurrent per-source call"| Resilience
     Resilience -->|"guarded_fetch"| QFeeds
     Resilience -->|"guarded_fetch"| AbuseIPDB
     Resilience -->|"guarded_fetch"| VT
@@ -69,7 +81,10 @@ flowchart TD
     Resilience -->|"guarded_fetch"| AnyRun
     Resilience -->|"guarded_fetch"| Intel471
     Resilience -->|"guarded_fetch"| Censys
+    Resilience -->|"guarded_fetch"| CISAKEV
+    Resilience -->|"guarded_fetch"| NVD
     FanOut -->|"merged + deduped IOCs\npartial/open-circuit -> coverage_ledger"| Server
+    VulnFanOut -->|"merged + deduped CVEs\npartial/open-circuit -> coverage_ledger"| Server
     Server --> EnvCred
     Server -.->|"Phase 2"| VaultCred
     EnvCred -->|"api_key"| QFeeds
@@ -81,6 +96,7 @@ flowchart TD
     EnvCred -->|"api_key"| AnyRun
     EnvCred -->|"api_key"| Intel471
     EnvCred -->|"api_key"| Censys
+    EnvCred -.->|"api_key (optional)"| NVD
     VaultCred -.->|"api_key (Phase 2)"| QFeeds
     VaultCred -.->|"api_key (Phase 2)"| AbuseIPDB
     VaultCred -.->|"api_key (Phase 2)"| VT
@@ -90,6 +106,7 @@ flowchart TD
     VaultCred -.->|"api_key (Phase 2)"| AnyRun
     VaultCred -.->|"api_key (Phase 2)"| Intel471
     VaultCred -.->|"api_key (Phase 2)"| Censys
+    VaultCred -.->|"api_key (Phase 2, optional)"| NVD
     QFeeds -->|"GET /api?feed_type=..&page=N"| QFeedsAPI
     QFeedsAPI -->|"plain-text indicators"| QFeeds
     AbuseIPDB -->|"GET /blacklist?confidenceMinimum=90"| AbuseIPDB_API
@@ -112,6 +129,10 @@ flowchart TD
     Intel471_API -->|"JSON indicators"| Intel471
     Censys -->|"GET /hosts/search?q=labels:malware"| Censys_API
     Censys_API -->|"JSON result.hits"| Censys
+    CISAKEV -->|"GET known_exploited_vulnerabilities.json (no auth)"| CISAKEV_API
+    CISAKEV_API -->|"JSON vulnerabilities[]"| CISAKEV
+    NVD -->|"GET /cves/2.0?lastModStartDate=..&startIndex=N"| NVD_API
+    NVD_API -->|"JSON vulnerabilities[]"| NVD
     QFeeds -->|"raw ioc_network objects"| Normalize
     AbuseIPDB -->|"raw ioc_network objects"| Normalize
     VT -->|"raw ioc_network objects"| Normalize
@@ -123,10 +144,14 @@ flowchart TD
     AnyRun -->|"raw ioc_network objects"| Normalize
     Intel471 -->|"raw ioc_network objects"| Normalize
     Censys -->|"raw ioc_network objects"| Normalize
+    CISAKEV -->|"raw vuln records"| VulnNormalize
+    NVD -->|"raw vuln records"| VulnNormalize
     Normalize -->|"validated + deduped IOCs"| FetchResult
+    VulnNormalize -->|"validated + deduped CVEs"| VulnFetchResult
     FetchResult -->|"iocs · coverage_ledger_entry"| Server
-    Server -->|"FetchResult dict"| Skill
-    Skill -->|"cites sources: Q-Feeds / AbuseIPDB / VirusTotal / OTX / Shodan / GreyNoise / ANY.RUN / Intel 471 / Censys / URLhaus / ThreatFox (live)\nincorporates IOCs into report"| Output
+    VulnFetchResult -->|"vulns · coverage_ledger_entry"| Server
+    Server -->|"FetchResult / VulnFetchResult dict"| Skill
+    Skill -->|"cites sources: Q-Feeds / AbuseIPDB / VirusTotal / OTX / Shodan / GreyNoise / ANY.RUN / Intel 471 / Censys / URLhaus / ThreatFox (IOCs) · CISA KEV / NVD (CVEs) (live)\nincorporates IOCs + vulnerabilities into report"| Output
     Output -->|"validated JSON"| User
 ```
 
@@ -135,12 +160,13 @@ flowchart TD
 | Component | File | Role |
 |-----------|------|------|
 | Skill | `skills/cyber-threat-intel/SKILL.md` | Entrypoint; guides analysis workflow and report structure |
-| MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `fetch_all_iocs`, and `list_available_feeds` |
+| MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes IOC tools `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `urlhaus_fetch_iocs`, `threatfox_fetch_iocs`, `fetch_all_iocs`; CVE tools `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `fetch_all_cves`; and `list_available_feeds` |
 | Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
-| Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest |
+| Vuln fan-out + pipeline | `mcp/src/threat_intel_mcp/vulns.py` | `fetch_all_cves` backend: `fan_out_vulns` over the CVE sources (same `CircuitBreaker`/`guarded_fetch` resilience), plus `finalize_vulns` = sanitize → validate against the inline CVE-keyed vuln-record schema → dedupe by CVE ID (keeps highest CVSS, folds in KEV exploit-status/due-date). Emits vulnerability records, not `ioc_network` |
+| Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest. Whether a failure retries / trips the breaker follows the adapter **error taxonomy** in `adapters/base.py`: `ValueError` = caller error (surfaced), `CredentialError`/`KeyError` = config (degrade, no retry), anything else incl. a malformed body = upstream (degrade, retry) |
 | Protocol credentials | `mcp/src/threat_intel_mcp/vault/protocols.py` | Typed, validated credential bundles for gRPC / MQTT / WebSocket / GraphQL feeds, loaded via the same `CredentialProvider` |
 | Protocol adapter base | `mcp/src/threat_intel_mcp/transports/base.py` | `ProtocolAdapter`: abstract bring-your-own-endpoint `SourceAdapter` (impl `_collect` + `_normalize`); ships **no live feed / no hardcoded endpoint**. See [protocol-adapters.md](protocol-adapters.md) |
-| EnvCredentialProvider | `mcp/src/threat_intel_mcp/vault/env.py` | Phase 1: reads `QFEEDS_API_KEY`, `ABUSEIPDB_API_KEY`, `VIRUSTOTAL_API_KEY`, `OTX_API_KEY`, `SHODAN_API_KEY`, and `GREYNOISE_API_KEY` from environment |
+| EnvCredentialProvider | `mcp/src/threat_intel_mcp/vault/env.py` | Phase 1: reads `QFEEDS_API_KEY`, `ABUSEIPDB_API_KEY`, `VIRUSTOTAL_API_KEY`, `OTX_API_KEY`, `SHODAN_API_KEY`, `GREYNOISE_API_KEY`, `ANYRUN_API_KEY`, `INTEL471_*`, `CENSYS_*`, and (optional) `NVD_API_KEY` from environment |
 | VaultCredentialProvider | `mcp/src/threat_intel_mcp/vault/` | Phase 2: reads credentials from HashiCorp Vault |
 | QFeedsAdapter | `mcp/src/threat_intel_mcp/adapters/qfeeds.py` | Fetches paginated malware IP and domain feeds; 20-min in-process cache |
 | AbuseIPDBAdapter | `mcp/src/threat_intel_mcp/adapters/abuseipdb.py` | Fetches IP blacklist (up to 10,000 IPs, confidenceMinimum=90); 60-min in-process cache |
@@ -153,8 +179,12 @@ flowchart TD
 | AnyRunAdapter | `mcp/src/threat_intel_mcp/adapters/anyrun.py` | Fetches ANY.RUN TAXII 2.1 STIX feed (ip/domain/url collections); STIX patterns parsed via `stix_patterns.py`; 60-min cache |
 | Intel471Adapter | `mcp/src/threat_intel_mcp/adapters/intel471.py` | Fetches Titan `indicators/stream` (HTTP Basic, cursor pagination); maps IP + URL indicators; 60-min cache |
 | CensysAdapter | `mcp/src/threat_intel_mcp/adapters/censys.py` | Searches v2 hosts `labels:malware/c2` (HTTP Basic id+secret); attack-surface, action=alert; 60-min cache |
-| normalize.py | `mcp/src/threat_intel_mcp/normalize.py` | `finalize_iocs` = sanitize → validate against inline `ioc_network` schema → deduplicate by `(type, value)` (corroboration-preserving); the single pipeline used by every tool, the fan-out, and protocol adapters |
-| sanitize.py | `mcp/src/threat_intel_mcp/sanitize.py` | Strips control / zero-width / bidi characters and caps lengths on feed-controlled free-text; drops IOCs whose value cleans to empty (runtime R6 defence) |
+| CISAKEVAdapter | `mcp/src/threat_intel_mcp/adapters/cisa_kev.py` | Fetches the **public** CISA KEV catalog JSON (no credential); every entry `exploit_status: known_exploited` with KEV due-date/required-action/ransomware flag; 6-hr cache |
+| NVDAdapter | `mcp/src/threat_intel_mcp/adapters/nvd.py` | Fetches NVD 2.0 recently-modified CVEs (lastMod window ≤120d, paginated) with CVSS/CWEs/references; `apiKey` header **optional** (unauthenticated at lower rate limit); 60-min cache |
+| normalize.py | `mcp/src/threat_intel_mcp/normalize.py` | `finalize_iocs` = sanitize → validate against inline `ioc_network` schema → deduplicate by `(type, value)` (corroboration-preserving); the single pipeline used by every IOC tool, the fan-out, and protocol adapters |
+| vulns.py | `mcp/src/threat_intel_mcp/vulns.py` | CVE-keyed vulnerability-output path: `finalize_vulns` (sanitize → validate against inline vuln-record schema → dedupe by CVE ID) + `fan_out_vulns` (resilient concurrent fan-out); the vuln counterpart to `normalize.py`/`fanout.py`. Reuses `sanitize.py` helpers |
+| sanitize.py | `mcp/src/threat_intel_mcp/sanitize.py` | Strips control / zero-width / bidi characters and caps lengths on feed-controlled free-text; drops IOCs whose value cleans to empty (runtime R6 defence). Its `_clean_str`/`_strip_chars` helpers are reused by `vulns.py` |
 | netpolicy.py | `mcp/src/threat_intel_mcp/netpolicy.py` | Per-adapter egress allowlist enforced as an httpx request hook — blocks outbound requests to non-allowlisted hosts before they leave the process |
 | FetchResult | `mcp/src/threat_intel_mcp/adapters/base.py` | Dataclass: `iocs`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms` |
+| VulnFetchResult | `mcp/src/threat_intel_mcp/vulns.py` | Dataclass: `vulns`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms` (the vuln counterpart to `FetchResult`) |
 | Output schema | `skills/cyber-threat-intel/schemas/output.schema.json` | JSON Schema the final report is validated against |

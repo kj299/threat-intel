@@ -10,6 +10,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.18.0] - 2026-07-24
+
+### Added
+
+- **Government CVE feeds** in `threat-intel-mcp` (v0.13.0): `cisa_kev_fetch_cves` (CISA Known Exploited Vulnerabilities catalog — every entry `exploit_status: known_exploited`, with KEV due-date, required action, and ransomware-campaign flag; no credential) and `nvd_fetch_cves` (NIST NVD 2.0 recently-modified CVEs enriched with CVSS base score/severity, CWEs, and references; **credential optional** — unauthenticated works at a lower rate limit, `NVD_API_KEY` raises it), plus `fetch_all_cves` for concurrent fan-out over both. Endpoint + response shapes verified against the OpenCTI CISA-KEV and CVE connectors.
+- **Vulnerability-output path** (`vulns.py`): a CVE-keyed record schema + sanitise → validate → dedupe pipeline (`finalize_vulns`) and resilient fan-out (`fan_out_vulns`) mirroring the `ioc_network` path. CVE feeds emit *vulnerability records*, not `ioc_network` indicators; `list_available_feeds` reports them under a separate `cve_sources` key. Cross-source dedup by CVE ID keeps the highest-CVSS copy and folds in KEV exploit-status/due-date enrichment.
+
+### Changed
+
+- **Skill live-feed loop** (Workflow step 2a) in `SKILL.md` and the standalone skill file now cites the CVE tools and folds returned vulnerability records into the Vulnerability/Exposure section; a CVE in KEV escalates urgency. CISA KEV and NVD were already Tier 1 `[MUST]` matrix sources (public government feeds, not operator-authenticated feeds), so input #9's authenticated-feed list and the source matrix are unchanged.
+
+### Hardening
+
+- **Adapter error taxonomy documented and guarded.** A code-review of the CVE feeds found that a malformed upstream body raised `ValueError` — which the single-feed tool reserves for caller errors and re-raises verbatim, crashing instead of degrading. Fixed (`cisa_kev.py` raises `RuntimeError` for upstream-shape problems) and generalised: the full taxonomy (`ValueError` = caller error; `CredentialError`/`KeyError` = config; anything else incl. a malformed body = upstream/retryable) is now authoritative in `adapters/base.py` and documented in `mcp/README.md`, `CLAUDE.md`, `contributing.md`, and `docs/architecture.md`.
+- **Malformed-body degrade guard** (`tests/test_server_smoke.py`): a parametrized sweep asserts every single-feed tool (IOC and CVE) degrades — never raises — when its upstream returns a 200 with an unexpected shape. Added an autouse fixture that resets the module-level adapter caches and circuit breakers between smoke tests so ordering never leaks state.
+
+### Other
+
+- **Version bumped to 1.18.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog. `threat-intel-mcp` bumped to **0.13.0**.
+
+---
+
 ## [1.17.0] - 2026-07-23
 
 ### Added
