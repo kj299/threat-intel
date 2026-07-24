@@ -10,6 +10,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.19.0] - 2026-07-24
+
+### Added
+
+- **Source Matrix expansion — defender-oriented global sources** (across `source-matrix.md`, `original-prompt.md`, and both `standalone/` files):
+  - **Tier 8 (Government & Regulatory):** international/national CSIRTs — FIRST, CERT-EU, the ENISA CSIRT inventory, and national CERTs for New Zealand, Netherlands, Spain (INCIBE-CERT + CCN-CERT), Italy, Poland, Belgium, Austria, Ireland, Switzerland, Sweden, Norway, Denmark, Finland, Brazil, Singapore, South Korea, Taiwan, Malaysia, Israel, and Saudi Arabia — plus CISA StopRansomware and sector ISACs (National Council of ISACs, MS-ISAC/CIS, Health-ISAC, Auto-ISAC).
+  - **Tier 6 (Community & Independent):** non-profit / open-source CTI — MISP Project, OpenCTI, Cyber Threat Alliance, Have I Been Pwned, CERT/CC, Citizen Lab, and the Emerging Threats open ruleset.
+  - **Tier 3 (Search Engines & Aggregators):** Shadowserver, Spamhaus, Cloudflare Radar.
+  - **Tier 2 (Commercial TI):** Team Cymru, Volexity.
+  - URLs verified against authoritative directories (ENISA CSIRT inventory, FIRST, National Council of ISACs) and each source's official site, per the no-fabrication rule (R3).
+
+### Removed
+
+- **Sources based in excluded nations** (defender-safety policy): Kaspersky Securelist (Russia) from Tier 2; Fofa and ZoomEye (China) from Tier 3 — removed from all four source files.
+
+### Other
+
+- **Version bumped to 1.19.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog. Tier headings and per-tier coverage targets are unchanged, so the CI tier-parity and coverage-ledger checks are unaffected.
+
+---
+
 ## [1.18.0] - 2026-07-24
 
 ### Added

@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.17.0
+# Version: 1.19.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.18.0"
+  version: "1.19.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -527,9 +527,12 @@ execution:
 metadata:
   created: "2026-03-30"
   last_updated: "2026-07-24"
-  # (1.18.0 government CVE feeds: cisa_kev_fetch_cves + nvd_fetch_cves + fetch_all_cves)
+  # (1.19.0 defender source expansion: national/EU CSIRTs, ISACs, nonprofit/open-source CTI; excluded-nation sources removed)
 
   version_history:
+    - version: "1.19.0"
+      date: "2026-07-24"
+      changes: "Expand the Source Matrix with verified defender-oriented sources across source-matrix.md, original-prompt.md, and both standalone files: Tier 8 gains international/national CSIRTs (FIRST, CERT-EU, ENISA CSIRT inventory, and national CERTs for NZ/NL/ES/IT/PL/BE/AT/IE/CH/SE/NO/DK/FI/BR/SG/KR/TW/MY/IL/SA) plus CISA StopRansomware and sector ISACs (National Council of ISACs, MS-ISAC/CIS, Health-ISAC, Auto-ISAC); Tier 6 gains nonprofit/open-source CTI (MISP, OpenCTI, Cyber Threat Alliance, Have I Been Pwned, CERT/CC, Citizen Lab, Emerging Threats ruleset); Tier 3 gains Shadowserver, Spamhaus, and Cloudflare Radar; Tier 2 gains Team Cymru and Volexity. Removed sources based in excluded nations: Kaspersky Securelist (Russia), Fofa and ZoomEye (China). Tier headings/targets unchanged (parity-safe)."
     - version: "1.18.0"
       date: "2026-07-24"
       changes: "Add the Tier 1 government CVE feeds to the live-feed loop: threat-intel-mcp now exposes cisa_kev_fetch_cves (CISA Known Exploited Vulnerabilities catalog, exploit_status=known_exploited), nvd_fetch_cves (NIST NVD 2.0 recently-modified CVEs with CVSS/CWEs/references; credential optional), and fetch_all_cves (concurrent fan-out over both). These return CVE-keyed vulnerability records via a new vulnerability-output path (not ioc_network objects). Workflow step 2a in SKILL.md and the standalone skill file updated to cite the CVE tools and fold vulnerability records into the Vulnerability/Exposure section. CISA KEV and NVD were already Tier 1 MUST matrix sources (public feeds, not operator-authenticated), so the source matrix and input #9 are unchanged."
