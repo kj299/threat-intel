@@ -88,14 +88,14 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - CrowdStrike Falcon Intelligence — crowdstrike.com/blog — adversary profiles [MUST]
 - Microsoft Threat Intelligence — microsoft.com/security/blog — MSTIC, nation-state [MUST]
 - Cisco Talos — blog.talosintelligence.com — malware analysis [MUST]
-- Palo Alto Unit 42, SentinelLabs, Secureworks CTU, Sophos X-Ops, Trend Micro Research, FortiGuard Labs, Kaspersky Securelist, ESET Research, Check Point Research, Proofpoint Threat Insight, Microsoft Security Blog, Q-Feeds (qfeeds.com — real-time IP/URL/DNS CTI feeds; subscription required) [SHOULD]
+- Palo Alto Unit 42, SentinelLabs, Secureworks CTU, Sophos X-Ops, Trend Micro Research, FortiGuard Labs, ESET Research, Check Point Research, Proofpoint Threat Insight, Microsoft Security Blog, Team Cymru, Volexity, Q-Feeds (qfeeds.com — real-time IP/URL/DNS CTI feeds; subscription required) [SHOULD]
 - Attack-surface: BinaryEdge, ONYPHE, SecurityTrails [SHOULD]
 
 ### Tier 3: Search Engines & Aggregators
 - GreyNoise — greynoise.io — mass-exploitation telemetry [MUST]
 - Shodan — shodan.io — exposed services [MUST]
 - Censys — censys.io — attack surface [MUST]
-- VirusTotal, AbuseIPDB, URLScan.io, Pulsedive, AlienVault OTX, IntelX, FullHunt, Netlas.io, LeakIX, CRT.sh, DNSDumpster, Nuclei Templates, Fofa, ZoomEye, Hunter, PublicWWW, ThreatCrowd, OSINT Framework [SHOULD]
+- VirusTotal, AbuseIPDB, URLScan.io, Pulsedive, AlienVault OTX, IntelX, FullHunt, Netlas.io, LeakIX, CRT.sh, DNSDumpster, Nuclei Templates, Hunter, PublicWWW, ThreatCrowd, OSINT Framework, Shadowserver (shadowserver.org), Spamhaus (spamhaus.org), Cloudflare Radar (radar.cloudflare.com) [SHOULD]
 
 ### Tier 4: Bug Bounty & Disclosure
 - HackerOne — hackerone.com — disclosed reports [MUST]
@@ -112,7 +112,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Krebs on Security — krebsonsecurity.com [MUST]
 - The DFIR Report — thedfirreport.com [MUST]
 - Bleeping Computer — bleepingcomputer.com [MUST]
-- The Hacker News, SANS ISC, Schneier on Security, Troy Hunt, tl;dr sec, Risky Business News, r/netsec (and adjacent subreddits), Hacker News security submissions, Lobste.rs, Slashdot Security, Stack Exchange InfoSec, Graham Cluley, Cybersecurity News, Dark Reading, Threatpost, Security Affairs, Malwarebytes Labs, SANS Reading Room, X/Twitter #infosec/#threatintel/#malware/#APT/#CVE communities, infosec.exchange / ioc.exchange [SHOULD]
+- The Hacker News, SANS ISC, Schneier on Security, Troy Hunt, tl;dr sec, Risky Business News, r/netsec (and adjacent subreddits), Hacker News security submissions, Lobste.rs, Slashdot Security, Stack Exchange InfoSec, Graham Cluley, Cybersecurity News, Dark Reading, Threatpost, Security Affairs, Malwarebytes Labs, SANS Reading Room, X/Twitter #infosec/#threatintel/#malware/#APT/#CVE communities, infosec.exchange / ioc.exchange, MISP Project (misp-project.org), OpenCTI (github.com/OpenCTI-Platform/opencti), Cyber Threat Alliance (cyberthreatalliance.org), Have I Been Pwned (haveibeenpwned.com), CERT/CC (kb.cert.org), Citizen Lab (citizenlab.ca), Emerging Threats open ruleset (rules.emergingthreats.net) [SHOULD]
 
 ### Tier 7: Dark Web Intelligence (mostly paywalled — mark `unverified` if inaccessible)
 - Flashpoint, Intel 471, DarkOwl, Kela, Cybersixgill, SOCRadar, ReliaQuest, ZeroFox, Searchlight Cyber, Recorded Future Dark Web [SHOULD]
@@ -122,6 +122,8 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - NCSC UK — ncsc.gov.uk [MUST]
 - FBI IC3 / Flash Alerts — ic3.gov [MUST]
 - NSA Cybersecurity Advisories, ENISA Threat Landscape, ACSC Australia, CCCS Canada, JPCERT/CC, CERT-In India, FS-ISAC, FFIEC, PCI SSC, US-CERT, DHS Cybersecurity, NIST Cybersecurity Publications, BSI Germany, ANSSI France, SWIFT CSCF, FCA UK, OCC US, Federal Reserve, Bank of England Operational Resilience [SHOULD]
+- International & national CSIRTs: FIRST (first.org), CERT-EU (cert.europa.eu), ENISA CSIRTs inventory (enisa.europa.eu/tools/csirts-by-country-interactive-map), NCSC New Zealand (ncsc.govt.nz), NCSC Netherlands (ncsc.nl), INCIBE-CERT & CCN-CERT Spain (incibe.es, ccn-cert.cni.es), CSIRT Italia (csirt.gov.it), CERT Polska (cert.pl), CERT.be Belgium (cert.be), CERT.at Austria (cert.at), NCSC Ireland (ncsc.gov.ie), NCSC Switzerland (ncsc.admin.ch), CERT-SE Sweden (cert.se), NSM Norway (nsm.no), CFCS Denmark (cfcs.dk), NCSC-FI Finland (kyberturvallisuuskeskus.fi), CERT.br Brazil (cert.br), CSA/SingCERT Singapore (csa.gov.sg), KrCERT/CC Korea (krcert.or.kr), TWCERT/CC Taiwan (twcert.org.tw), MyCERT Malaysia (mycert.org.my), Israel INCD/CERT-IL (gov.il), Saudi NCA/Saudi CERT (nca.gov.sa/en/cert), CISA StopRansomware (stopransomware.gov) [SHOULD]
+- Sector ISACs: National Council of ISACs (nationalisacs.org), MS-ISAC/CIS (cisecurity.org/ms-isac), Health-ISAC (health-isac.org), Auto-ISAC (automotiveisac.com) [SHOULD]
 
 ### Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]

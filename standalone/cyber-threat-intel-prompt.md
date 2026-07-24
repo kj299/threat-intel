@@ -95,7 +95,6 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Sophos X-Ops — news.sophos.com [SHOULD]
 - Trend Micro Research — trendmicro.com/en_us/research.html [SHOULD]
 - FortiGuard Labs — fortiguard.fortinet.com [SHOULD]
-- Kaspersky Securelist — securelist.com [SHOULD]
 - ESET Research — welivesecurity.com [SHOULD]
 - Check Point Research — research.checkpoint.com [SHOULD]
 - Proofpoint Threat Insight — proofpoint.com/us/blog/threat-insight [SHOULD]
@@ -106,6 +105,9 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - BinaryEdge — binaryedge.io — threat intelligence and attack surface [SHOULD]
 - ONYPHE — onyphe.io — cyber defense search engine [SHOULD]
 - SecurityTrails — securitytrails.com — DNS and domain intelligence [SHOULD]
+
+- Team Cymru — team-cymru.com — community threat recon / no-cost services [SHOULD]
+- Volexity — volexity.com — APT and memory-forensics research [SHOULD]
 
 ### Tier 3: Search Engines & Aggregators
 - GreyNoise — greynoise.io — mass-exploitation telemetry [MUST]
@@ -123,12 +125,14 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - CRT.sh — crt.sh — certificate transparency [SHOULD]
 - DNSDumpster — dnsdumpster.com [SHOULD]
 - Nuclei Templates — github.com/projectdiscovery/nuclei-templates [SHOULD]
-- Fofa — fofa.info — network asset search [SHOULD]
-- ZoomEye — zoomeye.org — cyberspace search engine [SHOULD]
 - Hunter — hunter.io — email and domain intelligence [SHOULD]
 - PublicWWW — publicwww.com — source code search [SHOULD]
 - ThreatCrowd — threatcrowd.org — threat intelligence mashup [SHOULD]
 - OSINT Framework — osintframework.com — OSINT tool collection [SHOULD]
+
+- Shadowserver — shadowserver.org — nonprofit; free daily exposure/victim and threat feeds [SHOULD]
+- Spamhaus — spamhaus.org — IP/domain reputation and blocklists (nonprofit) [SHOULD]
+- Cloudflare Radar — radar.cloudflare.com — internet traffic and threat trends (free) [SHOULD]
 
 ### Tier 4: Bug Bounty & Disclosure
 - HackerOne — hackerone.com — disclosed reports [MUST]
@@ -196,6 +200,14 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Twitter/X hashtags: #infosec, #threatintel, #malware, #APT, #CVE + security researcher accounts — x.com/hashtag/<tag> [SHOULD]
 - infosec.exchange, ioc.exchange (Mastodon) — infosec.exchange / ioc.exchange [SHOULD]
 
+- MISP Project — misp-project.org — open-source threat-sharing platform and communities (nonprofit) [SHOULD]
+- OpenCTI — github.com/OpenCTI-Platform/opencti — open-source CTI knowledge platform [SHOULD]
+- Cyber Threat Alliance — cyberthreatalliance.org — vendor threat-sharing nonprofit [SHOULD]
+- Have I Been Pwned — haveibeenpwned.com — breach/credential exposure (free API) [SHOULD]
+- CERT/CC — kb.cert.org — Carnegie Mellon SEI coordinated disclosure (VINCE) [SHOULD]
+- Citizen Lab — citizenlab.ca — academic spyware / targeted-threat research [SHOULD]
+- Emerging Threats open ruleset — rules.emergingthreats.net — free Suricata/Snort IDS rules [SHOULD]
+
 ### Tier 7: Dark Web Intelligence (mostly paywalled — mark `unverified` if inaccessible)
 - Flashpoint (flashpoint.io), Intel 471 (intel471.com), DarkOwl (darkowl.com), Kela (ke-la.com), Cybersixgill (cybersixgill.com), SOCRadar (socradar.io), ReliaQuest (reliaquest.com), ZeroFox (zerofox.com), Searchlight Cyber (slcyber.io) [SHOULD]
 - Recorded Future Dark Web Intelligence — recordedfuture.com — cross-ref Tier 2 [SHOULD]
@@ -223,6 +235,40 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - OCC (US) Cybersecurity Bulletins — occ.gov [SHOULD]
 - Federal Reserve Cybersecurity — federalreserve.gov [SHOULD]
 - Bank of England Operational Resilience — bankofengland.co.uk [SHOULD]
+
+
+**International & National CSIRTs (defensive)**
+- FIRST — first.org — global incident-response forum + CSIRT member directory [SHOULD]
+- CERT-EU — cert.europa.eu — advisories for EU institutions [SHOULD]
+- ENISA CSIRTs inventory — enisa.europa.eu/tools/csirts-by-country-interactive-map — directory of EU national CSIRTs [SHOULD]
+- NCSC New Zealand — ncsc.govt.nz [SHOULD]
+- NCSC Netherlands — ncsc.nl [SHOULD]
+- INCIBE-CERT Spain — incibe.es [SHOULD]
+- CCN-CERT Spain — ccn-cert.cni.es [SHOULD]
+- CSIRT Italia — csirt.gov.it [SHOULD]
+- CERT Polska — cert.pl [SHOULD]
+- CERT.be Belgium (CCB) — cert.be [SHOULD]
+- CERT.at Austria — cert.at [SHOULD]
+- NCSC Ireland — ncsc.gov.ie [SHOULD]
+- NCSC Switzerland — ncsc.admin.ch [SHOULD]
+- CERT-SE Sweden — cert.se [SHOULD]
+- NSM / NorCERT Norway — nsm.no [SHOULD]
+- CFCS Denmark — cfcs.dk [SHOULD]
+- NCSC-FI Finland (Traficom) — kyberturvallisuuskeskus.fi [SHOULD]
+- CERT.br Brazil — cert.br [SHOULD]
+- CSA / SingCERT Singapore — csa.gov.sg [SHOULD]
+- KrCERT/CC (KISA) South Korea — krcert.or.kr [SHOULD]
+- TWCERT/CC Taiwan — twcert.org.tw [SHOULD]
+- MyCERT Malaysia — mycert.org.my [SHOULD]
+- Israel INCD (CERT-IL) — gov.il/en/departments/israel_national_cyber_directorate [SHOULD]
+- Saudi NCA / Saudi CERT — nca.gov.sa/en/cert [SHOULD]
+- CISA StopRansomware — stopransomware.gov — ransomware advisories / IOCs [SHOULD]
+
+**Sector ISACs (non-profit sharing)**
+- National Council of ISACs — nationalisacs.org — directory of sector ISACs [SHOULD]
+- MS-ISAC (CIS) — cisecurity.org/ms-isac — US SLTT government sharing [SHOULD]
+- Health-ISAC — health-isac.org [SHOULD]
+- Auto-ISAC — automotiveisac.com [SHOULD]
 
 ### Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]
