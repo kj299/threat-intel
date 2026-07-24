@@ -27,13 +27,14 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `tests/invalid/` -- negative schema fixtures (must be rejected)
 - `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures; second job runs `mcp/` pytest suite + ruff lint
 - `mcp/` -- `threat-intel-mcp` MCP server (stdio transport); runtime counterpart to the prompt skill
-  - `mcp/src/threat_intel_mcp/adapters/` -- live feed adapters: Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN (TAXII/STIX), Intel 471, Censys (each with in-process cache + egress allowlist)
+  - `mcp/src/threat_intel_mcp/adapters/` -- IOC feed adapters: Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN (TAXII/STIX), Intel 471, Censys, plus the free public abuse.ch feeds URLhaus + ThreatFox; CVE feed adapters: CISA KEV (public JSON) + NVD (key optional). Each carries an in-process cache + egress allowlist. `base.py` documents the adapter **error taxonomy** (see Conventions)
   - `mcp/src/threat_intel_mcp/fanout.py` + `resilience.py` -- `fetch_all_iocs` concurrent fan-out; per-source circuit breaker + backoff retry
   - `mcp/src/threat_intel_mcp/normalize.py` + `sanitize.py` -- `finalize_iocs` = sanitize -> validate (ioc_network schema, runtime date-time checking) -> dedupe (corroboration-preserving)
+  - `mcp/src/threat_intel_mcp/vulns.py` -- CVE-keyed vulnerability-output path (counterpart to normalize.py/fanout.py): `finalize_vulns` = sanitize -> validate (inline CVE-record schema) -> dedupe by CVE ID; `fan_out_vulns` = `fetch_all_cves` concurrent fan-out
   - `mcp/src/threat_intel_mcp/vault/` -- credential providers: `EnvCredentialProvider` (dev) and `VaultCredentialProvider` (HashiCorp AppRole + KV v2); `protocols.py` = typed gRPC/MQTT/WebSocket/GraphQL credential bundles
   - `mcp/src/threat_intel_mcp/transports/` -- `ProtocolAdapter` bring-your-own-endpoint base (no live protocol feed ships; see docs/protocol-adapters.md)
-  - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs`, nine single-feed tools, `list_available_feeds`
-  - `mcp/tests/` -- 312 unit + httpx-mock integration tests (no live network)
+  - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs` + 11 single-feed IOC tools; `fetch_all_cves` + `cisa_kev_fetch_cves` + `nvd_fetch_cves`; `list_available_feeds` (IOC feeds under `feeds`, CVE feeds under `cve_sources`)
+  - `mcp/tests/` -- unit + httpx-mock integration tests (no live network)
 
 Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
 
@@ -45,3 +46,5 @@ Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`
 - YAML: 2-space indent, snake_case keys.
 - All claims about capabilities should be honest about what prompt engineering can and cannot do.
 - No fictional infrastructure (fake domains, fake email addresses, fake pricing).
+- **MCP adapter error taxonomy** (authoritative in `mcp/src/threat_intel_mcp/adapters/base.py`): an adapter's `fetch` raises `ValueError` **only** for caller errors (bad `feed_types`/`time_range`) — the server tool surfaces these verbatim; `CredentialError`/`KeyError` for missing/unreadable credentials — degrade to `unverified`, non-retryable; and **anything else** (`httpx` errors, `RuntimeError`, parse failures, and a **malformed 200 body**) for upstream/transient problems — degrade + retryable. Never raise `ValueError` for a malformed upstream body: the tool re-raises it and crashes instead of degrading. Every single-feed tool has a malformed-body degrade guard in `mcp/tests/test_server_smoke.py`.
+- **When a repository change alters what the code does, update the architecture/layout docs to match** — `docs/architecture.md`, the layout above, and `mcp/README.md` must reflect the real code, not an aspirational version.

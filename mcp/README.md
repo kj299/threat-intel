@@ -228,7 +228,19 @@ tier: int
 async def fetch(self, *, time_range: str, feed_types: list[str] | None = None) -> FetchResult
 ```
 
-`FetchResult` carries `iocs` (raw `ioc_network` dicts), `source`, `tier`, `retrieved_at`, `record_count`, `latency_ms`, `feed_types_fetched`, and `partial_failure`. You do **not** validate, sanitize, or deduplicate in the adapter — the tool layer runs `normalize.finalize_iocs` (sanitize → validate → dedup) on your output.
+`FetchResult` carries `iocs` (raw `ioc_network` dicts), `source`, `tier`, `retrieved_at`, `record_count`, `latency_ms`, `feed_types_fetched`, and `partial_failure`. You do **not** validate, sanitize, or deduplicate in the adapter — the tool layer runs `normalize.finalize_iocs` (sanitize → validate → dedup) on your output. (CVE feeds return a `VulnFetchResult` with `vulns` instead of `iocs`, and the tool layer runs `vulns.finalize_vulns`; everything below applies identically.)
+
+### Error taxonomy (which exception to raise)
+
+An adapter signals three different failures with three different exception classes, and **the class decides whether a single-feed tool crashes or degrades**. This is the full contract (also stated authoritatively in `adapters/base.py`):
+
+| Situation | Raise | Tool behaviour | Fan-out behaviour |
+|---|---|---|---|
+| Bad **caller** input (unknown `feed_types`, malformed `time_range`) | `ValueError` | re-raised **verbatim** (surfaces the caller's mistake) | non-retryable config error |
+| Missing / unreadable **credential** | `CredentialError` / `KeyError` | degrade → `unverified` | non-retryable, breaker untouched |
+| **Upstream / transient** (HTTP error, **malformed 200 body**, parse failure) | `httpx` error, `RuntimeError`, … (anything else) | degrade → `unverified` | retryable; backoff + breaker engage |
+
+**The trap:** a malformed upstream body (a 200 with an unexpected shape) is the *third* row, **not** the first — never raise `ValueError` for it, or the tool re-raises and crashes instead of degrading. Raise `RuntimeError` (or let the underlying `httpx`/parse exception propagate). See `adapters/cisa_kev.py::_parse_catalog` for the reference pattern; `tests/test_server_smoke.py` has a parametrized guard that every single-feed tool degrades — never raises — when its upstream returns a malformed body.
 
 ### Worked example: VirusTotal Intelligence (a real paid feed already in this repo)
 
@@ -293,12 +305,12 @@ The seven numbered points are the whole recipe; the rest (pagination, caching, r
 1. **Store the credential** under a new adapter name. Env mode reads `{ADAPTER}_{KEY}` — `credentials.get("recordedfuture", "api_key")` → `RECORDEDFUTURE_API_KEY`. Vault mode reads `secret/data/recordedfuture/api_key` (see the rotation section above). Nothing else in the codebase needs the raw key.
 2. **Copy the real auth scheme from the vendor docs.** Header (`x-apikey`, `Key`, `X-OTX-API-KEY`), HTTP Basic (`auth=(user, key)`, as Q-Feeds uses), or a `key` **query parameter** (Shodan). If the key rides in the URL, it will otherwise land in httpx's INFO logs — `audit.py` already installs a redaction filter for that case; keep your own logging to endpoint/query-name/exception-*type* only.
 3. **Add the host to the egress allowlist**: `event_hooks=egress_event_hooks("api.vendor.com")`. A compromised or buggy adapter then physically cannot exfiltrate to another host.
-4. **Fail fast on a missing credential** by fetching the key before opening the client, so an unconfigured feed raises `CredentialError`/`KeyError` cleanly (the tool layer turns that into an `unverified` Coverage-Ledger entry, not a crash).
-5. **Return partial failures, raise total ones.** If some feed types succeed, return them with `partial_failure` populated. If *every* requested feed type fails, `raise` — that lets the fan-out's circuit breaker and backoff retry engage (a swallowed failure disables both).
+4. **Fail fast on a missing credential** by fetching the key before opening the client, so an unconfigured feed raises `CredentialError`/`KeyError` cleanly (the tool layer turns that into an `unverified` Coverage-Ledger entry, not a crash). See the Error taxonomy table above.
+5. **Return partial failures, raise total ones — with the right exception class.** If some feed types succeed, return them with `partial_failure` populated. If *every* requested feed type fails, `raise` — that lets the fan-out's circuit breaker and backoff retry engage (a swallowed failure disables both). When you `raise` for an upstream problem (including a **malformed response body**), raise `RuntimeError` or let the `httpx`/parse exception propagate — **never `ValueError`**, which the tool reserves for caller errors and re-raises verbatim (it would crash the single-feed tool instead of degrading).
 6. **Set honest confidence and `action`.** Map the vendor's own score/verdict to `High`/`Medium`/`Low`; use `action: block` only for high-confidence blocklists, `action: alert` for heuristic/crawler detections (as `shodan.py` does). Never invent a confidence the source doesn't support (R3).
 7. **Normalize to `ioc_network`** with at least `type`, `value`, `confidence`, `source`. Parse IPs with `ipaddress` (rejects malformed octets), and normalise any naive timestamps to RFC 3339 so runtime date-time validation passes (see `shodan.py::_normalize_timestamp`). Return `None` to skip a record rather than emitting a half-populated one.
 8. **Register it.** Add a `{name}_fetch_iocs` tool in `server.py` (copy an existing one — they're identical except for names/tiers), append a `FeedSource(..., CircuitBreaker("Name"), _CONFIG_ERRORS)` to `_FEED_SOURCES` so `fetch_all_iocs` picks it up, and add a `list_available_feeds` entry.
-9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set.
+9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is automatically covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` (add it to the tool list there) — that guard is what catches the "raised `ValueError` on a bad body" mistake.
 
 ### API contract for each paid subscription source
 

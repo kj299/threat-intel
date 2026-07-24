@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Skill live-feed loop** (Workflow step 2a) in `SKILL.md` and the standalone skill file now cites the CVE tools and folds returned vulnerability records into the Vulnerability/Exposure section; a CVE in KEV escalates urgency. CISA KEV and NVD were already Tier 1 `[MUST]` matrix sources (public government feeds, not operator-authenticated feeds), so input #9's authenticated-feed list and the source matrix are unchanged.
 
+### Hardening
+
+- **Adapter error taxonomy documented and guarded.** A code-review of the CVE feeds found that a malformed upstream body raised `ValueError` — which the single-feed tool reserves for caller errors and re-raises verbatim, crashing instead of degrading. Fixed (`cisa_kev.py` raises `RuntimeError` for upstream-shape problems) and generalised: the full taxonomy (`ValueError` = caller error; `CredentialError`/`KeyError` = config; anything else incl. a malformed body = upstream/retryable) is now authoritative in `adapters/base.py` and documented in `mcp/README.md`, `CLAUDE.md`, `contributing.md`, and `docs/architecture.md`.
+- **Malformed-body degrade guard** (`tests/test_server_smoke.py`): a parametrized sweep asserts every single-feed tool (IOC and CVE) degrades — never raises — when its upstream returns a 200 with an unexpected shape. Added an autouse fixture that resets the module-level adapter caches and circuit breakers between smoke tests so ordering never leaks state.
+
 ### Other
 
 - **Version bumped to 1.18.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog. `threat-intel-mcp` bumped to **0.13.0**.

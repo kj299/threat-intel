@@ -16,6 +16,30 @@ from pytest_httpx import HTTPXMock
 
 import threat_intel_mcp.server as server
 
+
+@pytest.fixture(autouse=True)
+def _reset_adapter_state():
+    """Isolate tests from the module-level adapter singletons.
+
+    ``server.py`` builds one adapter instance per feed at import time, each with
+    an in-process cache, and one circuit breaker per source. Without a reset, a
+    test that warms a cache (e.g. the malformed-body sweep, which fetches every
+    feed) would leak a cached result into a later test that expects the feed to
+    be unconfigured — and a test that trips a breaker would leak an open circuit.
+    Clear both before every test so ordering never matters.
+    """
+    sources = server._FEED_SOURCES + server._VULN_SOURCES
+    for s in sources:
+        cache = getattr(s.adapter, "_cache", None)
+        if isinstance(cache, dict):
+            cache.clear()
+        s.breaker.record_success()
+    # The VirusTotal singleton carries a real 15s inter-request rate-limit sleep;
+    # smoke tests exercise wiring, not throughput, so drop it (test_virustotal.py
+    # builds its own instances and is unaffected).
+    server._virustotal._rate_limit_delay = 0
+    yield
+
 # Feeds that require a credential: with none configured, the tool short-circuits
 # before any HTTP request.
 _CREDENTIALED_FEED_TOOLS = [
@@ -155,6 +179,45 @@ async def test_cve_tool_degrades_on_upstream_error(
     assert result["vulns"] == []
     assert "error" in result
     assert len(httpx_mock.get_requests()) >= 1  # it DID attempt the network
+
+
+# Every single-feed tool — IOC and CVE — must honour the never-crash contract.
+_ALL_SINGLE_FEED_TOOLS = _SINGLE_FEED_TOOLS + _CVE_FEED_TOOLS
+# Dummy credentials so credentialed tools get past their fail-fast key check and
+# actually reach the (mocked) network, exercising their body-parsing path.
+_ALL_CRED_VARS = _CRED_VARS + ("NVD_API_KEY",)
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(
+    assert_all_responses_were_requested=False,
+    can_send_already_matched_responses=True,
+)
+@pytest.mark.parametrize("tool_name", _ALL_SINGLE_FEED_TOOLS)
+async def test_single_feed_tool_degrades_on_malformed_body(
+    tool_name, httpx_mock: HTTPXMock, monkeypatch
+):
+    """Contract guard (the bug this sweep was written for): a 200 response with an
+    unexpected body shape must DEGRADE, never raise, out of any single-feed tool.
+
+    An adapter that raises ``ValueError`` for a malformed upstream body would be
+    re-raised verbatim by its tool (``ValueError`` is reserved for caller errors)
+    and crash the call instead of degrading — see adapters/base.py's error
+    taxonomy. A catch-all mock returns ``{}`` (valid JSON, wrong shape) for every
+    request; reuse is enabled so paginating adapters get it on each page."""
+    for var in _ALL_CRED_VARS:
+        monkeypatch.setenv(var, "dummy-value-for-test")
+    httpx_mock.add_response(url=re.compile(r"https://.+"), json={})
+
+    # The bare await IS the core assertion: if the tool raises (the bug class),
+    # the test errors. A malformed body must yield a well-formed tool dict — the
+    # record count is unconstrained (a plain-text feed may parse "{}" as one junk
+    # line; what matters is it did not crash on an unexpected shape).
+    result = await getattr(server, tool_name)()
+
+    assert isinstance(result, dict)
+    assert "coverage_ledger_entry" in result
+    assert isinstance(result["record_count"], int)
 
 
 @pytest.mark.asyncio
