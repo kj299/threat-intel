@@ -4,6 +4,14 @@ The full enumeration of named intelligence sources organized by tier. Supports R
 
 Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks preferred sources to draw on first toward a tier's coverage target; `[SHOULD]` marks optional sources to add once the preferred ones are covered. These are priorities, not quotas — see the Source Coverage Protocol in [`original-prompt.md`](original-prompt.md). Domains are listed in short form (no scheme); prepend `https://` to resolve.
 
+## Source Governance
+
+Rules for changing this list (they bind `original-prompt.md` and the `standalone/` mirrors too — CI checks name parity across the full-format files):
+
+- **Inclusion bar.** A source must be a named, real organization with a verified official URL and meaningful defender value. Verify the org and URL against an authoritative directory (e.g. the ENISA CSIRT inventory, FIRST member directory, National Council of ISACs) or the organization's own site, and name the verification source in the PR. No fictional infrastructure; if you can't verify it, don't add it (R3).
+- **Excluded origins.** Sources based in **China, Russia, North Korea, Belarus, or Iran** are not listed, regardless of technical quality — for defender tooling, feed provenance is a supply-chain and tasking-risk decision, not just a data-quality one. Three previously-listed sources were removed under this rule in v1.19.0 (see the changelog); CI guards against reintroducing their domains into any source file, including this sentence's own file.
+- **Removals** follow the same discipline as additions: state the reason in the PR and changelog, and apply the change to every mirrored file.
+
 ## Tier 1: Vulnerability Databases & Exploit Repositories
 - NVD — nvd.nist.gov — CVE records, CVSS scores [MUST]
 - CISA KEV — cisa.gov/known-exploited-vulnerabilities-catalog — actively exploited CVEs [MUST]

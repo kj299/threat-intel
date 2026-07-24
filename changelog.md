@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Source Governance section** in `references/source-matrix.md` (issue #88): the inclusion bar (named org, verified official URL, verification source cited in the PR) and the excluded-origins rule (no sources based in CN/RU/KP/BY/IR) are now written policy instead of PR prose; cross-linked from `contributing.md`.
+- **CI: source-list content parity** (issue #89): per-tier source entries must be identical across `source-matrix.md`, `original-prompt.md`, and `standalone/cyber-threat-intel-prompt.md` — heading parity alone could not catch a source silently missing from one mirror.
+- **CI: excluded-origin denylist** (issue #88): the domains removed under the governance rule in 1.19.0 fail CI if reintroduced into any of the four source files.
+- **CI: skill ⟷ server tool parity** (issue #79, in `mcp/tests/test_docs_consistency.py`): the MCP tool names in `SKILL.md` step 2a and the standalone skill file must exactly match the `@mcp.tool()` registrations in `server.py`, both directions.
+- **Report staleness alarm** (`.github/workflows/report-staleness.yml`, issue #77): weekly check that opens/bumps an issue when `reports/` goes >10 days without a new report — the July cadence death went unnoticed for 18 days.
+- **Report runbook** (`docs/report-runbook.md`, issue #77) + a **Generated Reports** section in `README.md`: what `reports/` is, how reports are produced, manual-generation steps (including the live-feed egress requirement), and how the staleness guard works.
+
 ---
 
 ## [1.19.0] - 2026-07-24

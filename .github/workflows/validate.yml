@@ -477,6 +477,89 @@ jobs:
           print(f"OK: all {checked} invalid fixtures correctly rejected")
           PY
 
+      - name: Source-list content parity (matrix vs prompt vs standalone)
+        run: |
+          python <<'PY'
+          # Issue #89: the full source list is mirrored across three full-format
+          # files. Tier-parity above only compares headings; this compares the
+          # actual per-tier entry lines so a source added/removed in one file
+          # cannot silently diverge from the others. (The condensed standalone
+          # skill file is a summary by design and is guarded separately by the
+          # excluded-origin denylist below and the MCP tool-parity pytest.)
+          import pathlib, re, sys
+          FILES = [
+              "skills/cyber-threat-intel/references/source-matrix.md",
+              "skills/cyber-threat-intel/references/original-prompt.md",
+              "standalone/cyber-threat-intel-prompt.md",
+          ]
+          TIER_RE = re.compile(r"^#{2,3}\s*Tier\s*(\d+)\s*[:\-]", re.MULTILINE)
+          HEADING_RE = re.compile(r"^#{1,6}\s", re.MULTILINE)
+          def tier_entries(text):
+              # A tier section ends at the NEXT heading of any kind — in the
+              # prompt files the tier list is followed by unrelated sections.
+              out = {}
+              for m in TIER_RE.finditer(text):
+                  start = m.end()
+                  nxt = HEADING_RE.search(text, start)
+                  end = nxt.start() if nxt else len(text)
+                  entries = set()
+                  for line in text[start:end].splitlines():
+                      line = line.strip()
+                      if line.startswith("- "):
+                          entries.add(re.sub(r"\s+", " ", line[2:].strip()))
+                  out[int(m.group(1))] = entries
+              return out
+          per_file = {f: tier_entries(pathlib.Path(f).read_text(encoding="utf-8")) for f in FILES}
+          ref_name = FILES[0]
+          ref = per_file[ref_name]
+          errors = []
+          for f in FILES[1:]:
+              for tier in sorted(set(ref) | set(per_file[f])):
+                  a = ref.get(tier, set())
+                  b = per_file[f].get(tier, set())
+                  for e in sorted(a - b):
+                      errors.append(f"Tier {tier}: only in {ref_name}: {e[:120]}")
+                  for e in sorted(b - a):
+                      errors.append(f"Tier {tier}: only in {f}: {e[:120]}")
+          if errors:
+              print("FAIL: source-list content divergence between mirrored files:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          total = sum(len(v) for v in ref.values())
+          print(f"OK: {total} source entries identical across the 3 full-format files")
+          PY
+
+      - name: Source governance — excluded-origin denylist
+        run: |
+          python <<'PY'
+          # Source Governance (source-matrix.md): sources based in CN/RU/KP/BY/IR
+          # are not listed. Guard against reintroduction of the domains removed
+          # in v1.19.0 (and their org names) in any of the four source files.
+          # Historical mentions in changelog.md / spec.yaml version_history are
+          # intentionally out of scope.
+          import pathlib, re, sys
+          FILES = [
+              "skills/cyber-threat-intel/references/source-matrix.md",
+              "skills/cyber-threat-intel/references/original-prompt.md",
+              "standalone/cyber-threat-intel-prompt.md",
+              "standalone/cyber-threat-intel-skill.md",
+          ]
+          DENY = ["securelist.com", "kaspersky", "fofa.info", "zoomeye"]
+          hits = []
+          for f in FILES:
+              text = pathlib.Path(f).read_text(encoding="utf-8").lower()
+              for term in DENY:
+                  if term in text:
+                      hits.append(f"{f}: contains {term!r}")
+          if hits:
+              print("FAIL: excluded-origin source reintroduced (see Source Governance in source-matrix.md):")
+              for h in hits:
+                  print(f"  {h}")
+              sys.exit(1)
+          print(f"OK: no excluded-origin domains in the {len(FILES)} source files")
+          PY
+
   mcp-tests:
     name: MCP server tests and lint
     runs-on: ubuntu-latest

@@ -140,7 +140,7 @@ Format: `<type>: <description>` where type is one of:
 ### What Makes a Good Contribution
 
 **Accepted:**
-- Adding new intelligence sources (with verification they exist)
+- Adding new intelligence sources (with verification they exist — see the **Source Governance** rules at the top of [`skills/cyber-threat-intel/references/source-matrix.md`](skills/cyber-threat-intel/references/source-matrix.md): inclusion bar, excluded origins, and the mirrored-file discipline)
 - Improving persona definitions or output templates
 - New detection rule formats or examples
 - Documentation corrections and clarity improvements
