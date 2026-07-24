@@ -125,10 +125,16 @@ class TestFetch:
             await adapter.fetch()
 
     @pytest.mark.asyncio
-    async def test_malformed_body_raises(self, adapter, httpx_mock: HTTPXMock):
+    async def test_malformed_body_raises_non_valueerror(
+        self, adapter, httpx_mock: HTTPXMock
+    ):
+        # A malformed upstream body is an upstream problem, not a caller error:
+        # it must NOT be a ValueError (which the server tool surfaces verbatim as
+        # a caller mistake) so the tool degrades instead of crashing.
         httpx_mock.add_response(url=_FEED_URL, json={"no": "vulnerabilities"})
-        with pytest.raises(ValueError, match="vulnerabilities"):
+        with pytest.raises(RuntimeError, match="vulnerabilities"):
             await adapter.fetch()
+        assert not isinstance(RuntimeError(), ValueError)
 
     @pytest.mark.asyncio
     async def test_cache_avoids_second_request(self, adapter, httpx_mock: HTTPXMock):

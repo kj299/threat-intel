@@ -193,12 +193,18 @@ class CISAKEVAdapter:
         )
 
     def _parse_catalog(self, body: Any) -> list[dict[str, Any]]:
-        """Parse the KEV JSON body into vuln records."""
+        """Parse the KEV JSON body into vuln records.
+
+        A malformed body is an *upstream* problem, not a caller error, so it is
+        raised as ``RuntimeError`` (not ``ValueError``): the server tool reserves
+        ``ValueError`` for caller mistakes (bad ``feed_types``) that it surfaces
+        verbatim, and degrades everything else to an "unverified" ledger entry.
+        """
         if not isinstance(body, dict):
-            raise ValueError("CISA KEV response was not a JSON object")
+            raise RuntimeError("CISA KEV response was not a JSON object")
         entries = body.get("vulnerabilities")
         if not isinstance(entries, list):
-            raise ValueError("CISA KEV response missing 'vulnerabilities' list")
+            raise RuntimeError("CISA KEV response missing 'vulnerabilities' list")
         return [
             normalized
             for entry in entries

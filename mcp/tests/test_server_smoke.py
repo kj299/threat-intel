@@ -158,6 +158,24 @@ async def test_cve_tool_degrades_on_upstream_error(
 
 
 @pytest.mark.asyncio
+async def test_cisa_kev_tool_degrades_on_malformed_body(httpx_mock: HTTPXMock):
+    """A 200 response with an unexpected shape (e.g. CISA serves an error page or
+    changes the schema) must degrade gracefully, not raise — the same
+    never-crash contract every single-feed tool honors. Guards against the
+    adapter's parse error being a ValueError (which the tool surfaces verbatim)."""
+    httpx_mock.add_response(
+        url=_CVE_FEED_URLS["cisa_kev_fetch_cves"], json={"unexpected": "shape"}
+    )
+
+    result = await server.cisa_kev_fetch_cves()
+
+    assert result["coverage_ledger_entry"]["status"] == "unverified"
+    assert result["record_count"] == 0
+    assert result["vulns"] == []
+    assert "error" in result
+
+
+@pytest.mark.asyncio
 async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeypatch):
     """fetch_all_cves fans out across the government CVE feeds and returns a
     coherent vuln result. Served empty catalogs, both come back 'consulted' with
