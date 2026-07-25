@@ -564,6 +564,64 @@ jobs:
           print(f"OK: no excluded-origin domains in the {len(FILES)} source files")
           PY
 
+      - name: Plugin manifest (.claude-plugin/plugin.json)
+        run: |
+          python <<'PY'
+          # The manifest is what makes this repo installable as a Claude Code
+          # plugin, which is the only way a fresh clone exposes the skill as a
+          # slash command (a top-level skills/ directory is not a discovery
+          # location -- see docs/report-runbook.md). These checks stop it from
+          # drifting out of step with the skill it ships.
+          import json, pathlib, re, sys, yaml
+          errors = []
+          manifest_path = pathlib.Path(".claude-plugin/plugin.json")
+          if not manifest_path.is_file():
+              print("FAIL: missing .claude-plugin/plugin.json")
+              sys.exit(1)
+          try:
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          except json.JSONDecodeError as exc:
+              print(f"FAIL: .claude-plugin/plugin.json is not valid JSON: {exc}")
+              sys.exit(1)
+
+          name = manifest.get("name")
+          if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", name):
+              errors.append(f"'name' must be kebab-case, got {name!r}")
+
+          # Plugin skills live at <plugin-root>/skills/<skill>/SKILL.md, which is
+          # exactly this repo's existing layout -- assert it stays that way.
+          skill_md = pathlib.Path("skills/cyber-threat-intel/SKILL.md")
+          if not skill_md.is_file():
+              errors.append(f"plugin skill not found at {skill_md}")
+
+          # Version parity with the skill, the same discipline applied to the
+          # schema, examples, and changelog.
+          truth = yaml.safe_load(
+              pathlib.Path("skills/cyber-threat-intel/spec.yaml").read_text(encoding="utf-8")
+          )["skill"]["version"]
+          if manifest.get("version") != truth:
+              errors.append(
+                  f"'version' is {manifest.get('version')!r}, expected {truth!r} (spec.yaml skill.version)"
+              )
+
+          # The bundled server must launch by module, not via the console script:
+          # that shim is missing from PATH on common Windows installs (issue #76).
+          server = (manifest.get("mcpServers") or {}).get("threat-intel")
+          if not isinstance(server, dict):
+              errors.append("mcpServers must declare a 'threat-intel' server")
+          elif server.get("args", [])[:2] != ["-m", "threat_intel_mcp"]:
+              errors.append(
+                  f"'threat-intel' server must launch with ['-m', 'threat_intel_mcp'], got {server.get('args')!r}"
+              )
+
+          if errors:
+              print("FAIL: plugin manifest problems:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          print(f"OK: plugin manifest '{name}' v{truth} ships {skill_md} and launches the server by module")
+          PY
+
   mcp-tests:
     # Issue #81: pyproject declares requires-python >=3.11, so every version in
     # that claim gets tested — previously only 3.11 ran, leaving the upper end

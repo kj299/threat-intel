@@ -66,7 +66,29 @@ described or ran it.
    > open egress, or accept a no-live-data report that says so.
 
 2. **Invoke** the skill (`/cyber-threat-intel`), defaults or a chosen persona
-   and time range. With MCP connected, the skill's Workflow step 2a calls
+   and time range.
+
+   > **The slash command only exists if the repository is loaded as a plugin.**
+   > Claude Code discovers skills from `~/.claude/skills/`, `.claude/skills/`,
+   > and installed plugins — a top-level `skills/` directory at a repository
+   > root is *not* a discovery location, so a plain clone exposes no
+   > `/cyber-threat-intel`. This is why the first live run (#76) reported
+   > `Unknown command`.
+   >
+   > `.claude-plugin/plugin.json` makes this repo a plugin whose skills live in
+   > `skills/` — its existing layout. Load it for a session straight from the
+   > clone:
+   >
+   > ```bash
+   > claude --plugin-dir .        # run from the repository root
+   > ```
+   >
+   > The command is then `/threat-intel:cyber-threat-intel`; bare
+   > `/cyber-threat-intel` also works unless something else claims that name.
+   > The manifest bundles the MCP server too, so this single flag covers step 1
+   > as well — subject to the usual per-server approval prompt.
+
+   With MCP connected, the skill's Workflow step 2a calls
    `fetch_all_iocs` / `fetch_all_cves` and folds live results in; sources the
    tools report as degraded stay `unverified` in the ledger — never upgraded.
 3. **Review before committing:** badge consistent with the ledger; every IOC

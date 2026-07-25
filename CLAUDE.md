@@ -8,6 +8,8 @@ This is NOT a product, platform, or service. It is a packaged Anthropic Agent Sk
 
 ## Layout
 
+- `.claude-plugin/plugin.json` -- plugin manifest. Makes the repo installable as a Claude Code plugin, which is what exposes the skill as a slash command: a top-level `skills/` directory is **not** a skill-discovery location (Claude Code looks in `~/.claude/skills/`, `.claude/skills/`, and plugins), so a plain clone offers no `/cyber-threat-intel`. Plugin skills live at `<plugin-root>/skills/<name>/SKILL.md`, which is the layout below already. Load it from a clone with `claude --plugin-dir .` at the repository root. The manifest also bundles the MCP server, launched as `python -m threat_intel_mcp`.
+
 The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/skills) convention:
 
 - `skills/cyber-threat-intel/SKILL.md` -- skill entrypoint with YAML frontmatter (name, description) and the workflow Claude follows
@@ -34,6 +36,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `mcp/src/threat_intel_mcp/vulns.py` -- CVE-keyed vulnerability-output path (counterpart to normalize.py/fanout.py): `finalize_vulns` = sanitize -> validate (inline CVE-record schema) -> dedupe by CVE ID; `fan_out_vulns` = `fetch_all_cves` concurrent fan-out
   - `mcp/src/threat_intel_mcp/vault/` -- credential providers: `EnvCredentialProvider` (dev) and `VaultCredentialProvider` (HashiCorp AppRole + KV v2); `protocols.py` = typed gRPC/MQTT/WebSocket/GraphQL credential bundles
   - `mcp/src/threat_intel_mcp/transports/` -- `ProtocolAdapter` bring-your-own-endpoint base (no live protocol feed ships; see docs/protocol-adapters.md)
+  - `mcp/src/threat_intel_mcp/__main__.py` -- `python -m threat_intel_mcp` entry point. The `threat-intel-mcp` console script only resolves when the interpreter's scripts directory is on `PATH`, which it frequently is not on Windows; the module form always works and is what the plugin manifest and the documented `claude mcp add` registration use
   - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs` + 11 single-feed IOC tools; `fetch_all_cves` + `cisa_kev_fetch_cves` + `nvd_fetch_cves`; `list_available_feeds` (IOC feeds under `feeds`, CVE feeds under `cve_sources`)
   - `mcp/tests/` -- unit + httpx-mock integration tests (no live network)
 
