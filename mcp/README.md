@@ -112,11 +112,29 @@ pytest
 
 Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp_servers.json`):
 
+> **Launch it as a module, not by bare command name.** `pip install` puts the
+> `threat-intel-mcp` console script in the interpreter's scripts directory,
+> which is often *not* on `PATH` — notably with Windows Store Python, where it
+> lands under `%LOCALAPPDATA%\Packages\PythonSoftwareFoundation.Python.3.x_*\
+> LocalCache\local-packages\Python3x\Scripts`. Registration then succeeds while
+> the host reports **`Failed to connect`** (issue #76). `python -m
+> threat_intel_mcp` resolves through the interpreter, so it works wherever the
+> package is importable:
+>
+> ```bash
+> claude mcp add threat-intel-mcp -- python -m threat_intel_mcp
+> ```
+>
+> If you installed into a virtualenv, point at that interpreter explicitly
+> (`.venv/bin/python`, or `.venv\Scripts\python.exe` on Windows) so the server
+> starts with the environment the package is actually installed in.
+
 ```json
 {
   "mcpServers": {
     "threat-intel-mcp": {
-      "command": "threat-intel-mcp",
+      "command": "python",
+      "args": ["-m", "threat_intel_mcp"],
       "env": {
         "QFEEDS_API_KEY": "your-qfeeds-key",
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",

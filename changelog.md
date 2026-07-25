@@ -28,6 +28,12 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ## [Unreleased]
 
+### Added
+
+- **`.claude-plugin/plugin.json` — the repository is now a Claude Code plugin.** Without it the skill was **not reachable from a clone at all**: Claude Code discovers skills from `~/.claude/skills/`, `.claude/skills/`, and installed plugins, and a top-level `skills/` directory at a repository root is not a discovery location. `/cyber-threat-intel` returning `Unknown command` during the first live run (#76) was therefore a packaging defect, not operator error — and it means no report has ever been produced from a clone via the slash command. Plugin skills resolve at `<plugin-root>/skills/<name>/SKILL.md`, which is the layout this repo already had, so nothing moved. `claude --plugin-dir .` from the repository root loads it for a session; the command is `/threat-intel:cyber-threat-intel`, with bare `/cyber-threat-intel` also working unless another command claims the name. The manifest bundles the MCP server as well, so one flag covers both halves of a live run. CI validates the manifest's name, skill path, server launch form, and version parity with `spec.yaml`.
+
+- **`python -m threat_intel_mcp` entry point** (`mcp/src/threat_intel_mcp/__main__.py`). The `threat-intel-mcp` console script resolves only when the interpreter's scripts directory is on `PATH`. With Windows Store Python it is installed under `%LOCALAPPDATA%\Packages\PythonSoftwareFoundation.Python.3.x_*\LocalCache\local-packages\Python3x\Scripts`, which is not on `PATH` — so `claude mcp add threat-intel-mcp -- threat-intel-mcp` registered a command the host could not resolve and the health check reported `Failed to connect` (#76). The module form resolves through the interpreter instead and works wherever the package is importable. `mcp/README.md` and `docs/report-runbook.md` now document `claude mcp add threat-intel-mcp -- python -m threat_intel_mcp` as the registration to use.
+
 ### Fixed
 
 - **ThreatFox parsed the live feed to zero records while reporting success** (`adapters/threatfox.py`, MCP v0.14.1). Found by the first live run of the feed on an operator's machine (issue #76): a 1,016,687-byte HTTP 200 response yielded **0 IOCs**, twice, with no error.
