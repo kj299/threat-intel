@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threat-intel-mcp"
-version = "0.14.1"
+version = "0.14.2"
 description = "MCP server that delivers live threat intelligence feeds to Claude, normalised to the threat-intel skill schema"
 readme = "README.md"
 requires-python = ">=3.11"

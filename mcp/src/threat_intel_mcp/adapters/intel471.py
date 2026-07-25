@@ -36,7 +36,7 @@ import httpx
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +215,11 @@ class Intel471Adapter:
 
         iocs: list[dict[str, Any]] = []
         cursor: str | None = None
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
         async with self._make_client(email, api_key) as client:
             for _page in range(MAX_PAGES):
                 params = dict(base_params)
@@ -225,7 +230,14 @@ class Intel471Adapter:
                 resp.raise_for_status()
                 body = resp.json()
 
+                envelope_found = envelope_found or "indicators" in body
                 indicators = body.get("indicators") or []
+                # An indicator carrying a 'data' object is one we read; those
+                # whose type is outside our network mapping are filtered.
+                understood += sum(
+                    1 for i in indicators if isinstance(i, dict) and "data" in i
+                )
+                seen += len(indicators)
                 iocs.extend(
                     n for ind in indicators if (n := _normalize_indicator(ind))
                 )
@@ -233,6 +245,14 @@ class Intel471Adapter:
                 cursor = body.get("cursorNext")
                 if not cursor or len(indicators) < PAGE_COUNT:
                     break
+
+        guard_parsed(
+            "Intel 471",
+            envelope_found=envelope_found,
+            envelope_desc="an 'indicators' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache["malware_indicators"] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("Intel 471 cached: records=%d", len(iocs))

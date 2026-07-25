@@ -219,6 +219,40 @@ async def test_single_feed_tool_degrades_on_malformed_body(
     assert isinstance(result["record_count"], int)
 
 
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(
+    assert_all_responses_were_requested=False,
+    can_send_already_matched_responses=True,
+)
+@pytest.mark.parametrize("tool_name", _ALL_SINGLE_FEED_TOOLS)
+async def test_malformed_body_is_marked_unverified_not_reported_as_zero(
+    tool_name, httpx_mock: HTTPXMock, monkeypatch
+):
+    """The other half of the contract above (#106).
+
+    The sweep before this one asserts a tool does not *crash* on an unreadable
+    body. That is necessary but not sufficient: before the empty-parse guards,
+    most tools answered ``{}`` with ``record_count: 0`` and an ``ok`` ledger
+    entry — a confident zero, indistinguishable from a quiet week, which is
+    exactly how a 1 MB ThreatFox response parsed to nothing without anyone
+    noticing (#100).
+
+    A body we cannot read must reach the ledger as ``unverified``."""
+    for var in _ALL_CRED_VARS:
+        monkeypatch.setenv(var, "dummy-value-for-test")
+    httpx_mock.add_response(url=re.compile(r"https://.+"), json={})
+
+    result = await getattr(server, tool_name)()
+
+    assert result["coverage_ledger_entry"]["status"] == "unverified", (
+        f"{tool_name} reported a malformed body as "
+        f"{result['coverage_ledger_entry']['status']!r} with "
+        f"record_count={result['record_count']} — a confident zero"
+    )
+    assert result["record_count"] == 0
+    assert result.get("error")
+
+
 # Tools whose adapter validates feed_types and raises ValueError on an unknown
 # one. (abuseipdb_fetch_blocklist and otx_fetch_iocs accept feed_types for
 # interface compatibility and ignore them, so they are correctly excluded.)

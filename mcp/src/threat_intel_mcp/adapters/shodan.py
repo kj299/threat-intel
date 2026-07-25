@@ -38,7 +38,7 @@ import httpx
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +239,11 @@ class ShodanAdapter:
 
         query = FEED_TYPES[feed_type]
         iocs: list[dict[str, Any]] = []
+        # Totals across the whole paginated fetch: an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
 
         for page in range(1, MAX_PAGES + 1):
             logger.info(
@@ -251,7 +256,15 @@ class ShodanAdapter:
                 params={"key": api_key, "query": query, "page": page},
             )
             resp.raise_for_status()
-            matches = resp.json().get("matches") or []
+            body = resp.json()
+            envelope_found = envelope_found or "matches" in body
+            matches = body.get("matches") or []
+            # A match carrying an ip_str is a row we read, whether or not the
+            # address parses into an IOC.
+            understood += sum(
+                1 for m in matches if isinstance(m, dict) and m.get("ip_str")
+            )
+            seen += len(matches)
 
             iocs.extend(
                 normalized
@@ -261,6 +274,14 @@ class ShodanAdapter:
 
             if len(matches) < PAGE_SIZE:
                 break
+
+        guard_parsed(
+            "Shodan",
+            envelope_found=envelope_found,
+            envelope_desc="a 'matches' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("Shodan cached: feed_type=%s records=%d", feed_type, len(iocs))

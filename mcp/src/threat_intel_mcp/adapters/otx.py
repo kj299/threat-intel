@@ -29,7 +29,7 @@ import httpx
 from ..audit import log_tool_call, redact_url
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +237,11 @@ class OTXAdapter:
         # next_url is None on the first iteration; we use first_params then.
         next_url: str | None = None
         pages_fetched = 0
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
 
         while pages_fetched < MAX_PAGES:
             if next_url is not None:
@@ -249,7 +254,15 @@ class OTXAdapter:
             pages_fetched += 1
 
             data = resp.json()
+            envelope_found = envelope_found or "results" in data
             pulses = data.get("results", [])
+            # A pulse carrying an 'indicators' list is one we read. Pulses whose
+            # indicators are all file hashes are understood and yield no
+            # network IOCs, which is correct.
+            understood += sum(
+                1 for p in pulses if isinstance(p, dict) and "indicators" in p
+            )
+            seen += len(pulses)
 
             for pulse in pulses:
                 pulse_name = pulse.get("name", "")
@@ -267,6 +280,14 @@ class OTXAdapter:
                 "OTX pagination limit reached (%d pages); some pulses may be omitted.",
                 MAX_PAGES,
             )
+
+        guard_parsed(
+            "AlienVault OTX",
+            envelope_found=envelope_found,
+            envelope_desc="a 'results' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache[cache_key] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("OTX cached: records=%d pages=%d", len(iocs), pages_fetched)

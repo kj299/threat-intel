@@ -40,7 +40,7 @@ import httpx
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +270,11 @@ class GreyNoiseAdapter:
 
         iocs: list[dict[str, Any]] = []
         scroll: str | None = None
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
 
         for _page in range(MAX_PAGES):
             params: dict[str, Any] = {
@@ -288,7 +293,14 @@ class GreyNoiseAdapter:
             resp.raise_for_status()
             body = resp.json()
 
+            envelope_found = envelope_found or "data" in body
             data = body.get("data") or []
+            # A record carrying an ip is one we read. Records GreyNoise does not
+            # classify as malicious are understood and correctly filtered out.
+            understood += sum(
+                1 for r in data if isinstance(r, dict) and r.get("ip")
+            )
+            seen += len(data)
             iocs.extend(
                 normalized
                 for record in data
@@ -298,6 +310,14 @@ class GreyNoiseAdapter:
             scroll = body.get("scroll")
             if not scroll or body.get("complete") is True or len(data) < PAGE_SIZE:
                 break
+
+        guard_parsed(
+            "GreyNoise",
+            envelope_found=envelope_found,
+            envelope_desc="a 'data' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("GreyNoise cached: feed_type=%s records=%d", feed_type, len(iocs))

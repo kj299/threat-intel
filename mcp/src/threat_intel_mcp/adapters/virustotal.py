@@ -32,7 +32,7 @@ import httpx
 from ..audit import log_tool_call, redact_url
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,11 @@ class VirusTotalAdapter:
 
         iocs: list[dict[str, Any]] = []
         cursor = "initial"
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break. A line feed has no
+        # envelope, so only the items rule applies.
+        seen = 0
+        understood = 0
 
         for page_num in range(1, MAX_PAGES + 1):
             url = f"{_API_BASE}/feeds/{feed_type}"
@@ -261,11 +266,23 @@ class VirusTotalAdapter:
                 line = line.strip()
                 if not line:
                     continue
+                seen += 1
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     logger.debug("VT: skipping non-JSON line: %r", line[:80])
                     continue
+                # Valid JSON is too weak a bar: "{}" parses fine and would
+                # make an HTML error page or an empty object look understood.
+                # A VT line is either a cursor envelope or an entry carrying at
+                # least an id/type/attributes.
+                if isinstance(obj, dict) and (
+                    "meta" in obj
+                    or "id" in obj
+                    or "type" in obj
+                    or "attributes" in obj
+                ):
+                    understood += 1
 
                 # Last line may be a metadata envelope with cursor info.
                 if "meta" in obj and "data" not in obj:
@@ -286,6 +303,14 @@ class VirusTotalAdapter:
             if not next_cursor or entries_on_page < PAGE_LIMIT:
                 break
             cursor = next_cursor
+
+        guard_parsed(
+            "VirusTotal",
+            envelope_found=True,  # NDJSON stream: no envelope exists to be missing
+            envelope_desc="NDJSON entry lines",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("VT cached: feed_type=%s records=%d", feed_type, len(iocs))

@@ -34,6 +34,7 @@ import httpx
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vulns import VulnFetchResult
+from .base import guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -205,9 +206,20 @@ class CISAKEVAdapter:
         entries = body.get("vulnerabilities")
         if not isinstance(entries, list):
             raise RuntimeError("CISA KEV response missing 'vulnerabilities' list")
-        return [
+        vulns = [
             normalized
             for entry in entries
             if isinstance(entry, dict)
             and (normalized := _normalize_entry(entry)) is not None
         ]
+        guard_parsed(
+            "CISA KEV",
+            envelope_found=True,  # checked above, with its own message
+            envelope_desc="a 'vulnerabilities' list",
+            items_seen=len(entries),
+            # An entry keyed by cveID is one we read.
+            items_understood=sum(
+                1 for e in entries if isinstance(e, dict) and e.get("cveID")
+            ),
+        )
+        return vulns
