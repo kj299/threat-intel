@@ -1,0 +1,123 @@
+name: live-feed-check
+
+# Issue #78: every test in mcp/tests/ runs against mocks — deliberately, and PR
+# CI should stay that way. But it means a live feed could be dead, moved, or
+# schema-drifted for weeks with no signal. The URL layouts and response shapes
+# were verified once at build time; nothing re-verified them.
+#
+# ThreatFox proved the gap is real: the adapter returned 0 IOCs from a live
+# 1 MB response and nothing surfaced it until an operator ran the feeds by hand
+# on a Windows machine, 18 days into the silence (#76, #100).
+#
+# ─── RELATIONSHIP TO THE OTHER TWO LAYERS ────────────────────────────────────
+#   #105 cassettes  — prevention: parsing is tested against captured bytes,
+#                     but a cassette is a snapshot and keeps passing after the
+#                     live feed moves on.
+#   #106 guards     — at fetch time: an unreadable body degrades instead of
+#                     publishing a zero, but something must be running to see it.
+#   this workflow   — detection: drift becomes an alarm within days.
+#
+# ─── SCOPE ───────────────────────────────────────────────────────────────────
+# Keyless feeds only (ThreatFox, CISA KEV, NVD unauthenticated). No secrets, so
+# it works in a fork and in a repo with nothing configured. A scheduled job
+# holding nine live API keys would be a standing liability for a check whose
+# value is mostly in the free feeds.
+
+on:
+  schedule:
+    # Thursdays 07:41 UTC — mid-week and off the :00 herd, so a break is caught
+    # days before the Monday report run rather than by it.
+    - cron: "41 7 * * 4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Live keyless feed check
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install threat-intel-mcp (pinned)
+        working-directory: mcp
+        run: pip install -e ".[dev]" -c constraints-dev.txt
+
+      - name: Run live feed checks
+        id: live
+        working-directory: mcp
+        continue-on-error: true # a failure must open an issue, not just go red
+        run: |
+          set -o pipefail
+          python -m pytest -m live -v --tb=short 2>&1 | tee live-check.log
+
+      - name: Summarise
+        id: summary
+        working-directory: mcp
+        run: |
+          {
+            echo "## Live feed check"
+            echo
+            echo '```'
+            grep -E '(PASSED|FAILED|ERROR|passed|failed)' live-check.log | tail -25 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Keep the failure detail small enough for an issue body.
+          grep -E '^(FAILED|ERROR)' live-check.log | head -20 > failures.txt || true
+          echo "count=$(wc -l < failures.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Open or bump the alarm issue
+        if: steps.live.outcome == 'failure'
+        working-directory: mcp
+        run: |
+          set -euo pipefail
+          detail=$(cat failures.txt)
+          title="Live feed check failing"
+          body="The scheduled live check against the keyless feeds failed on $(date -u +%F).
+
+          \`\`\`
+          ${detail}
+          \`\`\`
+
+          [Full log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          This checks ThreatFox, CISA KEV and NVD against their real endpoints — a
+          failure means the feed is down, moved, or has drifted from what the
+          adapter expects. PR CI is mock-only and will stay green regardless, which
+          is why this alarm exists (#78).
+
+          Close it when the feeds pass again.
+
+          _Opened automatically by the live-feed-check workflow._"
+
+          # Title-based dedupe: bump the existing alarm rather than stacking new ones.
+          existing=$(gh issue list --state open --search "Live feed check failing in:title" --json number --jq '.[0].number' || true)
+          if [ -n "${existing:-}" ] && [ "${existing}" != "null" ]; then
+            gh issue comment "$existing" --body "Still failing as of $(date -u +%F). [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+      - name: Close the alarm if the feeds recovered
+        if: steps.live.outcome == 'success'
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --state open --search "Live feed check failing in:title" --json number --jq '.[0].number' || true)
+          if [ -n "${existing:-}" ] && [ "${existing}" != "null" ]; then
+            gh issue close "$existing" --comment "Live feeds passing again as of $(date -u +%F); closing automatically."
+          fi
+
+      - name: Fail the run if the live checks failed
+        if: steps.live.outcome == 'failure'
+        # The issue is the durable signal, but the run itself should still be
+        # red — a green history of failing checks teaches people to ignore it.
+        run: exit 1
