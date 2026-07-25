@@ -28,6 +28,23 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ## [Unreleased]
 
+### Fixed
+
+- **Secret redaction failed for `Bearer` / `Basic` auth values** (`audit.py`, found while writing tests for issue #82). The `Bearer`/`Basic` patterns matched, but the shared replacement assumed a `name=value` shape — splitting on `=` returned the whole match, so `Bearer <token>` became `Bearer <token>=[REDACTED]`: **the secret stayed in the log while appearing redacted.** Only the `key=value` form was ever neutralised. Each pattern now carries its own replacement and keeps the name in group 1. Practical exposure was limited (httpx does not log auth headers by default, and no adapter fed a header value to `redact_url`), but the function is documented to handle these forms and did not.
+
+### Removed
+
+- **Dead `timed()` context manager** (`audit.py`): no callers anywhere, and its internals were vestigial (an `elapsed` list appended to but never read, a `finally: pass`). Adapters time themselves with `time.monotonic()` directly. Removed rather than tested — writing tests for unreachable code to move a coverage number is the anti-pattern issue #82 exists to avoid.
+
+### Added
+
+- **Audit-logging test suite** (`tests/test_audit.py`, issue #82): 28 tests covering URL/header redaction, the import-time `_RedactingFilter` installation on the `httpx`/`httpcore` loggers, unformattable-record handling, and `log_tool_call` level/field behaviour. Assertions are written as *negatives* — the secret value must not appear in `caplog` — so a half-redacting regression fails instead of passing on the presence of `[REDACTED]`.
+- **Server contract tests** (`tests/test_server_smoke.py`, issue #82): every single-feed tool degrades on an upstream 5xx (previously only the public feeds had this coverage); the ten feed-type-validating tools **raise** `ValueError` on an unknown `feed_type` — the caller-error half of the error taxonomy, complementing the never-raise-on-bad-upstream-data sweep; partial-failure maps to `partial`/`unverified` rather than inflating to `consulted`; and multi-key feeds (Intel 471, Censys) report configured when credentials are present.
+
+### Coverage
+
+- `audit.py` **73% → 100%**, `server.py` **79% → 94%**, overall MCP **92% → 95%** (420 tests, up from 367).
+
 ### Added
 
 - **Pinned dependency set** (`mcp/constraints-dev.txt`, issue #80): the exact transitive versions CI installs, so a dependency release can no longer break a build that touched none of it. `ruff` and `coverage` moved into the `dev` extra so lint runs pinned too — an unpinned ruff 0.16.0 previously broke the build mid-PR. Verified to install and pass the full suite on Python 3.11, 3.12, and 3.13, which all resolve the same set.
