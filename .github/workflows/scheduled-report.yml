@@ -61,7 +61,7 @@ jobs:
             Add the secret to enable the weekly cadence (see docs/report-runbook.md)."
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.guard.outputs.configured == 'true'
 
       - uses: actions/setup-python@v5
