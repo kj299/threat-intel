@@ -35,11 +35,11 @@ this repository — which is why the staleness guard below exists.
 1. **Environment.** A Claude Code session on this repository. For a
    live-data report, configure the `threat-intel-mcp` server first (see
    [`mcp/README.md`](../mcp/README.md) — Quick start / Wire into Claude Code).
-   The three keyless feeds (URLhaus, ThreatFox, CISA KEV; NVD also works
+   The keyless feeds (ThreatFox, CISA KEV; NVD also works
    unkeyed at a lower rate limit) are enough for a first live run.
 
    > **Egress requirement:** the session's network policy must allow HTTPS to
-   > the feed hosts (`urlhaus.abuse.ch`, `threatfox.abuse.ch`, `www.cisa.gov`,
+   > the feed hosts (`threatfox.abuse.ch`, `www.cisa.gov`,
    > `services.nvd.nist.gov`, plus any keyed feeds). Restrictive cloud
    > sandboxes may block these (proxy `CONNECT 403`) — verified blocked in the
    > default cloud environment on 2026-07-24. Run from an environment with

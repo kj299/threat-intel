@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "type": "object",
   "definitions": {
     "ioc_network": {

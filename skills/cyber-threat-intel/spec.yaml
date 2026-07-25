@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.19.0
+# Version: 1.20.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.19.0"
+  version: "1.20.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -526,10 +526,13 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-07-24"
-  # (1.19.0 defender source expansion: national/EU CSIRTs, ISACs, nonprofit/open-source CTI; excluded-nation sources removed)
+  last_updated: "2026-07-25"
+  # (1.20.0 URLhaus removed from Tier 9 and the live-feed loop at operator request)
 
   version_history:
+    - version: "1.20.0"
+      date: "2026-07-25"
+      changes: "Remove URLhaus at operator request following a VirusTotal reputation flag on its CSV feed URL. Dropped from Tier 9 in all four source files, from input #9's feed examples, and from Workflow step 2a's tool list; the threat-intel-mcp urlhaus_fetch_iocs tool and URLhausAdapter are deleted (server now exposes 10 IOC feeds + 2 CVE feeds). ThreatFox remains the free abuse.ch IOC feed and MalwareBazaar remains a Tier 9 MUST, so the tier still has three MUST sources and the tier_9 target of 3 is unchanged. The enterprise_soc example ledger substitutes Any.Run for URLhaus to keep Tier 9 consulted-count at 3."
     - version: "1.19.0"
       date: "2026-07-24"
       changes: "Expand the Source Matrix with verified defender-oriented sources across source-matrix.md, original-prompt.md, and both standalone files: Tier 8 gains international/national CSIRTs (FIRST, CERT-EU, ENISA CSIRT inventory, and national CERTs for NZ/NL/ES/IT/PL/BE/AT/IE/CH/SE/NO/DK/FI/BR/SG/KR/TW/MY/IL/SA) plus CISA StopRansomware and sector ISACs (National Council of ISACs, MS-ISAC/CIS, Health-ISAC, Auto-ISAC); Tier 6 gains nonprofit/open-source CTI (MISP, OpenCTI, Cyber Threat Alliance, Have I Been Pwned, CERT/CC, Citizen Lab, Emerging Threats ruleset); Tier 3 gains Shadowserver, Spamhaus, and Cloudflare Radar; Tier 2 gains Team Cymru and Volexity. Removed sources based in excluded nations: Kaspersky Securelist (Russia), Fofa and ZoomEye (China). Tier headings/targets unchanged (parity-safe)."

@@ -1,7 +1,7 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
 Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
-Intel 471, Censys, and the free abuse.ch feeds URLhaus + ThreatFox as IOC tools, plus
+Intel 471, Censys, and the free abuse.ch feed ThreatFox as IOC tools, plus
 the government CVE feeds CISA KEV + NVD as vulnerability tools, that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
@@ -32,7 +32,6 @@ from .adapters.anyrun import AnyRunAdapter, FEED_TYPES as ANYRUN_FEED_TYPES
 from .adapters.censys import CensysAdapter, FEED_TYPES as CENSYS_FEED_TYPES
 from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
 from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_TYPES
-from .adapters.urlhaus import URLhausAdapter, FEED_TYPES as URLHAUS_FEED_TYPES
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
@@ -58,7 +57,7 @@ mcp = FastMCP(
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
         "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
         "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus the free abuse.ch "
-        "feeds URLhaus + ThreatFox Tier 9, no credential needed). "
+        "feed ThreatFox Tier 9, no credential needed). "
         "For vulnerabilities, call the government CVE feeds CISA KEV and NVD "
         "(Tier 1, no credential needed; NVD accepts an optional key for a higher "
         "rate limit) via cisa_kev_fetch_cves / nvd_fetch_cves, or fetch_all_cves "
@@ -81,7 +80,6 @@ _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
-_urlhaus = URLhausAdapter()  # public feed, no credential
 _threatfox = ThreatFoxAdapter()  # public feed, no credential
 _anyrun = AnyRunAdapter(_credentials)
 _intel471 = Intel471Adapter(_credentials)
@@ -129,7 +127,6 @@ _FEED_SOURCES = [
     FeedSource(_anyrun, 9, "ANY.RUN", CircuitBreaker("ANY.RUN"), _CONFIG_ERRORS),
     FeedSource(_intel471, 2, "Intel 471", CircuitBreaker("Intel 471"), _CONFIG_ERRORS),
     FeedSource(_censys, 3, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
-    FeedSource(_urlhaus, 9, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
     FeedSource(_threatfox, 9, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
 ]
 
@@ -749,66 +746,6 @@ async def censys_fetch_iocs(
 
 
 @mcp.tool()
-async def urlhaus_fetch_iocs(
-    time_range: str = "7d",
-    feed_types: list[str] | None = None,
-) -> dict[str, Any]:
-    """Fetch IOCs from URLhaus — the free, public abuse.ch feed (Tier 9 CTI).
-
-    Recent confirmed-malicious URLs (action=block). Returns ioc_network objects in the threat-intel output.schema.json
-    shape. De-duplicated and schema-validated before return. **No credential
-    required** — this is a public feed.
-
-    Args:
-        time_range: Lookback window; informational only (the feed is a fixed
-            "recent" window). Recorded for the Coverage Ledger.
-        feed_types: Defaults to all available. Available: malware_urls.
-
-    Returns:
-        dict with keys: iocs, source, tier, retrieved_at, record_count,
-        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
-
-    Usage with the threat-intel skill:
-        1. Call this tool; receive iocs.
-        2. Pass iocs as context to the skill invocation.
-        3. Set skill_input.feed_integrations = [{"name": "URLhaus", "tier": 9,
-           "access_level": "public"}] so the Coverage Ledger marks it consulted.
-    """
-    try:
-        result = await _urlhaus.fetch(time_range=time_range, feed_types=feed_types)
-    except ValueError:
-        raise  # invalid feed_types — a caller error worth surfacing verbatim
-    except Exception as exc:
-        logger.warning("URLhaus upstream fetch failed: %s", type(exc).__name__)
-        return _degraded_tool_result(
-            "URLhaus",
-            9,
-            feed_types or list(URLHAUS_FEED_TYPES.keys()),
-            f"upstream fetch failed: {type(exc).__name__}",
-        )
-
-    deduped = finalize_iocs(result.iocs)
-    status = "consulted"
-    if result.partial_failure:
-        status = "partial" if deduped else "unverified"
-    return {
-        "iocs": deduped,
-        "source": result.source,
-        "tier": result.tier,
-        "retrieved_at": result.retrieved_at,
-        "record_count": len(deduped),
-        "latency_ms": result.latency_ms,
-        "feed_types_fetched": result.feed_types_fetched,
-        "partial_failure": result.partial_failure,
-        "coverage_ledger_entry": {
-            "tier": 9,
-            "source": "URLhaus",
-            "status": status,
-        },
-    }
-
-
-@mcp.tool()
 async def threatfox_fetch_iocs(
     time_range: str = "7d",
     feed_types: list[str] | None = None,
@@ -1257,15 +1194,6 @@ async def list_available_feeds() -> dict[str, Any]:
                 "tool": "censys_fetch_iocs",
             },
             {
-                "name": "URLhaus",
-                "tier": 9,
-                "domain": "urlhaus.abuse.ch",
-                "description": "Free public feed of recent confirmed-malicious URLs (no credential required)",
-                "feed_types": list(URLHAUS_FEED_TYPES.keys()),
-                "credential_configured": True,
-                "tool": "urlhaus_fetch_iocs",
-            },
-            {
                 "name": "ThreatFox",
                 "tier": 9,
                 "domain": "threatfox.abuse.ch",
@@ -1308,7 +1236,7 @@ async def list_available_feeds() -> dict[str, Any]:
             "as 'unverified' in the returned coverage_ledger. Emits vulnerability "
             "records (CVE-keyed), not ioc_network indicators."
         ),
-        "phase": "5 (11 IOC feeds + 2 government CVE feeds: CISA KEV + NVD via a CVE-keyed vulnerability-output path; concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
+        "phase": "5 (10 IOC feeds + 2 government CVE feeds: CISA KEV + NVD via a CVE-keyed vulnerability-output path; concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 

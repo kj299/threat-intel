@@ -225,7 +225,6 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 
 ## Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]
-- URLhaus — urlhaus.abuse.ch [MUST]
 - ThreatFox — threatfox.abuse.ch [MUST]
 - Hybrid Analysis — hybrid-analysis.com [SHOULD]
 - Any.Run — any.run [SHOULD]

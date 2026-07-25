@@ -54,7 +54,7 @@ _CREDENTIALED_FEED_TOOLS = [
     "censys_fetch_iocs",
 ]
 # Free public abuse.ch feeds: no credential, so they always attempt the network.
-_PUBLIC_FEED_TOOLS = ["urlhaus_fetch_iocs", "threatfox_fetch_iocs"]
+_PUBLIC_FEED_TOOLS = ["threatfox_fetch_iocs"]
 _SINGLE_FEED_TOOLS = _CREDENTIALED_FEED_TOOLS + _PUBLIC_FEED_TOOLS
 # Government CVE feeds: emit CVE-keyed vuln records via a separate fan-out path.
 # CISA KEV needs no credential; NVD's key is optional — both attempt the network.
@@ -67,13 +67,12 @@ _ALL_TOOLS = (
 
 _EXPECTED_SOURCES = {
     "Q-Feeds", "AbuseIPDB", "VirusTotal", "AlienVault OTX", "Shodan",
-    "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "URLhaus", "ThreatFox",
+    "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox",
 }
 _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD"}
 
 # abuse.ch public feed URLs (mocked so the public tools fail gracefully offline).
 _PUBLIC_FEED_URLS = {
-    "urlhaus_fetch_iocs": "https://urlhaus.abuse.ch/downloads/csv_recent/",
     "threatfox_fetch_iocs": "https://threatfox.abuse.ch/export/csv/recent/",
 }
 # Government CVE feed URL patterns (mocked so the CVE tools fail offline). NVD
@@ -265,8 +264,8 @@ async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
 async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeypatch):
     """fetch_all_iocs fans out across every source and returns a coherent result
     without crashing. With no credentials, the nine credentialed sources degrade
-    to 'unverified' (no network); the two public feeds need no key, so — served
-    an empty feed here — they come back 'consulted' with zero records. Every
+    to 'unverified' (no network); the public feed needs no key, so — served
+    an empty feed here — it comes back 'consulted' with zero records. Every
     source appears in the Coverage Ledger exactly once."""
     for var in _CRED_VARS:
         monkeypatch.delenv(var, raising=False)
@@ -276,9 +275,9 @@ async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
     result = await server.fetch_all_iocs()
 
     assert result["record_count"] == 0
-    assert set(result["sources_consulted"]) == {"URLhaus", "ThreatFox"}
+    assert set(result["sources_consulted"]) == {"ThreatFox"}
     degraded = {d["source"] for d in result["sources_degraded"]}
-    assert degraded == _EXPECTED_SOURCES - {"URLhaus", "ThreatFox"}
+    assert degraded == _EXPECTED_SOURCES - {"ThreatFox"}
     assert {e["source"] for e in result["coverage_ledger"]} == _EXPECTED_SOURCES
 
 
