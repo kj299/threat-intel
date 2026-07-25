@@ -45,8 +45,14 @@ testpaths = ["tests"]
 
 [tool.ruff.lint]
 # Pin the rule set explicitly so `ruff check` is deterministic across ruff
-# releases. CI installs ruff unpinned; without this, a new ruff version that
-# expands its default rules (e.g. 0.16.0 adding FLY / import-sort to defaults)
-# would break lint across the whole repo regardless of the diff. This is
-# ruff's historical default selection, which the codebase already satisfies.
+# releases: a version that expands its default rules (0.16.0 added FLY and
+# import-sort to the defaults, and broke lint across this repo mid-PR) would
+# otherwise fail the build regardless of the diff. This is ruff's historical
+# default selection, which the codebase already satisfies.
+#
+# CI now installs ruff at a pinned version from constraints-dev.txt, so this is
+# the second of two independent guards rather than the only one. It still earns
+# its place: it covers a bare `ruff check` run outside the constrained install —
+# a contributor's editor integration or a pre-commit hook — and it keeps the
+# lock file's job to "which version" rather than "which rules".
 select = ["E4", "E7", "E9", "F"]
