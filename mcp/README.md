@@ -16,7 +16,7 @@ Claude Code
   │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
   │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs /
   │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs /
-  │                  urlhaus_fetch_iocs / threatfox_fetch_iocs
+  │                  threatfox_fetch_iocs
   │  CVE tool calls: fetch_all_cves            (all CVE feeds at once)
   │                  cisa_kev_fetch_cves / nvd_fetch_cves
   ▼
@@ -50,7 +50,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
-| URLhaus + ThreatFox adapters (free public abuse.ch feeds, no key) | ✅ Phase 2 |
+| ThreatFox adapter (free public abuse.ch feed, no key) | ✅ Phase 2 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -93,7 +93,7 @@ cp .env.example .env
 export $(grep -v '^#' .env | xargs)
 ```
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **URLhaus, ThreatFox, and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **ThreatFox and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 
@@ -396,7 +396,6 @@ src/threat_intel_mcp/
 │   ├── anyrun.py          ANY.RUN TAXII 2.1 STIX feed adapter (60-min cache)
 │   ├── intel471.py        Intel 471 Titan indicators-stream adapter (60-min cache)
 │   ├── censys.py          Censys Search v2 hosts adapter (60-min cache)
-│   ├── urlhaus.py         URLhaus public malicious-URL CSV adapter (no key, 15-min cache)
 │   ├── threatfox.py       ThreatFox public IOC CSV adapter (no key, 15-min cache)
 │   ├── cisa_kev.py        CISA KEV catalog adapter (public JSON, no key, 6-hr cache)
 │   └── nvd.py             NIST NVD 2.0 CVE adapter (key optional, 60-min cache)
@@ -414,7 +413,6 @@ tests/
 ├── test_otx.py            OTX adapter tests
 ├── test_shodan.py         Shodan adapter tests (incl. key-never-logged regression)
 ├── test_greynoise.py      GreyNoise adapter tests
-├── test_urlhaus.py        URLhaus adapter tests
 ├── test_threatfox.py      ThreatFox adapter tests
 ├── test_anyrun.py         ANY.RUN adapter tests
 ├── test_intel471.py       Intel 471 adapter tests

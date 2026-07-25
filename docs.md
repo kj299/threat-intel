@@ -93,7 +93,7 @@ The skill references sources organized by priority:
 | 6 | Community & Blogs | r/netsec, r/hacking, r/bugbounty, r/ExploitDev, r/sysadmin, Krebs on Security |
 | 7 | Dark Web Intel | Flashpoint, Intel 471, DarkOwl, Cybersixgill, SOCRadar |
 | 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC, JPCERT/CC |
-| 9 | Malware Analysis | MalwareBazaar, URLhaus, ThreatFox, Malpedia, Cape Sandbox |
+| 9 | Malware Analysis | MalwareBazaar, ThreatFox, Malpedia, Cape Sandbox |
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 

@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.20.0] - 2026-07-25
+
+### Removed
+
+- **URLhaus**, at operator request following a VirusTotal reputation flag on its CSV feed URL:
+  - **Source Matrix:** dropped from Tier 9 in all four source files, and from input #9's authenticated-feed examples.
+  - **MCP server** (v0.14.0): `URLhausAdapter` and the `urlhaus_fetch_iocs` tool deleted, removed from the `fetch_all_iocs` fan-out registry and `list_available_feeds`. The server now exposes **10 IOC feeds + 2 CVE feeds** (was 11 + 2). `urlhaus.abuse.ch` is no longer in any egress allowlist.
+  - **Tier 9 coverage is unaffected:** MalwareBazaar and ThreatFox remain `[MUST]` alongside the other Tier 9 entries, so the tier still meets its target of 3. The `enterprise_soc` example ledger substitutes Any.Run for URLhaus to keep the Tier 9 consulted-count at 3 and the badge at `FULL`.
+  - Historical records are left intact by design: prior `reports/`, earlier changelog entries, and `spec.yaml` version-history entries still reference URLhaus because they describe what was true at the time.
+
+### Note on the rationale
+
+The flag is characteristic of the standard false positive for URL blocklists — VirusTotal relays verdicts from 70+ engines, and a file whose *contents* are thousands of live malware URLs will be flagged by engines that content-match against malware-URL corpora. Sibling feeds of the same kind (ThreatFox, MalwareBazaar, the Emerging Threats ruleset) were deliberately **retained**; this removal is an operator policy decision, not a finding about abuse.ch.
+
+### Other
+
+- **Version bumped to 1.20.0** across `spec.yaml`, `schemas/output.schema.json`, every `examples/outputs.json` `skill_version`, and this changelog. `threat-intel-mcp` bumped to **0.14.0** (a removed tool is a breaking change for consumers).
+
+---
+
 ## [Unreleased]
 
 ### Added
