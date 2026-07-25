@@ -91,16 +91,25 @@ jobs:
 
       - name: Re-verify no secrets in the recorded cassettes
         working-directory: mcp
-        # Belt and braces: the recorder already checks, but this is the last
-        # gate before bytes from an authenticated session enter version control.
-        run: |
-          if grep -rIlniE '(api[_-]?key|authorization|bearer |secret|password)' \
-               tests/cassettes/ 2>/dev/null | grep -q .; then
-            echo "::error::Credential-shaped strings found in cassettes — refusing to commit."
-            grep -rIniE '(api[_-]?key|authorization|bearer |secret|password)' tests/cassettes/ || true
-            exit 1
-          fi
-          echo "No credential-shaped strings found."
+        env:
+          QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY }}
+          ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
+          INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
+          INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
+          CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}
+          CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        # Belt and braces before bytes from an authenticated session enter
+        # version control. Uses the same structural + literal scanner as the
+        # recorder, NOT a text grep: response bodies legitimately contain words
+        # like "password" (an NVD CVE description says it thousands of times),
+        # and grepping for them failed every recording on the first real run.
+        run: python scripts/record_cassettes.py --verify-only --all
 
       - name: Confirm the recorded cassettes actually play back
         working-directory: mcp

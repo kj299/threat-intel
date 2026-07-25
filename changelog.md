@@ -28,6 +28,12 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ## [Unreleased]
 
+### Fixed
+
+- **The cassette leaked-secret scan failed every real recording** (`mcp/scripts/record_cassettes.py`, issue #105). The first live dispatch of `record-cassettes` failed with hundreds of `nvd.yaml: contains 'password'` lines. They were not leaks: NVD CVE *descriptions* say "password" constantly ("allows an attacker to reset the password") because it is a vulnerability feed. The check grepped whole cassettes — including response bodies, which are the public threat data the cassette exists to capture — for words like `password` and `secret`. A check that fires on every NVD recording is not cautious, it is broken: it blocks the feature and teaches people to pass `--skip-verify`.
+
+  Replaced with two checks that hold their claims. **Structural**: request headers, request-URI query parameters, and response headers must carry no unredacted credential — response bodies are deliberately not scanned. **Literal**: for every credential env var that is actually set, its value must not appear anywhere in the file — no false positives, and it catches a leak wherever it landed, including inside a body where the structural check does not look. The workflow's belt-and-braces step now runs the same scanner (`--verify-only`) instead of its own text grep, which had the identical flaw.
+
 ### Added
 
 - **Feed cassettes: adapters can now be tested against bytes the service actually sent** (`mcp/tests/cassettes/`, `mcp/tests/vcr_config.py`, `mcp/scripts/record_cassettes.py`, `.github/workflows/record-cassettes.yml`, MCP v0.14.3, issue #105). The ThreatFox bug (#100) was not really a CSV dialect bug: the fixtures were generated with `csv.writer`, a shape abuse.ch does not produce, so the suite agreed with a misconception and the adapter returned 0 IOCs from a live 1 MB response while every test passed. Every adapter had that exposure, and `vcrpy` had been a dev dependency since the server was built without a single test using it. Recording needs network egress the dev sandbox does not have, so the `record-cassettes` workflow does it on a GitHub runner and opens a draft PR; `test_cassette_playback.py` replays offline (`record_mode="none"`, so an unrecorded request raises rather than reaching the network) and **skips** when no cassette is present, because a missing recording is a coverage gap rather than a broken build. Hand-written mocks are retained for edge cases — malformed bodies, 5xx, empty results — that are hard to provoke on demand.
