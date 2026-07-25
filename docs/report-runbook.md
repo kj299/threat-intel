@@ -52,6 +52,12 @@ described or ran it.
 
 ### Manual generation
 
+> **On Windows, follow [`report-runbook-windows.md`](report-runbook-windows.md)
+> instead.** It is this section rendered in Windows PowerShell 5.1, and it
+> covers the platform failures that stopped the first live run (#76) — the
+> missing `py` launcher, the off-`PATH` console script, TLS 1.0 defaults,
+> here-string and BOM traps, and native stderr being rendered as an error.
+
 1. **Environment.** A Claude Code session on this repository. For a
    live-data report, configure the `threat-intel-mcp` server first (see
    [`mcp/README.md`](../mcp/README.md) — Quick start / Wire into Claude Code).
