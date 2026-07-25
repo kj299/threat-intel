@@ -1,0 +1,138 @@
+name: scheduled-report
+
+# Issue #77: the weekly threat-intel report cadence died on 2026-07-06 and went
+# unnoticed for 18 days, because the thing that produced reports/ lived entirely
+# in an operator's Claude Code configuration and nothing in this repository
+# described or ran it. report-staleness.yml detects that death; this workflow is
+# the mechanism itself, committed so it is reproducible and reviewable.
+#
+# ─── STATUS: UNVERIFIED UNTIL FIRST MANUAL RUN ───────────────────────────────
+# Authored against the published claude-code-action inputs (prompt,
+# anthropic_api_key, claude_args) but never executed — this repo has no
+# ANTHROPIC_API_KEY configured, and the action's docs carry no cron example.
+# Run it once via workflow_dispatch and check the resulting PR before trusting
+# the schedule. Expect to tune --allowedTools on that first run.
+#
+# ─── SAFE WHEN UNCONFIGURED ──────────────────────────────────────────────────
+# Without the ANTHROPIC_API_KEY secret every step is skipped and the run
+# succeeds with a notice. It will not fail weekly in a repo that hasn't opted in.
+#
+# ─── NOTE FOR #76 ────────────────────────────────────────────────────────────
+# GitHub-hosted runners have open outbound internet, so the keyless feeds
+# (ThreatFox, CISA KEV, NVD) are reachable here even though they are blocked by
+# the proxy in the default cloud dev environment. A successful run of this
+# workflow would also satisfy #76's "first MCP-connected report".
+
+on:
+  schedule:
+    # Mondays 05:23 UTC — deliberately ahead of report-staleness.yml (06:17 Mon)
+    # so a successful generation clears the alarm in the same hour. Off :00.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      persona:
+        description: "Skill persona"
+        default: enterprise_soc
+        type: string
+      time_range:
+        description: "Lookback window (e.g. 7d, 14d)"
+        default: 7d
+        type: string
+
+permissions:
+  contents: write # commit the report to a branch
+  pull-requests: write # open the PR carrying it
+
+jobs:
+  generate:
+    name: Generate threat-intel report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether report generation is configured
+        id: guard
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY is not set — skipping report generation. \
+            Add the secret to enable the weekly cadence (see docs/report-runbook.md)."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.configured == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install threat-intel-mcp (pinned)
+        if: steps.guard.outputs.configured == 'true'
+        run: pip install -e "./mcp[dev]" -c mcp/constraints-dev.txt
+
+      - name: Verify the keyless feeds are reachable from this runner
+        if: steps.guard.outputs.configured == 'true'
+        # Fail fast and loudly here rather than producing a no-live-data report
+        # that silently looks like every previous one.
+        run: |
+          python - <<'PY'
+          import asyncio, sys
+          from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+          from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
+
+          async def main():
+              failures = []
+              for adapter in (ThreatFoxAdapter(), CISAKEVAdapter()):
+                  try:
+                      result = await adapter.fetch(time_range="7d")
+                      print(f"{adapter.name}: {result.record_count} records")
+                      if result.record_count == 0:
+                          failures.append(f"{adapter.name} returned zero records")
+                  except Exception as exc:
+                      failures.append(f"{adapter.name}: {type(exc).__name__}: {exc}")
+              if failures:
+                  print("::error::live feed check failed: " + "; ".join(failures))
+                  sys.exit(1)
+
+          asyncio.run(main())
+          PY
+
+      - name: Generate the report
+        if: steps.guard.outputs.configured == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: >-
+            --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
+            --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"
+            --max-turns 40
+          prompt: |
+            Generate this week's threat intelligence report using the
+            cyber-threat-intel skill in skills/cyber-threat-intel/SKILL.md.
+
+            Persona: ${{ inputs.persona || 'enterprise_soc' }}
+            Time range: ${{ inputs.time_range || '7d' }}
+
+            The threat-intel-mcp server is connected. Follow Workflow step 2a:
+            call fetch_all_iocs and fetch_all_cves, and fold the live results in.
+            Only ThreatFox, CISA KEV and NVD are configured (no API keys are
+            set) — the other feeds will correctly report as degraded.
+
+            Honesty rules are the point of this report, not paperwork:
+              - The Coverage Ledger records exactly what the tools reported. A
+                source the tools call partial or unverified is recorded that way
+                and never upgraded.
+              - The coverage badge must match the ledger count. MINIMAL on a
+                quiet week is the correct answer; do not inflate it.
+              - Every IOC and CVE cites the feed it came from. Never invent an
+                indicator, hash, CVE ID, or attribution to fill space (R3).
+              - State plainly in the methodology notice that live threat-intel-mcp
+                feeds WERE connected for this run, and which ones.
+
+            Save it as reports/<YYYY-MM-DD>-threat-intel.md using today's date,
+            on a new branch, and open a pull request titled
+            "Add scheduled threat-intel report: <YYYY-MM-DD> (<persona>, <range>)".
+            Do not modify any file outside reports/.

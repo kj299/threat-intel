@@ -57,6 +57,31 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ### Added
 
+- **Scheduled report generation** (`.github/workflows/scheduled-report.yml`, completes issue #77): runs the skill weekly (Mondays 05:23 UTC, ahead of the staleness check) with `threat-intel-mcp` connected, and opens a PR with the dated report. `workflow_dispatch` runs it on demand with a chosen persona and time range. Completes the pair — `report-staleness.yml` *detects* a dead cadence; this *is* the cadence, committed so it's reproducible instead of living only in an operator's private configuration.
+  - **Inert until opted in:** without an `ANTHROPIC_API_KEY` secret every step skips and the run succeeds with a notice.
+  - **Fails loudly on no-live-data:** fetches ThreatFox and CISA KEV before invoking the skill and fails the run if either returns nothing, rather than quietly producing another report that says no feeds were connected.
+  - **Unverified until first manual dispatch** — authored against the published `claude-code-action` inputs but never executed here (no key configured; the action's docs carry no cron example). Run it once via `workflow_dispatch` and review the PR before trusting the schedule.
+  - GitHub-hosted runners have open outbound internet, so a successful run also satisfies issue #76's "first MCP-connected report" — the keyless feeds are reachable from Actions even where a restricted sandbox blocks them.
+
+### Fixed
+
+- **Secret redaction failed for `Bearer` / `Basic` auth values** (`audit.py`, found while writing tests for issue #82). The `Bearer`/`Basic` patterns matched, but the shared replacement assumed a `name=value` shape — splitting on `=` returned the whole match, so `Bearer <token>` became `Bearer <token>=[REDACTED]`: **the secret stayed in the log while appearing redacted.** Only the `key=value` form was ever neutralised. Each pattern now carries its own replacement and keeps the name in group 1. Practical exposure was limited (httpx does not log auth headers by default, and no adapter fed a header value to `redact_url`), but the function is documented to handle these forms and did not.
+
+### Removed
+
+- **Dead `timed()` context manager** (`audit.py`): no callers anywhere, and its internals were vestigial (an `elapsed` list appended to but never read, a `finally: pass`). Adapters time themselves with `time.monotonic()` directly. Removed rather than tested — writing tests for unreachable code to move a coverage number is the anti-pattern issue #82 exists to avoid.
+
+### Added
+
+- **Audit-logging test suite** (`tests/test_audit.py`, issue #82): 28 tests covering URL/header redaction, the import-time `_RedactingFilter` installation on the `httpx`/`httpcore` loggers, unformattable-record handling, and `log_tool_call` level/field behaviour. Assertions are written as *negatives* — the secret value must not appear in `caplog` — so a half-redacting regression fails instead of passing on the presence of `[REDACTED]`.
+- **Server contract tests** (`tests/test_server_smoke.py`, issue #82): every single-feed tool degrades on an upstream 5xx (previously only the public feeds had this coverage); the ten feed-type-validating tools **raise** `ValueError` on an unknown `feed_type` — the caller-error half of the error taxonomy, complementing the never-raise-on-bad-upstream-data sweep; partial-failure maps to `partial`/`unverified` rather than inflating to `consulted`; and multi-key feeds (Intel 471, Censys) report configured when credentials are present.
+
+### Coverage
+
+- `audit.py` **73% → 100%**, `server.py` **79% → 94%**, overall MCP **92% → 95%** (420 tests, up from 367).
+
+### Added
+
 - **Source Governance section** in `references/source-matrix.md` (issue #88): the inclusion bar (named org, verified official URL, verification source cited in the PR) and the excluded-origins rule (no sources based in CN/RU/KP/BY/IR) are now written policy instead of PR prose; cross-linked from `contributing.md`.
 - **CI: source-list content parity** (issue #89): per-tier source entries must be identical across `source-matrix.md`, `original-prompt.md`, and `standalone/cyber-threat-intel-prompt.md` — heading parity alone could not catch a source silently missing from one mirror.
 - **CI: excluded-origin denylist** (issue #88): the domains removed under the governance rule in 1.19.0 fail CI if reintroduced into any of the four source files.
