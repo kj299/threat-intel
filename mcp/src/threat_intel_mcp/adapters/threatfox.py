@@ -18,6 +18,20 @@ Feed characteristics (verified from the OpenCTI connector, 2026):
   - ``type`` values: ``ip:port``, ``domain``, ``url``, ``md5_hash``,
     ``sha1_hash``, ``sha256_hash``. Only the first three are network indicators;
     hashes are ioc_host and are skipped here.
+  - **Fields are quoted and separated by comma-then-space** (``"a", "b", "c"``),
+    so the reader needs ``skipinitialspace=True``. This is not cosmetic: with
+    the default dialect the space before each ``"`` means the quote is no longer
+    a quote character, so every field after the first keeps its literal quotes
+    (``row[3]`` is ``'"ip:port"'``, never ``'ip:port'``) and any field that
+    itself contains a comma — the ``tags`` column — splits into extra columns.
+    Every row then fails the ``type`` match and is skipped, and the feed parses
+    to **zero records while returning HTTP 200**. Observed live on 2026-07-25: a
+    1,016,687-byte response yielded 0 IOCs. The OpenCTI connector registers the
+    same ``skipinitialspace=True`` dialect for this exact URL.
+
+``skipinitialspace=True`` is safe whether or not the space is present — it only
+ever discards whitespace between a delimiter and the following field — so it is
+the correct setting regardless of which way abuse.ch formats a future export.
 
 ThreatFox indicators are confirmed-malicious C2 / payload-delivery IOCs, so
 network IOCs are emitted with ``action: block`` and confidence derived from the
@@ -51,6 +65,17 @@ CACHE_TTL_SECONDS = 900
 _CACHE_KEY = "threatfox_recent"
 
 _MIN_COLS = 10  # need at least through confidence_level (col 9)
+
+# The dialect abuse.ch actually emits. See the module docstring: without
+# skipinitialspace the whole feed parses to nothing and still reports HTTP 200.
+_DIALECT = {"delimiter": ",", "quotechar": '"', "skipinitialspace": True}
+
+# Every ioc_type the feed is known to emit. Network types are normalised;
+# hash types are ioc_host and skipped. Membership here means "the row was
+# understood", which is what distinguishes a quiet feed from a broken parse.
+_NETWORK_TYPES = {"ip:port", "domain", "url"}
+_HASH_TYPES = {"md5_hash", "sha1_hash", "sha256_hash"}
+_KNOWN_TYPES = _NETWORK_TYPES | _HASH_TYPES
 
 
 def _map_confidence(level: int) -> str:
@@ -213,10 +238,45 @@ class ThreatFoxAdapter:
         )
 
     def _parse_csv(self, text: str) -> list[dict[str, Any]]:
+        """Parse the feed body into ioc_network dicts.
+
+        Raises ``RuntimeError`` when the body carries data rows but not one of
+        them is recognisable — a format break upstream. Per the taxonomy in
+        ``adapters/base.py`` that is an upstream problem (case 3), so the tool
+        degrades to ``unverified`` and the fan-out retries, rather than
+        reporting a confident, wrong ``0 records``.
+        """
         lines = (ln for ln in io.StringIO(text) if not ln.startswith("#"))
-        reader = csv.reader(lines)
-        return [
-            normalized
-            for row in reader
-            if (normalized := _normalize_row(row)) is not None
-        ]
+        reader = csv.reader(lines, **_DIALECT)
+
+        iocs: list[dict[str, Any]] = []
+        data_rows = 0
+        understood_rows = 0
+
+        for row in reader:
+            if not row or not any(field.strip() for field in row):
+                continue  # blank line, not a data row
+            data_rows += 1
+            if len(row) >= _MIN_COLS and row[3].strip() in _KNOWN_TYPES:
+                understood_rows += 1
+            if (normalized := _normalize_row(row)) is not None:
+                iocs.append(normalized)
+
+        # A feed with nothing to report is legitimate (data_rows == 0), and so is
+        # a batch that happens to be all hashes (understood_rows > 0, iocs == []).
+        # Data rows that are *all* unintelligible are not.
+        if data_rows and not understood_rows:
+            raise RuntimeError(
+                f"ThreatFox feed format not recognised: {data_rows} data row(s) "
+                f"parsed, none carrying a known ioc_type in column 3. "
+                f"Expected one of {sorted(_KNOWN_TYPES)}. "
+                "The feed layout or CSV dialect has probably changed upstream."
+            )
+
+        if data_rows and not iocs:
+            logger.info(
+                "ThreatFox returned %d row(s), none of them network indicators "
+                "(hash-only batch) — 0 IOCs is correct here.",
+                data_rows,
+            )
+        return iocs
