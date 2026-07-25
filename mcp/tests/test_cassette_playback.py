@@ -29,12 +29,26 @@ from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.normalize import finalize_iocs
+from threat_intel_mcp.vault.base import CredentialNotFoundError
 from threat_intel_mcp.vulns import finalize_vulns
 
 
-class _Creds:
-    def get(self, source: str, field: str) -> str:
-        raise KeyError(f"no credential configured for {source}.{field}")
+class _NoKeyCredentials:
+    """Provider with no NVD key — the optional-credential path.
+
+    It must raise ``CredentialNotFoundError``, not a bare ``KeyError``. The two
+    are not interchangeable even though the former subclasses the latter: per
+    the taxonomy in ``adapters/base.py``, NVD falls back to unauthenticated
+    access only for a *not-found* key, while any other provider failure
+    propagates so a Vault outage is never silently downgraded.
+
+    Raising a plain ``KeyError`` here made the first cassette recording fail its
+    playback gate — the adapter correctly read it as a provider outage. Matches
+    ``NoKeyCredentials`` in ``test_nvd.py``; keep them in step.
+    """
+
+    def get(self, adapter_name: str, key: str) -> str:
+        raise CredentialNotFoundError((adapter_name, key))
 
 
 def _requires(name: str):
@@ -108,7 +122,7 @@ async def test_cisa_kev_output_survives_the_real_pipeline():
 @_requires("nvd")
 @pytest.mark.asyncio
 async def test_nvd_parses_the_real_response():
-    result = await _play("nvd", NVDAdapter(_Creds()), time_range="7d")
+    result = await _play("nvd", NVDAdapter(_NoKeyCredentials()), time_range="7d")
 
     assert result.record_count > 0
     assert all(v["cve_id"].startswith("CVE-") for v in result.vulns)
@@ -117,8 +131,21 @@ async def test_nvd_parses_the_real_response():
 @_requires("nvd")
 @pytest.mark.asyncio
 async def test_nvd_output_survives_the_real_pipeline():
-    result = await _play("nvd", NVDAdapter(_Creds()), time_range="7d")
+    result = await _play("nvd", NVDAdapter(_NoKeyCredentials()), time_range="7d")
     assert finalize_vulns(result.vulns)
+
+
+def test_no_key_provider_engages_the_unauthenticated_fallback():
+    """Guards the stub itself — always runs, cassette or not.
+
+    The first cassette recording failed its playback gate because this stub
+    raised a bare ``KeyError``. ``CredentialNotFoundError`` subclasses
+    ``KeyError`` but not the reverse, so the adapter correctly read it as a
+    provider outage and propagated instead of falling back. Without this test
+    the mistake is only visible once a cassette exists, which is exactly when
+    it is most expensive to discover.
+    """
+    assert NVDAdapter(_NoKeyCredentials())._api_key() is None
 
 
 def test_cassette_directory_exists():
