@@ -29,6 +29,8 @@ import os
 import pathlib
 import sys
 
+import yaml
+
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from tests.vcr_config import CASSETTE_DIR, build_vcr  # noqa: E402
@@ -65,18 +67,44 @@ FEEDS = {
     "censys": (lambda c: CensysAdapter(c), True),
 }
 
-# Anything in a committed cassette matching these is a scrubbing failure. Kept
-# deliberately broad — a false positive costs a second look, a false negative
-# costs a leaked credential.
-_SUSPICIOUS = (
-    "api_key",
+# Credential-bearing header names and query parameters. These are checked
+# STRUCTURALLY -- against request headers, the request URI, and response headers
+# -- never against a response body.
+#
+# The first version of this check grepped whole cassettes for words like
+# "password" and "secret". That failed on the very first real recording: NVD CVE
+# descriptions say "password" thousands of times ("allows an attacker to reset
+# the password"), because it is a vulnerability feed. A check that fires on every
+# NVD recording is not a cautious check, it is a broken one -- it blocks the
+# feature and teaches people to pass --skip-verify.
+#
+# Response bodies are public threat data and are the entire point of a cassette.
+# Credentials live in headers and query strings, so that is where we look.
+_SECRET_HEADER_NAMES = (
+    "authorization",
+    "x-apikey",
+    "x-otx-api-key",
+    "x-api-key",
+    "x-auth-token",
     "apikey",
-    "authorization: ",
-    "bearer ",
-    "basic ",
-    "secret",
-    "password",
+    "key",
+    "cookie",
+    "set-cookie",
+    "proxy-authorization",
 )
+_SECRET_QUERY_PARAMS = ("key", "apikey", "api_key", "token", "auth", "password", "secret")
+
+# Every credential env var the adapters read. Any value actually configured is
+# checked as a literal against the whole cassette -- the strongest form of this
+# check, with no false positives: if the real key is in the file, it leaked,
+# wherever it ended up.
+_CREDENTIAL_ENV_VARS = (
+    "QFEEDS_API_KEY", "ABUSEIPDB_API_KEY", "VIRUSTOTAL_API_KEY", "OTX_API_KEY",
+    "SHODAN_API_KEY", "GREYNOISE_API_KEY", "ANYRUN_API_KEY", "INTEL471_EMAIL",
+    "INTEL471_API_KEY", "CENSYS_API_ID", "CENSYS_API_SECRET", "NVD_API_KEY",
+)
+
+_REDACTED = "[REDACTED]"
 
 
 async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None, str]:
@@ -97,18 +125,79 @@ async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None
         return name, None, f"FAILED {type(exc).__name__}: {exc}"
 
 
-def verify_scrubbed(names: list[str]) -> list[str]:
-    """Grep the written cassettes for anything credential-shaped."""
+def _header_problems(headers, where: str, path_name: str) -> list[str]:
     problems = []
+    for name, values in (headers or {}).items():
+        if name.lower() not in _SECRET_HEADER_NAMES:
+            continue
+        for value in values if isinstance(values, list) else [values]:
+            if _REDACTED not in str(value):
+                problems.append(
+                    f"{path_name}: {where} header {name!r} is not redacted"
+                )
+    return problems
+
+
+def verify_scrubbed(names: list[str]) -> list[str]:
+    """Check recorded cassettes for credentials, structurally and literally.
+
+    Two independent checks:
+
+    1. **Structural** -- request headers, the request URI's query string, and
+       response headers must carry no unredacted credential. Response *bodies*
+       are deliberately not scanned: they are public threat data, and scanning
+       them for words like "password" fails on every NVD recording.
+    2. **Literal** -- for each credential that is actually configured in the
+       environment, assert its value does not appear anywhere in the file. This
+       has no false positives and catches a leak wherever it landed.
+    """
+    import urllib.parse
+
+    problems: list[str] = []
+    live_secrets = {
+        var: os.environ[var]
+        for var in _CREDENTIAL_ENV_VARS
+        if os.environ.get(var, "").strip()
+    }
+
     for name in names:
         path = CASSETTE_DIR / f"{name}.yaml"
         if not path.is_file():
             continue
-        lowered = path.read_text(encoding="utf-8", errors="replace").lower()
-        for needle in _SUSPICIOUS:
-            for line_no, line in enumerate(lowered.splitlines(), 1):
-                if needle in line and "[redacted]" not in line:
-                    problems.append(f"{path.name}:{line_no}: contains {needle!r}")
+        raw = path.read_text(encoding="utf-8", errors="replace")
+
+        # 2. Literal check first -- the one that matters most.
+        for var, value in live_secrets.items():
+            if value in raw:
+                problems.append(
+                    f"{path.name}: contains the literal value of ${var}"
+                )
+
+        # 1. Structural check.
+        try:
+            doc = yaml.safe_load(raw) or {}
+        except yaml.YAMLError as exc:
+            problems.append(f"{path.name}: not parseable as YAML ({exc})")
+            continue
+        for interaction in doc.get("interactions") or []:
+            request = interaction.get("request") or {}
+            response = interaction.get("response") or {}
+            problems += _header_problems(
+                request.get("headers"), "request", path.name
+            )
+            problems += _header_problems(
+                response.get("headers"), "response", path.name
+            )
+            query = urllib.parse.parse_qs(
+                urllib.parse.urlparse(request.get("uri") or "").query
+            )
+            for param, values in query.items():
+                if param.lower() in _SECRET_QUERY_PARAMS and not any(
+                    _REDACTED in v for v in values
+                ):
+                    problems.append(
+                        f"{path.name}: query parameter {param!r} is not redacted"
+                    )
     return problems
 
 
@@ -119,6 +208,11 @@ async def main() -> int:
     parser.add_argument("--time-range", default="7d")
     parser.add_argument(
         "--skip-verify", action="store_true", help="skip the leaked-secret scan"
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="scan existing cassettes for leaked credentials and exit",
     )
     args = parser.parse_args()
 
@@ -132,6 +226,21 @@ async def main() -> int:
         selected = [n for n, (_, keyed) in FEEDS.items() if args.all or not keyed]
 
     CASSETTE_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.verify_only:
+        present = [n for n in selected if (CASSETTE_DIR / f"{n}.yaml").is_file()]
+        if not present:
+            print("No cassettes present to verify.")
+            return 0
+        problems = verify_scrubbed(present)
+        if problems:
+            print("SCRUBBING CHECK FAILED — do not commit these cassettes:")
+            for problem in problems:
+                print(f"  {problem}")
+            return 1
+        print(f"Scrubbing check passed over {len(present)} cassette(s): {present}")
+        return 0
+
     creds = credential_provider_from_env()
 
     print(f"Recording {len(selected)} feed(s) into {CASSETTE_DIR}\n")

@@ -177,3 +177,99 @@ async def test_async_httpx_is_supported(local_server, tmp_path):
         async with httpx.AsyncClient() as client:
             replayed = await client.get(local_server)
     assert replayed.json() == recorded.json()
+
+
+class TestSecretScan:
+    """The recorder's leaked-credential scan (``verify_scrubbed``).
+
+    The first version grepped whole cassettes for words like "password" and
+    "secret" and failed on the very first real recording: NVD CVE descriptions
+    say "password" thousands of times, because it is a vulnerability feed. A
+    check that fires on every NVD recording is not cautious, it is broken — it
+    blocks the feature and teaches people to pass ``--skip-verify``.
+    """
+
+    @staticmethod
+    def _cassette(tmp_path, monkeypatch, body, headers=None, uri=None):
+        import sys
+
+        import yaml
+
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+        import scripts.record_cassettes as rec
+
+        monkeypatch.setattr(rec, "CASSETTE_DIR", tmp_path)
+        doc = {
+            "interactions": [
+                {
+                    "request": {
+                        "uri": uri or "https://services.nvd.nist.gov/rest/json/cves/2.0",
+                        "method": "GET",
+                        "headers": headers or {"Accept": ["application/json"]},
+                    },
+                    "response": {
+                        "body": {"string": body},
+                        "headers": {"Content-Type": ["application/json"]},
+                        "status": {"code": 200, "message": "OK"},
+                    },
+                }
+            ],
+            "version": 1,
+        }
+        (tmp_path / "nvd.yaml").write_text(yaml.safe_dump(doc))
+        return rec
+
+    def test_cve_text_mentioning_password_is_not_a_leak(self, tmp_path, monkeypatch):
+        """The exact false positive that failed the first live recording."""
+        body = (
+            "An issue allows a remote attacker to reset the password without "
+            "authorisation. A hardcoded password and a default secret are "
+            "present. api_key handling is also affected."
+        )
+        rec = self._cassette(tmp_path, monkeypatch, body)
+        assert rec.verify_scrubbed(["nvd"]) == []
+
+    def test_unredacted_auth_header_is_a_leak(self, tmp_path, monkeypatch):
+        rec = self._cassette(
+            tmp_path, monkeypatch, "{}", headers={"Authorization": ["Bearer real-token"]}
+        )
+        problems = rec.verify_scrubbed(["nvd"])
+        assert problems and "Authorization" in problems[0]
+
+    def test_unredacted_query_key_is_a_leak(self, tmp_path, monkeypatch):
+        rec = self._cassette(
+            tmp_path, monkeypatch, "{}", uri="https://api.shodan.io/search?key=live-key"
+        )
+        problems = rec.verify_scrubbed(["nvd"])
+        assert problems and "key" in problems[0]
+
+    def test_redacted_header_and_query_pass(self, tmp_path, monkeypatch):
+        rec = self._cassette(
+            tmp_path,
+            monkeypatch,
+            "{}",
+            headers={"Authorization": ["[REDACTED]"]},
+            uri="https://api.shodan.io/search?key=%5BREDACTED%5D",
+        )
+        assert rec.verify_scrubbed(["nvd"]) == []
+
+    def test_configured_credential_appearing_anywhere_is_a_leak(
+        self, tmp_path, monkeypatch
+    ):
+        """The literal check: no false positives, catches any location.
+
+        Even buried in a response body, where the structural check does not
+        look, a real configured key must be caught.
+        """
+        monkeypatch.setenv("SHODAN_API_KEY", "sk-live-abcdef123456")
+        rec = self._cassette(
+            tmp_path, monkeypatch, "results for sk-live-abcdef123456 follow"
+        )
+        problems = rec.verify_scrubbed(["nvd"])
+        assert problems and "SHODAN_API_KEY" in problems[0]
+
+    def test_unset_credential_env_var_is_not_checked(self, tmp_path, monkeypatch):
+        """An empty env var must not make the empty string match everything."""
+        monkeypatch.setenv("SHODAN_API_KEY", "")
+        rec = self._cassette(tmp_path, monkeypatch, "ordinary feed content")
+        assert rec.verify_scrubbed(["nvd"]) == []
