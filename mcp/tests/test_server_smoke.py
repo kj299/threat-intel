@@ -219,6 +219,70 @@ async def test_single_feed_tool_degrades_on_malformed_body(
     assert isinstance(result["record_count"], int)
 
 
+# Tools whose adapter validates feed_types and raises ValueError on an unknown
+# one. (abuseipdb_fetch_blocklist and otx_fetch_iocs accept feed_types for
+# interface compatibility and ignore them, so they are correctly excluded.)
+_FEED_TYPE_VALIDATING_TOOLS = [
+    "qfeeds_fetch_iocs",
+    "virustotal_fetch_iocs",
+    "shodan_fetch_iocs",
+    "greynoise_fetch_iocs",
+    "anyrun_fetch_iocs",
+    "intel471_fetch_iocs",
+    "censys_fetch_iocs",
+    "threatfox_fetch_iocs",
+    "cisa_kev_fetch_cves",
+    "nvd_fetch_cves",
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(
+    assert_all_responses_were_requested=False,
+    can_send_already_matched_responses=True,
+)
+@pytest.mark.parametrize("tool_name", _ALL_SINGLE_FEED_TOOLS)
+async def test_single_feed_tool_degrades_on_upstream_http_error(
+    tool_name, httpx_mock: HTTPXMock, monkeypatch
+):
+    """Every single-feed tool degrades gracefully when its upstream returns 5xx.
+
+    Credentials are supplied so credentialed tools get past their fail-fast key
+    check and actually exercise the upstream-error branch — without them they
+    short-circuit on the credential path and this contract goes untested (which
+    is precisely how it was: only the public feeds had 5xx coverage).
+    """
+    for var in _ALL_CRED_VARS:
+        monkeypatch.setenv(var, "dummy-value-for-test")
+    httpx_mock.add_response(url=re.compile(r"https://.+"), status_code=503)
+
+    result = await getattr(server, tool_name)()
+
+    assert result["coverage_ledger_entry"]["status"] == "unverified"
+    assert result["record_count"] == 0
+    assert "error" in result and result["error"], "degraded result must explain itself"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", _FEED_TYPE_VALIDATING_TOOLS)
+async def test_tool_raises_on_invalid_feed_types(tool_name, httpx_mock: HTTPXMock, monkeypatch):
+    """The other half of the error taxonomy: a *caller* error must RAISE.
+
+    The malformed-body sweep above asserts tools never raise on bad data from
+    upstream. This asserts the inverse for bad input from the caller: an unknown
+    feed_type is a ValueError the tool re-raises verbatim, so the mistake
+    surfaces instead of being silently degraded into an 'unverified' ledger
+    entry that looks like an outage. See adapters/base.py's error taxonomy.
+    """
+    for var in _ALL_CRED_VARS:
+        monkeypatch.setenv(var, "dummy-value-for-test")
+
+    with pytest.raises(ValueError, match="[Ff]eed_type"):
+        await getattr(server, tool_name)(feed_types=["definitely-not-a-real-feed-type"])
+
+    assert httpx_mock.get_requests() == [], "must fail before any network call"
+
+
 @pytest.mark.asyncio
 async def test_cisa_kev_tool_degrades_on_malformed_body(httpx_mock: HTTPXMock):
     """A 200 response with an unexpected shape (e.g. CISA serves an error page or
@@ -288,6 +352,57 @@ async def test_list_available_feeds_reports_all_sources():
     assert names == _EXPECTED_SOURCES
     tools = {f["tool"] for f in result["feeds"]}
     assert tools == set(_SINGLE_FEED_TOOLS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "iocs,expected",
+    [
+        ([{"type": "IPv4", "value": "203.0.113.7", "confidence": "High", "source": "Q-Feeds"}], "partial"),
+        ([], "unverified"),
+    ],
+)
+async def test_partial_failure_maps_to_partial_or_unverified(iocs, expected, monkeypatch):
+    """A feed that partly failed must not be reported as fully 'consulted'.
+
+    When some feed_types succeed and others fail, the Coverage Ledger has to say
+    so: 'partial' when usable records came back, 'unverified' when none did.
+    Reporting either as 'consulted' would inflate the coverage badge (R4) on
+    data the source didn't actually supply in full.
+    """
+    from threat_intel_mcp.adapters.base import FetchResult
+
+    async def fake_fetch(*, time_range="7d", feed_types=None):
+        return FetchResult(
+            iocs=list(iocs), source="Q-Feeds", tier=2,
+            retrieved_at="2026-07-25T00:00:00+00:00", record_count=len(iocs),
+            latency_ms=1.0, feed_types_fetched=["malware_ip"],
+            partial_failure=["malware_domains"],
+        )
+
+    monkeypatch.setattr(server._qfeeds, "fetch", fake_fetch)
+    result = await server.qfeeds_fetch_iocs()
+
+    assert result["coverage_ledger_entry"]["status"] == expected
+    assert result["partial_failure"] == ["malware_domains"]
+
+
+@pytest.mark.asyncio
+async def test_list_available_feeds_reports_credentials_as_configured(monkeypatch):
+    """With credentials present, multi-key feeds report configured.
+
+    Intel 471 and Censys each need *two* values; the second lookup only runs
+    when the first succeeds, so this path is unreachable in the no-credential
+    tests above.
+    """
+    for var in _ALL_CRED_VARS:
+        monkeypatch.setenv(var, "dummy-value-for-test")
+
+    result = await server.list_available_feeds()
+    configured = {f["name"] for f in result["feeds"] if f["credential_configured"]}
+
+    assert {"Intel 471", "Censys"} <= configured
+    assert configured == _EXPECTED_SOURCES, "every feed should read as configured here"
 
 
 @pytest.mark.asyncio

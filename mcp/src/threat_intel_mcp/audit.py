@@ -9,25 +9,35 @@ from __future__ import annotations
 
 import logging
 import re
-import time
-from contextlib import contextmanager
 from typing import Any
 
 logger = logging.getLogger("threat_intel_mcp.audit")
 
-# Patterns that look like credentials in a URL query string or header value.
-# These are redacted to [REDACTED] before any string reaches a log sink.
+# Patterns that look like credentials in a URL query string or header value,
+# each paired with the replacement that neutralises it. Every pattern keeps the
+# *name* of what was redacted (so logs stay debuggable) and drops the value.
+#
+# The replacement is per-pattern for a reason: a single generic replacement that
+# assumed a ``name=value`` shape silently failed on the scheme-prefixed forms —
+# ``Bearer <token>`` has no ``=``, so splitting on ``=`` returned the whole match
+# and produced ``Bearer <token>=[REDACTED]``, i.e. the secret was still in the
+# log while *looking* redacted. Keep the name in group 1 of every pattern.
 _SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?token|api[_-]?key|token|key|secret|password)=[^&\s]+"),
-    re.compile(r"(?i)Bearer\s+[A-Za-z0-9\-._~+/]+=*"),
-    re.compile(r"(?i)Basic\s+[A-Za-z0-9+/]+=*"),
+    (
+        re.compile(r"(?i)(api[_-]?token|api[_-]?key|token|key|secret|password)=[^&\s]+"),
+        r"\1=[REDACTED]",
+    ),
+    (
+        re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/]+=*"),
+        r"\1 [REDACTED]",
+    ),
 ]
 
 
 def redact_url(url: str) -> str:
-    """Remove credential-bearing query parameters from a URL before logging."""
-    for pattern in _SECRET_PATTERNS:
-        url = pattern.sub(lambda m: m.group(0).split("=")[0] + "=[REDACTED]", url)
+    """Remove credential-bearing query parameters and auth schemes before logging."""
+    for pattern, replacement in _SECRET_PATTERNS:
+        url = pattern.sub(replacement, url)
     return url
 
 
@@ -90,19 +100,3 @@ def log_tool_call(
         logger.info("%s", entry)
     else:
         logger.warning("%s", entry)
-
-
-@contextmanager
-def timed():
-    """Context manager that yields a callable returning elapsed milliseconds."""
-    start = time.monotonic()
-    elapsed: list[float] = []
-
-    def ms() -> float:
-        return (time.monotonic() - start) * 1000
-
-    elapsed.append(0.0)
-    try:
-        yield ms
-    finally:
-        pass
