@@ -43,6 +43,23 @@ def _csv(rows):
     return buf.getvalue()
 
 
+def _csv_abusech(rows):
+    """Serialise rows the way abuse.ch actually does: every field quoted, fields
+    separated by **comma-then-space**.
+
+    ``_csv`` above uses ``csv.writer``, which emits minimal quoting and no
+    spaces — a shape the default reader dialect happens to parse correctly. That
+    mismatch is exactly why the adapter passed its tests while returning zero
+    records against the live feed on 2026-07-25. Tests that feed the live shape
+    belong here; keep both, because the parser must handle either.
+    """
+    header = "# first_seen_utc, ioc_id, ioc_value, ioc_type, threat_type\n"
+    body = "\n".join(
+        ", ".join('"{}"'.format(field) for field in row) for row in rows
+    )
+    return header + body + "\n"
+
+
 @pytest.fixture()
 def adapter():
     return ThreatFoxAdapter()
@@ -130,5 +147,120 @@ class TestFetch:
     async def test_cache_avoids_second_request(self, adapter, httpx_mock: HTTPXMock):
         httpx_mock.add_response(url=_FEED_URL, text=_csv([_row("1.2.3.4:443", "ip:port")]))
         await adapter.fetch()
+        result = await adapter.fetch()
+        assert result.record_count == 1
+
+
+class TestLiveFeedDialect:
+    """Regression tests for the live abuse.ch CSV shape (quoted, ", "-separated).
+
+    The adapter previously used the default ``csv.reader`` dialect. Against this
+    shape the leading space stops ``"`` being a quote character, so every field
+    after the first keeps its literal quotes, ``row[3]`` reads ``'"ip:port"'``
+    rather than ``'ip:port'``, no row matches a known type, and the feed parses
+    to zero records behind an HTTP 200 — silently, which is the worst part.
+    """
+
+    @pytest.mark.asyncio
+    async def test_quoted_space_separated_feed_parses(self, adapter, httpx_mock: HTTPXMock):
+        rows = [
+            _row("1.2.3.4:443", "ip:port"),
+            _row("evil.example.com", "domain"),
+            _row("http://bad.test/x", "url"),
+        ]
+        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
+        result = await adapter.fetch()
+
+        # The assertion that matters: not "it didn't crash" but "it found them".
+        assert result.record_count == 3
+        assert {i["type"] for i in result.iocs} == {"IPv4", "Domain", "URL"}
+        # Values must be free of the stray quote characters the old dialect left.
+        assert {i["value"] for i in result.iocs} == {
+            "1.2.3.4",
+            "evil.example.com",
+            "http://bad.test/x",
+        }
+        ip = next(i for i in result.iocs if i["type"] == "IPv4")
+        assert ip["associated_threat"] == "Cobalt Strike"
+        assert ip["confidence"] == "High"
+        assert "port:443" in ip["tags"]
+
+    @pytest.mark.asyncio
+    async def test_comma_inside_quoted_tags_does_not_shift_columns(
+        self, adapter, httpx_mock: HTTPXMock
+    ):
+        """The tags column contains commas; unquoted parsing splits it into extra
+        columns and shifts everything after it."""
+        row = _row("5.6.7.8:8080", "ip:port")
+        assert row[12] == "tag1,tag2"  # the column that does the damage
+        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech([row]))
+        result = await adapter.fetch()
+        assert result.record_count == 1
+        assert result.iocs[0]["value"] == "5.6.7.8"
+
+
+class TestEmptyAndBrokenFeeds:
+    """A feed with nothing to say and a feed we can no longer read must not look
+    the same. The first is a quiet week; the second is an outage."""
+
+    @pytest.mark.asyncio
+    async def test_feed_with_no_data_rows_is_zero_not_an_error(
+        self, adapter, httpx_mock: HTTPXMock
+    ):
+        httpx_mock.add_response(
+            url=_FEED_URL, text="# ThreatFox recent\n# no entries\n\n"
+        )
+        result = await adapter.fetch()
+        assert result.record_count == 0
+        assert result.iocs == []
+
+    @pytest.mark.asyncio
+    async def test_hash_only_batch_is_zero_not_an_error(self, adapter, httpx_mock: HTTPXMock):
+        """Rows understood, just none of them network indicators."""
+        rows = [_row("a" * 64, "sha256_hash"), _row("b" * 32, "md5_hash")]
+        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
+        result = await adapter.fetch()
+        assert result.record_count == 0
+
+    @pytest.mark.asyncio
+    async def test_unrecognisable_rows_raise_runtime_error(
+        self, adapter, httpx_mock: HTTPXMock
+    ):
+        """Data present but no known ioc_type anywhere: a format break.
+
+        RuntimeError, not ValueError — per adapters/base.py a malformed upstream
+        body must degrade the tool to ``unverified`` and stay retryable, not
+        crash it as a caller error.
+        """
+        rows = [_row("1.2.3.4:443", "totally-new-type") for _ in range(3)]
+        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
+        with pytest.raises(RuntimeError, match="format not recognised"):
+            await adapter.fetch()
+
+    @pytest.mark.asyncio
+    async def test_html_error_page_raises_rather_than_reporting_zero(
+        self, adapter, httpx_mock: HTTPXMock
+    ):
+        """A 200 carrying an interstitial or error page instead of the feed."""
+        httpx_mock.add_response(
+            url=_FEED_URL,
+            text="<html><body>Access denied. Please authenticate.</body></html>",
+        )
+        with pytest.raises(RuntimeError, match="format not recognised"):
+            await adapter.fetch()
+
+    @pytest.mark.asyncio
+    async def test_broken_feed_is_not_cached(self, adapter, httpx_mock: HTTPXMock):
+        """A format break must not poison the 15-minute cache with an empty list —
+        otherwise one bad fetch suppresses the alarm for the next quarter hour."""
+        httpx_mock.add_response(
+            url=_FEED_URL, text=_csv_abusech([_row("1.2.3.4:443", "nope")])
+        )
+        with pytest.raises(RuntimeError):
+            await adapter.fetch()
+
+        httpx_mock.add_response(
+            url=_FEED_URL, text=_csv_abusech([_row("1.2.3.4:443", "ip:port")])
+        )
         result = await adapter.fetch()
         assert result.record_count == 1

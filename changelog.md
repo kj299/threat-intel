@@ -30,6 +30,14 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ### Fixed
 
+- **ThreatFox parsed the live feed to zero records while reporting success** (`adapters/threatfox.py`, MCP v0.14.1). Found by the first live run of the feed on an operator's machine (issue #76): a 1,016,687-byte HTTP 200 response yielded **0 IOCs**, twice, with no error.
+
+  abuse.ch quotes every CSV field and separates them with **comma-then-space** (`"a", "b", "c"`). The adapter used the default `csv.reader` dialect, where the space before each `"` means the quote is no longer a quote character — so every field after the first kept its literal quotes (`row[3]` read `'"ip:port"'`, never `'ip:port'`), and the `tags` column, which itself contains commas, split into extra columns. No row matched a known `ioc_type`, every row was skipped, and the adapter returned an empty list as a *success*. The reader now uses `skipinitialspace=True`, matching the dialect the OpenCTI ThreatFox connector registers for this exact URL. That setting only ever discards whitespace between a delimiter and the next field, so it is correct whether or not the space is present.
+
+  **Why the tests missed it:** the fixtures were built with `csv.writer`, which emits minimal quoting and no spaces — a shape the broken dialect parses correctly. The suite was testing the adapter against a feed format abuse.ch does not produce. Tests now cover both shapes, and the live-shape cases fail against the old dialect.
+
+- **A ThreatFox format break now degrades loudly instead of reporting `0 records`** (`adapters/threatfox.py`). The silence was the worse half of the bug above: an empty result is indistinguishable from a quiet week, so a total parse failure looked like ordinary low volume. `_parse_csv` now raises `RuntimeError` when the body carries data rows but **not one** of them has a recognisable `ioc_type` — an upstream problem under the `adapters/base.py` taxonomy, so the tool degrades to `unverified` and the fan-out retries rather than publishing a confident, wrong zero. Genuinely empty feeds (no data rows) and hash-only batches (understood rows, no network indicators) still return `0` without error, because those really are zero.
+
 - **Secret redaction failed for `Bearer` / `Basic` auth values** (`audit.py`, found while writing tests for issue #82). The `Bearer`/`Basic` patterns matched, but the shared replacement assumed a `name=value` shape — splitting on `=` returned the whole match, so `Bearer <token>` became `Bearer <token>=[REDACTED]`: **the secret stayed in the log while appearing redacted.** Only the `key=value` form was ever neutralised. Each pattern now carries its own replacement and keeps the name in group 1. Practical exposure was limited (httpx does not log auth headers by default, and no adapter fed a header value to `redact_url`), but the function is documented to handle these forms and did not.
 
 ### Removed
