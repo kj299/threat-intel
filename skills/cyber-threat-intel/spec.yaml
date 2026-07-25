@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.20.0"
+  version: "1.21.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -205,6 +205,7 @@ user_inputs:
     detail_level: full_technical
     output_format: technical_ioc_package
     build_iocs_and_queries: true   # default: build IOCs + detection/hunting queries in the standard formats
+    cwe_chaining: osint            # default: model CWE chains, including those evidenced in public reporting
     feed_integrations: []          # default: no authenticated feed integrations
 
   initial_questions:
@@ -252,6 +253,37 @@ user_inputs:
         YARA/Sigma/KQL/SPL/Snort). When false, the report stays narrative —
         findings, analysis, and recommendations without generated indicator or
         query artifacts.
+
+    - name: cwe_chaining
+      type: single_select
+      default: osint
+      options:
+        - "off"
+        - catalog
+        - osint
+      description: >
+        Controls weakness-class (CWE) chain analysis — see
+        references/cwe-chaining.md. "off" reports vulnerabilities individually.
+        "catalog" models chains only from MITRE's own relationship data
+        (CWE-709 named chains, CWE-1000 CanPrecede/CanFollow), which is
+        deterministic and fully attributable. "osint" additionally models
+        chains evidenced in public reporting — vendor advisories, incident
+        write-ups, CERT bulletins, exploit-chain research.
+
+        The practical value is re-prioritising vulnerabilities that CVSS scores
+        low in isolation: three Medium findings that compose into an
+        unauthenticated path to an internal admin API are a Critical problem
+        that a CVSS-ordered patch queue will not reach for months. Chains
+        record contributing_cves with their individual scores, max_component_cvss,
+        and chain_severity — the gap between the last two is the finding.
+
+        Chain relevance is stack-specific, so this consumes technology_stack
+        and records stack_relevance. A chain matching nothing in the declared
+        stack is not reported as an org finding.
+
+        R3 applies with full force: evidence_basis distinguishes a CWE-709
+        catalog entry from a publicly reported composition from an inferred
+        hypothesis, and an inferred chain must carry confidence: low.
 
     - name: feed_integrations
       type: list

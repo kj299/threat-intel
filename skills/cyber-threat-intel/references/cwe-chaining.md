@@ -99,6 +99,129 @@ The intel value is the **factor and its takeaway**, never the generated exploit.
 
 Cross-check chains against the **CISA KEV** catalog and **Project Zero "0day In the Wild"** tracker (projectzero.google/0day.html): a contributing CWE class with a KEV or ITW entry is under active exploitation and forces an urgency uplift regardless of modeled TTE.
 
+## Enabling chain analysis (`cwe_chaining`)
+
+Chain modelling is controlled by the `cwe_chaining` input:
+
+| Value | Behaviour |
+|-------|-----------|
+| `off` | No chain modelling. Vulnerabilities are reported individually. |
+| `catalog` | Chains only from MITRE's own relationship data — CWE-709 named chains and CWE-1000 `CanPrecede`/`CanFollow`. Deterministic and fully attributable; no web-sourced material. |
+| `osint` *(default)* | `catalog`, plus chains evidenced in public reporting — vendor advisories, incident write-ups, CERT bulletins, exploit-chain disclosures. |
+
+`catalog` exists for operators who want chain analysis without web-sourced
+inference in the deliverable. `off` is appropriate when the report is a
+straight IOC package and chain narrative is noise.
+
+## OSINT-sourced chains
+
+Under `cwe_chaining: osint`, chain evidence comes from what has actually been
+*reported*, not from what seems plausible. Legitimate sources, in descending
+order of weight:
+
+1. **Named chain disclosures** — a vendor advisory or researcher write-up that
+   explicitly describes CVE-A being used to reach CVE-B (e.g. an SSRF used to
+   obtain credentials then used against an admin endpoint).
+2. **Incident and IR reporting** — post-incident analyses describing the
+   observed path through an environment.
+3. **CERT/national-agency bulletins** — CISA, NCSC, JPCERT and peers frequently
+   describe multi-stage exploitation explicitly.
+4. **Exploit-chain research** — Pwn2Own entries, Project Zero write-ups, and
+   conference material that document composition rather than a single bug.
+
+Set `evidence_basis` to record which of three worlds a chain came from:
+
+- **`named_chain_catalog`** — it is a CWE-709 entry. Strongest.
+- **`osint_reported`** — a named public source describes this composition. Cite
+  it in `source`.
+- **`inferred`** — nobody reported it; this analysis composed it from CWE-1000
+  relationships and the operator's stack. **An inferred chain is a hypothesis
+  and MUST carry `confidence: low`.**
+
+### The discipline that keeps this honest
+
+Chain analysis is the most fabrication-prone part of this skill, because a
+plausible-sounding chain is easy to generate and hard to falsify. R3 applies
+with full force:
+
+- **Never invent a CVE-to-CVE link.** "These two CVEs are in the same product
+  and could plausibly chain" is `inferred`, not `osint_reported`, no matter how
+  reasonable it sounds.
+- **Never invent the *reachability*.** A chain requires that the output of one
+  weakness actually reaches the input of the next. If the reporting does not
+  establish that, say so in `enabling_conditions` rather than assuming it.
+- **A chain nobody has reported is still worth reporting** — as a hypothesis,
+  labelled as one, with its assumptions stated. That is useful analysis. What
+  is not acceptable is presenting it with the same confidence as an observed
+  chain.
+- **Absence of reported chaining is not evidence of safety**, and should not be
+  written as though it were.
+
+## Re-prioritising low-CVSS vulnerabilities
+
+This is the practical payoff, and the reason `cwe_chaining` is worth enabling.
+
+CVSS scores a vulnerability **in isolation**. It has no way to express that a
+5.3 information disclosure hands an attacker exactly the input a 6.1
+server-side request forgery needs, which in turn reaches an unauthenticated
+internal admin endpoint. Each score is individually defensible. The composition
+is critical. Patch queues ordered by CVSS descending will not reach any of them
+for months.
+
+So a chain records **both** numbers and the gap between them:
+
+- `contributing_cves[]` — each CVE with its own `cvss_score` and
+  `role_in_chain`
+- `max_component_cvss` — the highest individual score
+- `chain_severity` — the severity of the *composed* path
+- `severity_uplift_rationale` — required whenever `chain_severity` outranks
+  `max_component_cvss`
+
+**The gap is the finding.** A chain whose components top out at 6.1 but whose
+`chain_severity` is `Critical` is telling a patch owner something CVSS
+structurally cannot.
+
+### Worked example (illustrative, not a live finding)
+
+| Contributing CVE | CVSS | Role in chain |
+|---|---|---|
+| CVE-YYYY-AAAA | 4.3 (Medium) | Entry: CWE-200 exposes internal hostnames |
+| CVE-YYYY-BBBB | 6.1 (Medium) | Pivot: CWE-918 SSRF reaches those hosts |
+| CVE-YYYY-CCCC | 5.4 (Medium) | Terminal: CWE-306 missing auth on the internal admin API |
+
+`max_component_cvss: 6.1` · `chain_severity: Critical` ·
+`severity_uplift_rationale`: "No component is individually exploitable to
+impact. Composed, an unauthenticated external attacker reaches an internal
+administrative API. The SSRF is the shared primary — egress filtering at that
+link collapses the path regardless of the other two."
+
+Nothing here would surface in a CVSS-ordered queue. All three sit below the
+7.0 threshold most organisations use to trigger expedited patching.
+
+### Scoping to the operator's stack
+
+Chain relevance is stack-specific, which is why `technology_stack` gates this
+work. Record `stack_relevance` naming the declared stack entries a chain
+applies to.
+
+- A chain that matches **nothing** in the declared stack is not an org finding.
+  Report it, if at all, as general landscape — not in the Actions Matrix.
+- A chain that matches **several** stack entries is more urgent than its score
+  alone implies: the same break-point control pays off in more places.
+- When `technology_stack` is empty, chains are reported generically and
+  `stack_relevance` is omitted. Do not guess the stack from the sector.
+
+### Effect on priority
+
+A chain's break-point control enters the Actions Matrix at the **chain's**
+priority, not at the priority its individual CVEs would have earned. That is
+the entire point: it moves a set of individually-deferred patches, or one
+compensating control, up the queue on evidence rather than on intuition.
+
+Where a single control breaks the chain, prefer funding that control over
+patching every component — it is usually cheaper, faster, and it holds against
+future CVEs in the same weakness class.
+
 ## Scoring a chain
 
 Reuse the threat-scoring engine ([scoring.md](scoring.md)) at the chain level: the chain inherits the **exploitability** of its weakest (most exploitable) primary link, the **impact** of its terminal resultant link (record it in `terminal_impact`), and an **urgency** uplift when `ai_assist_factor` is moderate/high, when `time_to_exploit.trend` is `accelerating`, or when a contributing CWE class is under active exploitation (KEV/ITW). Map the chain score to P1–P5 and drive the break-point control into the Actions Matrix at that priority.
