@@ -24,11 +24,31 @@ live feed access says so and contains no literal IOC values.
 
 ## How reports are generated
 
-A **scheduled Claude Code session** runs the skill and opens a PR adding the
-dated report (commit convention:
+[`scheduled-report.yml`](../.github/workflows/scheduled-report.yml) runs the
+skill weekly (Mondays 05:23 UTC) with the `threat-intel-mcp` server connected,
+and opens a PR adding the dated report (commit convention:
 `Add scheduled threat-intel report: YYYY-MM-DD (<persona>, <range>)`).
-The schedule itself lives in the operator's Claude Code configuration, not in
-this repository — which is why the staleness guard below exists.
+`workflow_dispatch` runs it on demand with a chosen persona and time range.
+
+**Enabling it:** the workflow needs an `ANTHROPIC_API_KEY` repository secret.
+Without it every step skips and the run succeeds with a notice, so the workflow
+is inert until you opt in — it will not fail weekly in an unconfigured repo.
+
+> **Not yet verified.** The workflow was authored against the published
+> `claude-code-action` inputs but has never executed (no key is configured, and
+> the action's docs carry no cron example). **Run it once via `workflow_dispatch`
+> and review the resulting PR before relying on the schedule** — expect to tune
+> `--allowedTools` on that first run.
+
+Runner egress matters here: GitHub-hosted runners have open outbound internet,
+so the keyless feeds are reachable from Actions even where a restricted dev
+sandbox blocks them. The workflow proves this per-run — it fetches ThreatFox and
+CISA KEV before invoking the skill and **fails loudly** if either returns
+nothing, rather than quietly producing another no-live-data report.
+
+Historically the cadence ran from an operator's own scheduled Claude Code
+session, which is exactly why it could die unnoticed: nothing in the repository
+described or ran it.
 
 ### Manual generation
 

@@ -28,6 +28,14 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ## [Unreleased]
 
+### Added
+
+- **Scheduled report generation** (`.github/workflows/scheduled-report.yml`, completes issue #77): runs the skill weekly (Mondays 05:23 UTC, ahead of the staleness check) with `threat-intel-mcp` connected, and opens a PR with the dated report. `workflow_dispatch` runs it on demand with a chosen persona and time range. Completes the pair — `report-staleness.yml` *detects* a dead cadence; this *is* the cadence, committed so it's reproducible instead of living only in an operator's private configuration.
+  - **Inert until opted in:** without an `ANTHROPIC_API_KEY` secret every step skips and the run succeeds with a notice.
+  - **Fails loudly on no-live-data:** fetches ThreatFox and CISA KEV before invoking the skill and fails the run if either returns nothing, rather than quietly producing another report that says no feeds were connected.
+  - **Unverified until first manual dispatch** — authored against the published `claude-code-action` inputs but never executed here (no key configured; the action's docs carry no cron example). Run it once via `workflow_dispatch` and review the PR before trusting the schedule.
+  - GitHub-hosted runners have open outbound internet, so a successful run also satisfies issue #76's "first MCP-connected report" — the keyless feeds are reachable from Actions even where a restricted sandbox blocks them.
+
 ### Fixed
 
 - **Secret redaction failed for `Bearer` / `Basic` auth values** (`audit.py`, found while writing tests for issue #82). The `Bearer`/`Basic` patterns matched, but the shared replacement assumed a `name=value` shape — splitting on `=` returned the whole match, so `Bearer <token>` became `Bearer <token>=[REDACTED]`: **the secret stayed in the log while appearing redacted.** Only the `key=value` form was ever neutralised. Each pattern now carries its own replacement and keeps the name in group 1. Practical exposure was limited (httpx does not log auth headers by default, and no adapter fed a header value to `redact_url`), but the function is documented to handle these forms and did not.
