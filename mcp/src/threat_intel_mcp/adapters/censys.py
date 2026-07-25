@@ -35,7 +35,7 @@ import httpx
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +199,11 @@ class CensysAdapter:
         query = FEED_TYPES[feed_type]
         iocs: list[dict[str, Any]] = []
         cursor: str | None = None
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
 
         for _page in range(MAX_PAGES):
             params: dict[str, Any] = {"q": query, "per_page": PER_PAGE}
@@ -207,9 +212,18 @@ class CensysAdapter:
             logger.info("Censys request: endpoint=/hosts/search q=%r", query)
             resp = await client.get(_HOSTS_SEARCH_URL, params=params)
             resp.raise_for_status()
-            result = resp.json().get("result") or {}
+            body = resp.json()
+            result = body.get("result") or {}
+            envelope_found = envelope_found or (
+                "result" in body and "hits" in result
+            )
 
             hits = result.get("hits") or []
+            # A hit carrying an ip is a row we read, parseable or not.
+            understood += sum(
+                1 for h in hits if isinstance(h, dict) and h.get("ip")
+            )
+            seen += len(hits)
             iocs.extend(
                 n for hit in hits if (n := _normalize_hit(hit, feed_type)) is not None
             )
@@ -217,6 +231,14 @@ class CensysAdapter:
             cursor = (result.get("links") or {}).get("next")
             if not cursor or len(hits) < PER_PAGE:
                 break
+
+        guard_parsed(
+            "Censys",
+            envelope_found=envelope_found,
+            envelope_desc="a 'result.hits' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
 
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("Censys cached: feed_type=%s records=%d", feed_type, len(iocs))

@@ -36,7 +36,7 @@ from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..stix_patterns import extract_network_iocs
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -231,10 +231,22 @@ class AnyRunAdapter:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
 
-        objects = resp.json().get("objects") or []
+        body = resp.json()
+        objects = body.get("objects") or []
         iocs: list[dict[str, Any]] = []
+        # A STIX object always carries a 'type'; one that does not is not STIX.
+        # Non-indicator objects (identity, marking-definition) are understood
+        # and correctly yield no IOCs.
+        understood = sum(1 for o in objects if isinstance(o, dict) and o.get("type"))
         for obj in objects:
             iocs.extend(_normalize_stix_object(obj))
+        guard_parsed(
+            "ANY.RUN",
+            envelope_found="objects" in body,
+            envelope_desc="an 'objects' field (STIX bundle)",
+            items_seen=len(objects),
+            items_understood=understood,
+        )
 
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("ANY.RUN cached: feed_type=%s records=%d", feed_type, len(iocs))

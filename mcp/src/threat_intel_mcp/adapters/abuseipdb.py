@@ -26,7 +26,7 @@ import httpx
 from ..audit import log_tool_call, redact_url
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +145,23 @@ class AbuseIPDBAdapter:
             resp.raise_for_status()
             data = resp.json()
 
-        for entry in data.get("data", []):
+        entries = data.get("data") or []
+        understood = 0
+        for entry in entries:
+            # A dict carrying an ipAddress is a row we read, whether or not it
+            # clears the confidence floor and becomes an IOC.
+            if isinstance(entry, dict) and entry.get("ipAddress"):
+                understood += 1
             normalized = _normalize_entry(entry)
             if normalized is not None:
                 iocs.append(normalized)
+        guard_parsed(
+            "AbuseIPDB",
+            envelope_found="data" in data,
+            envelope_desc="a 'data' field",
+            items_seen=len(entries),
+            items_understood=understood,
+        )
 
         self._cache[_CACHE_KEY] = (iocs, time.monotonic() + CACHE_TTL_SECONDS)
         logger.info("AbuseIPDB cached: %s records=%d", _CACHE_KEY, len(iocs))

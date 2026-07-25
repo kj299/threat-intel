@@ -42,6 +42,7 @@ from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialNotFoundError, CredentialProvider
 from ..vulns import VulnFetchResult
+from .base import guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +338,11 @@ class NVDAdapter:
         vulns: list[dict[str, Any]] = []
         start_index = 0
         total = 0
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        envelope_found = False
+        seen = 0
+        understood = 0
 
         async with self._make_client(api_key) as client:
             for _page in range(MAX_PAGES):
@@ -353,7 +359,20 @@ class NVDAdapter:
 
                 entries = body.get("vulnerabilities")
                 if not isinstance(entries, list):
-                    break
+                    # Not "no more results" — the response did not carry the
+                    # field at all. Breaking here silently returned whatever had
+                    # accumulated, so a renamed key looked like an empty window.
+                    raise RuntimeError(
+                        "NVD response missing 'vulnerabilities' list. The API "
+                        "shape has probably changed upstream. Refusing to "
+                        "report this as the end of the result set."
+                    )
+                envelope_found = True
+                seen += len(entries)
+                # An entry carrying a 'cve' object is one we read.
+                understood += sum(
+                    1 for e in entries if isinstance(e, dict) and isinstance(e.get("cve"), dict)
+                )
                 vulns.extend(
                     normalized
                     for entry in entries
@@ -379,4 +398,11 @@ class NVDAdapter:
                         days,
                     )
 
+        guard_parsed(
+            "NVD",
+            envelope_found=envelope_found,
+            envelope_desc="a 'vulnerabilities' field",
+            items_seen=seen,
+            items_understood=understood,
+        )
         return vulns

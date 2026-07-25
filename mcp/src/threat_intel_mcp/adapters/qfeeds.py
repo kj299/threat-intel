@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import re
 import logging
 import time
 from datetime import datetime, timezone
@@ -29,7 +30,7 @@ import httpx
 from ..audit import log_tool_call, redact_url
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult
+from .base import FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,10 @@ class QFeedsAdapter:
 
         iocs: list[dict[str, Any]] = []
         page = 1
+        # Totals across the whole paginated fetch; an empty final page is
+        # normal termination, not a format break.
+        seen = 0
+        understood = 0
 
         while True:
             url = _API_BASE
@@ -189,14 +194,40 @@ class QFeedsAdapter:
                 if (normalized := _normalize_line(line, feed_type)) is not None
             ]
             iocs.extend(page_iocs)
+            # A plain-text feed has no envelope to check, and every parseable
+            # line becomes an IOC — so "understood" is simply "retained".
+            seen += len(lines)
+            understood += len(page_iocs)
 
             if len(lines) < PAGE_SIZE:
                 break
             page += 1
 
+        guard_parsed(
+            "Q-Feeds",
+            envelope_found=True,  # line feed: no envelope exists to be missing
+            envelope_desc="indicator lines",
+            items_seen=seen,
+            items_understood=understood,
+        )
+
         self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
         logger.info("Q-Feeds cached: feed_type=%s records=%d", feed_type, len(iocs))
         return iocs
+
+
+# A hostname: dot-separated labels, alphabetic TLD.
+#
+# Deliberately permissive, because the job here is to reject prose and markup —
+# not to be an authority on valid domains. Underscores are allowed even though
+# RFC 1123 disallows them in host names: they appear in real feed data, and the
+# ioc_network schema only enforces ``minLength: 1`` on a value, so anything this
+# rejects is dropped for good with no downstream check to catch a mistake.
+# Punycode ("xn--") and long TLDs both pass.
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[A-Za-z0-9_-]{1,63}(?<!-)"
+    r"(\.(?!-)[A-Za-z0-9_-]{1,63}(?<!-))*\.[A-Za-z]{2,63}$"
+)
 
 
 def _normalize_line(line: str, feed_type: str) -> dict[str, Any] | None:
@@ -229,8 +260,15 @@ def _normalize_line(line: str, feed_type: str) -> dict[str, Any] | None:
     elif feed_type == "malware_domains":
         if line.startswith(("http://", "https://")):
             ioc_type = "URL"
-        else:
+        elif _HOSTNAME_RE.match(line):
             ioc_type = "Domain"
+        else:
+            # Previously any non-URL string became a Domain, so an HTML error
+            # page parsed into "domains" and the empty-parse guard could never
+            # fire on this feed type (#106). Reject what cannot be a hostname;
+            # the schema would drop it downstream anyway, silently.
+            logger.debug("Unrecognised domain-feed line, skipping: %r", line)
+            return None
     else:
         ioc_type = "Domain"
 

@@ -36,6 +36,13 @@ Per-feed-type partial failure is orthogonal to the above: if *some* requested
 feed types succeed, return them with ``partial_failure`` populated; only when
 *every* requested type fails do you ``raise`` (a swallowed total failure would
 disable the breaker and retry — see ``resilience.py``).
+
+Empty results (the silent half of the same trap)
+------------------------------------------------
+Raising correctly is only half the contract. An adapter must also refuse to
+report a confident ``0 records`` from a body it could not read, because an
+empty result set is indistinguishable from a quiet week. Every adapter routes
+its parse through ``guard_parsed`` below; see its docstring for the rule.
 """
 
 from __future__ import annotations
@@ -56,6 +63,66 @@ class FetchResult:
     latency_ms: float
     feed_types_fetched: list[str]
     partial_failure: list[str] = field(default_factory=list)  # feed_types that failed
+
+
+class UpstreamFormatError(RuntimeError):
+    """A 200 response whose body could not be interpreted at all.
+
+    A ``RuntimeError`` subclass on purpose: under the taxonomy above this is
+    case 3, so the tool degrades to ``unverified`` and the fan-out retries.
+    Raising ``ValueError`` here would be re-raised verbatim by the tool and
+    crash the call.
+    """
+
+
+def guard_parsed(
+    source: str,
+    *,
+    envelope_found: bool,
+    envelope_desc: str,
+    items_seen: int,
+    items_understood: int,
+) -> None:
+    """Refuse to report a confident ``0 records`` from an unreadable body.
+
+    An empty result is indistinguishable from a quiet week, so a total parse
+    failure reads as ordinary low volume. ThreatFox returned a 1 MB HTTP 200
+    that parsed to zero records for an unknown length of time before a manual
+    live run caught it (#100); every adapter had the same exposure (#106).
+
+    Three cases, and only the third is an error:
+
+    ===========================================  ==========================
+    Nothing in the payload                       ``0``, no error
+    Items present and understood, none retained  ``0``, no error
+    Items present, **none** understood           ``UpstreamFormatError``
+    ===========================================  ==========================
+
+    The middle case is what stops this becoming a false-alarm generator: a
+    ThreatFox batch of nothing but file hashes, or a GreyNoise page whose rows
+    are all below our confidence floor, legitimately yields no *network* IOCs.
+    Those rows were still parsed, so they count as understood.
+
+    ``envelope_found`` is a presence check, not a truthiness check: a body
+    carrying ``{"data": []}`` really is an empty result set, while one with no
+    ``data`` key at all is a response we failed to recognise. Callers must test
+    ``"data" in body``, never ``if body.get("data")``.
+
+    For paginated fetches, pass the totals for the whole fetch — an empty final
+    page is normal termination, not a format break.
+    """
+    if not envelope_found:
+        raise UpstreamFormatError(
+            f"{source} response did not contain {envelope_desc}. The response "
+            "parsed but carried nothing we recognise — the API shape has "
+            "probably changed upstream. Refusing to report this as 0 records."
+        )
+    if items_seen and not items_understood:
+        raise UpstreamFormatError(
+            f"{source} returned {items_seen} record(s), none of them in a "
+            "recognisable shape. The record layout has probably changed "
+            "upstream. Refusing to report this as 0 records."
+        )
 
 
 @runtime_checkable
