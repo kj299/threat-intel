@@ -29,10 +29,14 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          # Issue #81: pinned, not "3.x" — a floating version silently jumps to
+          # each new CPython the day GitHub's runners adopt it.
+          python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install jsonschema pyyaml rfc3339-validator
+      - name: Install dependencies (pinned)
+        # Issue #80: same lock as the mcp-tests job — these three packages are
+        # part of that resolved set, so both jobs agree on versions.
+        run: pip install jsonschema pyyaml rfc3339-validator -c mcp/constraints-dev.txt
 
       - name: Validate skill directory layout (Anthropic Agent Skills convention)
         run: |
@@ -561,8 +565,15 @@ jobs:
           PY
 
   mcp-tests:
-    name: MCP server tests and lint
+    # Issue #81: pyproject declares requires-python >=3.11, so every version in
+    # that claim gets tested — previously only 3.11 ran, leaving the upper end
+    # of the support statement unverified.
+    name: MCP tests and lint (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one version failing shouldn't hide the others' results
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     defaults:
       run:
         working-directory: mcp
@@ -571,15 +582,16 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Install package and dev dependencies
-        run: pip install -e ".[dev]"
+      - name: Install package and dev dependencies (pinned)
+        # Issue #80: -c pins the exact transitive set. ruff and coverage are in
+        # the dev extra, so lint runs at a pinned version too — an unpinned ruff
+        # 0.16.0 previously broke the build mid-PR.
+        run: pip install -e ".[dev]" -c constraints-dev.txt
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
 
       - name: Lint (ruff)
-        run: |
-          pip install ruff
-          ruff check src/ tests/
+        run: ruff check src/ tests/

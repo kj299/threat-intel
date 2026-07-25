@@ -26,6 +26,11 @@ dev = [
     "pytest-mock>=3.14",
     "vcrpy>=6.0",
     "jsonschema>=4.23",
+    # Lint and coverage live here so `constraints-dev.txt` pins them too — CI
+    # previously installed ruff unpinned, and a rule-set change in 0.16.0 broke
+    # the build mid-PR (see the [tool.ruff.lint] note below).
+    "ruff>=0.6",
+    "coverage>=7.0",
 ]
 
 [project.scripts]

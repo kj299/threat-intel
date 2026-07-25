@@ -1,0 +1,37 @@
+# Issue #80: dependencies are pinned in mcp/constraints-dev.txt so a surprise
+# release can't break a build that touched none of it. Dependabot is the other
+# half of that trade: updates still arrive, but as reviewable PRs that run the
+# full 3.11/3.12/3.13 matrix first, instead of landing silently in CI.
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /mcp # pyproject.toml + constraints-dev.txt live here
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:29" # off the :00 herd, before the weekly staleness check
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: "deps"
+    groups:
+      # One PR for the test toolchain rather than five — these move together and
+      # a pytest/plugin split across PRs tends to produce non-installable states.
+      dev-tooling:
+        patterns:
+          - pytest*
+          - ruff
+          - coverage
+          - vcrpy
+
+  - package-ecosystem: github-actions
+    directory: / # .github/workflows/*
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:29"
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: "ci"
