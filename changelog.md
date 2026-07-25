@@ -30,6 +30,16 @@ The flag is characteristic of the standard false positive for URL blocklists —
 
 ### Added
 
+- **Pinned dependency set** (`mcp/constraints-dev.txt`, issue #80): the exact transitive versions CI installs, so a dependency release can no longer break a build that touched none of it. `ruff` and `coverage` moved into the `dev` extra so lint runs pinned too — an unpinned ruff 0.16.0 previously broke the build mid-PR. Verified to install and pass the full suite on Python 3.11, 3.12, and 3.13, which all resolve the same set.
+- **Dependabot** (`.github/dependabot.yml`, issue #80): weekly `pip` + `github-actions` updates as reviewable PRs, with the test toolchain grouped into a single PR.
+- **CI Python matrix** (issue #81): `mcp-tests` now runs on **3.11, 3.12, and 3.13** (`fail-fast: false`), matching the `requires-python = ">=3.11"` claim that previously went untested above 3.11.
+
+### Changed
+
+- **CI installs are now reproducible** — both jobs install with `-c mcp/constraints-dev.txt`, and the `validate` job's floating `python-version: "3.x"` is pinned to `3.12` (issue #81); a floating version silently jumps to each new CPython the day the runners adopt it.
+
+### Added
+
 - **Source Governance section** in `references/source-matrix.md` (issue #88): the inclusion bar (named org, verified official URL, verification source cited in the PR) and the excluded-origins rule (no sources based in CN/RU/KP/BY/IR) are now written policy instead of PR prose; cross-linked from `contributing.md`.
 - **CI: source-list content parity** (issue #89): per-tier source entries must be identical across `source-matrix.md`, `original-prompt.md`, and `standalone/cyber-threat-intel-prompt.md` — heading parity alone could not catch a source silently missing from one mirror.
 - **CI: excluded-origin denylist** (issue #88): the domains removed under the governance rule in 1.19.0 fail CI if reintroduced into any of the four source files.

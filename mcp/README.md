@@ -72,8 +72,15 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 ### 1. Install
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]" -c constraints-dev.txt
 ```
+
+`constraints-dev.txt` pins the exact transitive dependency set (including `ruff`
+and `coverage`) so local installs, CI, and every version in the 3.11/3.12/3.13
+matrix agree. Omit `-c` if you deliberately want the latest resolvable versions
+— just don't be surprised when a new lint release disagrees with the build.
+Dependabot proposes bumps weekly; regeneration instructions are in the file's
+header.
 
 ### 2. Set your API keys
 
