@@ -1,0 +1,137 @@
+name: record-cassettes
+
+# Issue #105: adapter fixtures were authored from belief rather than captured
+# from the wire, which is how ThreatFox shipped a parser that returned 0 IOCs
+# from a live 1 MB response while its tests passed (#100).
+#
+# Recording needs network egress to the feed hosts. The default cloud dev
+# sandbox has none (every feed host returns CONNECT 403), but GitHub-hosted
+# runners have open outbound internet — so this workflow is the practical way
+# to produce cassettes without standing up a local environment.
+#
+# ─── MANUAL ONLY ─────────────────────────────────────────────────────────────
+# No schedule. Cassettes are a deliberate snapshot; re-recording on a timer
+# would churn the diff and quietly replace the bytes a failing test is being
+# compared against. Re-record when you want to, and review the diff.
+#
+# ─── SECRETS ─────────────────────────────────────────────────────────────────
+# Keyless feeds (ThreatFox, CISA KEV, NVD) need no credentials and are the
+# default. Recording a keyed feed puts a live credential in the runner
+# environment, so it is opt-in via the `include_keyed` input and only works if
+# the corresponding secrets are configured.
+#
+# tests/vcr_config.py scrubs credentials out of what gets written, and the
+# recorder greps its own output for credential-shaped strings before this
+# workflow is allowed to commit anything. Both must pass. Review the diff
+# anyway — a cassette is a file of upstream bytes going into version control.
+
+on:
+  workflow_dispatch:
+    inputs:
+      feeds:
+        description: "Space-separated feed names, or blank for all keyless"
+        default: ""
+        type: string
+      include_keyed:
+        description: "Also record credentialed feeds (needs secrets)"
+        default: false
+        type: boolean
+      time_range:
+        description: "Lookback window passed to each adapter"
+        default: 7d
+        type: string
+
+permissions:
+  contents: write # push the cassette branch
+  pull-requests: write # open the PR carrying it
+
+jobs:
+  record:
+    name: Record feed cassettes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install threat-intel-mcp (pinned)
+        working-directory: mcp
+        run: pip install -e ".[dev]" -c constraints-dev.txt
+
+      - name: Record
+        working-directory: mcp
+        env:
+          # Keyless feeds need none of these; they are read only when a keyed
+          # feed is selected, and are empty unless configured.
+          QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY }}
+          ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
+          INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
+          INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
+          CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}
+          CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          args="--time-range ${{ inputs.time_range || '7d' }}"
+          if [ -n "${{ inputs.feeds }}" ]; then
+            args="$args --only ${{ inputs.feeds }}"
+          elif [ "${{ inputs.include_keyed }}" = "true" ]; then
+            args="$args --all"
+          fi
+          echo "Running: record_cassettes.py $args"
+          # A non-zero exit means a feed failed to record or the scrubbing check
+          # found something credential-shaped. Either way, do not commit.
+          python scripts/record_cassettes.py $args
+
+      - name: Re-verify no secrets in the recorded cassettes
+        working-directory: mcp
+        # Belt and braces: the recorder already checks, but this is the last
+        # gate before bytes from an authenticated session enter version control.
+        run: |
+          if grep -rIlniE '(api[_-]?key|authorization|bearer |secret|password)' \
+               tests/cassettes/ 2>/dev/null | grep -q .; then
+            echo "::error::Credential-shaped strings found in cassettes — refusing to commit."
+            grep -rIniE '(api[_-]?key|authorization|bearer |secret|password)' tests/cassettes/ || true
+            exit 1
+          fi
+          echo "No credential-shaped strings found."
+
+      - name: Confirm the recorded cassettes actually play back
+        working-directory: mcp
+        # A cassette that does not drive its adapter is worse than none: it
+        # looks like coverage. These tests skip when a cassette is absent, so
+        # this step is meaningful only for what was just recorded.
+        run: python -m pytest tests/test_cassette_playback.py -v
+
+      - name: Open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain mcp/tests/cassettes)" ]; then
+            echo "::notice::No cassette changes to commit."
+            exit 0
+          fi
+          branch="chore/record-cassettes-$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add mcp/tests/cassettes
+          git commit -m "Record feed cassettes $(date -u +%Y-%m-%d)"
+          git push -u origin "$branch"
+          gh pr create --draft \
+            --title "Record feed cassettes $(date -u +%Y-%m-%d)" \
+            --body "Recorded by the \`record-cassettes\` workflow (#105).
+
+          Cassettes are upstream bytes entering version control. Before merging:
+
+          - Review the diff for anything that should not be committed.
+          - Check the record counts in the workflow log — an empty recording
+            makes the playback test assert against a quiet day forever.
+          - A large diff on a feed nobody changed is a signal the upstream
+            format moved, which is exactly what these are for."
