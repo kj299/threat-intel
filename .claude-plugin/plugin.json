@@ -1,7 +1,7 @@
 {
   "name": "threat-intel",
   "displayName": "Cyber Threat Intelligence",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "Threat intelligence reporting skill with source-coverage guidance, per-IOC citations, and a strict no-fabrication rule, plus the threat-intel-mcp server that supplies live IOC and CVE feeds.",
   "author": {
     "name": "kj299",
@@ -22,7 +22,10 @@
   "mcpServers": {
     "threat-intel": {
       "command": "python",
-      "args": ["-m", "threat_intel_mcp"]
+      "args": [
+        "-m",
+        "threat_intel_mcp"
+      ]
     }
   }
 }

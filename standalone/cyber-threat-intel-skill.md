@@ -53,6 +53,14 @@ Resolve these against defaults before generating. **Do not ask clarifying questi
 7. **Persona** — default: `enterprise_soc`
 8. **Build IOCs and detection queries** — default: yes. When yes, include generated IOCs and detection/hunting queries in the standard formats below (CSV, STIX 2.1, JSON, and YARA/Sigma/KQL/SPL/Snort). When no, keep the report narrative — findings, analysis, and recommendations without generated indicator or query artifacts.
 9. **Authenticated feeds** — default: none. List any threat intelligence feed services the operator has API access to (e.g. Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, Recorded Future). **When the `threat-intel-mcp` tools are connected, the skill retrieves these feeds itself** (Workflow step 2a) and cites the live indicators directly; otherwise the operator queries the feed API before invoking the skill and passes relevant data as context. Either way, declare the feed in `skill_input.feed_integrations` and treat its data as accessible (not `unverified`).
+10. **CWE chaining** — default: `osint`. Controls weakness-class chain analysis. `off` reports vulnerabilities individually; `catalog` models chains only from MITRE's own relationship data (CWE-709 named chains, CWE-1000 CanPrecede/CanFollow); `osint` additionally models chains evidenced in public reporting (vendor advisories, incident write-ups, CERT bulletins, exploit-chain research).
+
+    The payoff is re-prioritising vulnerabilities CVSS scores low in isolation: CVSS scores a vulnerability on its own and cannot express composition, so three Medium findings that chain into an unauthenticated path to an internal admin API are a Critical problem a CVSS-ordered patch queue will not reach for months. Record `contributing_cves[]` with each CVE's own score, plus `max_component_cvss` and `chain_severity` — the gap between those two is the finding — and `severity_uplift_rationale` whenever the chain outranks its parts. The break-point control enters the Actions Matrix at the chain's priority, not the priority its individual CVEs would have earned.
+
+    Chain relevance is stack-specific: record `stack_relevance` naming the technology-stack entries a chain applies to; a chain matching nothing in the declared stack is not an org finding, and an empty stack must not be guessed from the sector.
+
+    Provenance is mandatory. Set `evidence_basis` to `named_chain_catalog` (a CWE-709 entry), `osint_reported` (a named public source describes this composition — cite it), or `inferred` (composed by this analysis). **An `inferred` chain is a hypothesis and must carry `confidence: low`.** Never invent a CVE-to-CVE link, and never invent the *reachability* between two weaknesses: if the reporting does not establish that the output of one reaches the input of the next, say so rather than assuming it.
+
 
 ## Workflow
 

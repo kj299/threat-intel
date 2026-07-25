@@ -10,35 +10,146 @@
         "organization_sector": "Financial Services / Banking",
         "organization_size": "enterprise_large",
         "new_business_initiative": "Digital asset custody services",
-        "geographic_presence": ["North America", "Europe (EU/UK)"],
-        "technology_stack": ["Microsoft 365 / Azure", "AWS", "Kubernetes / Containers"],
-        "security_tools": ["SIEM (Splunk, Sentinel, QRadar, etc.)", "EDR (CrowdStrike, SentinelOne, Defender, etc.)", "Threat Intelligence Platform"],
+        "geographic_presence": [
+          "North America",
+          "Europe (EU/UK)"
+        ],
+        "technology_stack": [
+          "Microsoft 365 / Azure",
+          "AWS",
+          "Kubernetes / Containers"
+        ],
+        "security_tools": [
+          "SIEM (Splunk, Sentinel, QRadar, etc.)",
+          "EDR (CrowdStrike, SentinelOne, Defender, etc.)",
+          "Threat Intelligence Platform"
+        ],
         "time_range": "7d",
-        "threat_categories": ["Ransomware"],
+        "threat_categories": [
+          "Ransomware"
+        ],
         "output_format": "technical_ioc_package"
       },
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T14:32:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "enterprise_soc",
           "sources_referenced": 27,
           "coverage_badge": "FULL"
         },
         "coverage_ledger": [
-          { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "CVE.org", "MITRE ATT&CK", "Exploit-DB", "GitHub Security Advisories"], "skipped": [], "met": true },
-          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant", "CrowdStrike", "Microsoft Threat Intelligence", "Cisco Talos"], "skipped": [], "met": true },
-          { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan", "Censys"], "skipped": [], "met": true },
-          { "tier": 4, "required_min": 2, "consulted": ["HackerOne", "Bugcrowd"], "skipped": [], "met": true },
-          { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps"], "skipped": [], "met": true },
-          { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "The DFIR Report", "Bleeping Computer"], "skipped": [], "met": true },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled" }, { "source": "Intel 471", "reason": "paywalled" }], "met": true },
-          { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories", "NCSC UK", "FBI IC3"], "skipped": [], "met": true },
-          { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar", "Any.Run", "ThreatFox"], "skipped": [], "met": true }
+          {
+            "tier": 1,
+            "required_min": 5,
+            "consulted": [
+              "NVD",
+              "CISA KEV",
+              "CVE.org",
+              "MITRE ATT&CK",
+              "Exploit-DB",
+              "GitHub Security Advisories"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 2,
+            "required_min": 4,
+            "consulted": [
+              "Recorded Future",
+              "Mandiant",
+              "CrowdStrike",
+              "Microsoft Threat Intelligence",
+              "Cisco Talos"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 3,
+            "required_min": 3,
+            "consulted": [
+              "GreyNoise",
+              "Shodan",
+              "Censys"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 4,
+            "required_min": 2,
+            "consulted": [
+              "HackerOne",
+              "Bugcrowd"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 5,
+            "required_min": 2,
+            "consulted": [
+              "Project Zero",
+              "SpecterOps"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 6,
+            "required_min": 3,
+            "consulted": [
+              "Krebs on Security",
+              "The DFIR Report",
+              "Bleeping Computer"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 7,
+            "required_min": "best-effort",
+            "consulted": [],
+            "skipped": [
+              {
+                "source": "Flashpoint",
+                "reason": "paywalled"
+              },
+              {
+                "source": "Intel 471",
+                "reason": "paywalled"
+              }
+            ],
+            "met": true
+          },
+          {
+            "tier": 8,
+            "required_min": 3,
+            "consulted": [
+              "CISA Advisories",
+              "NCSC UK",
+              "FBI IC3"
+            ],
+            "skipped": [],
+            "met": true
+          },
+          {
+            "tier": 9,
+            "required_min": 3,
+            "consulted": [
+              "MalwareBazaar",
+              "Any.Run",
+              "ThreatFox"
+            ],
+            "skipped": [],
+            "met": true
+          }
         ],
         "alert_level": {
           "level": "high",
-          "icon": "🟠",
+          "icon": "\ud83d\udfe0",
           "color": "#EA580C",
           "message": "Active ransomware campaigns targeting financial sector detected"
         },
@@ -62,14 +173,30 @@
             "technique_name": "LockBit 3.0 Ransomware",
             "mitre_attack_id": "T1486",
             "attack_vector": "Impact",
-            "cve_ids": ["CVE-2024-XXXX", "CVE-2024-YYYY"],
+            "cve_ids": [
+              "CVE-2024-XXXX",
+              "CVE-2024-YYYY"
+            ],
             "cvss_score": 9.8,
             "exploit_availability": "In-The-Wild",
             "first_observed": "2026-03-22",
-            "sources": ["Recorded Future", "Mandiant", "CISA", "FS-ISAC"],
+            "sources": [
+              "Recorded Future",
+              "Mandiant",
+              "CISA",
+              "FS-ISAC"
+            ],
             "sophistication": "Advanced",
-            "targeted_sectors": ["Financial Services", "Healthcare", "Manufacturing"],
-            "targeted_technologies": ["Citrix ADC", "VMware ESXi", "Windows Server"],
+            "targeted_sectors": [
+              "Financial Services",
+              "Healthcare",
+              "Manufacturing"
+            ],
+            "targeted_technologies": [
+              "Citrix ADC",
+              "VMware ESXi",
+              "Windows Server"
+            ],
             "technical_description": "LockBit 3.0 variant with enhanced EDR evasion using direct syscalls and BYOVD technique. Initial access via Citrix ADC exploitation followed by Cobalt Strike deployment.",
             "business_impact": "Complete encryption of critical systems, data exfiltration with double extortion, potential $4-10M ransom demand plus recovery costs"
           }
@@ -83,7 +210,11 @@
               "source": "Recorded Future",
               "first_seen": "2026-03-24T08:00:00Z",
               "associated_threat": "LockBit 3.0 C2",
-              "tags": ["c2", "lockbit", "ransomware"],
+              "tags": [
+                "c2",
+                "lockbit",
+                "ransomware"
+              ],
               "tlp": "AMBER"
             },
             {
@@ -122,7 +253,10 @@
             "technique_name": "Exploit Public-Facing Application",
             "procedure_details": "Exploitation of Citrix ADC CVE-2024-XXXX for initial foothold",
             "detection_method": "Monitor for unusual Citrix ADC process spawning, web shell artifacts",
-            "data_sources": ["Application Log: Application Log Content", "Network Traffic: Network Traffic Content"]
+            "data_sources": [
+              "Application Log: Application Log Content",
+              "Network Traffic: Network Traffic Content"
+            ]
           },
           {
             "tactic": "Defense Evasion",
@@ -131,7 +265,10 @@
             "sub_technique_id": "T1562.001",
             "procedure_details": "BYOVD technique using vulnerable driver to disable EDR",
             "detection_method": "Monitor for vulnerable driver loading, unsigned driver installation",
-            "data_sources": ["Driver: Driver Load", "Process: Process Creation"]
+            "data_sources": [
+              "Driver: Driver Load",
+              "Process: Process Creation"
+            ]
           }
         ],
         "threat_scores": [
@@ -210,7 +347,10 @@
             "objective": "Detect LockBit 3.0 BYOVD driver load via vulnerable RTCore64.sys",
             "query": "DeviceImageLoadEvents\n| where TimeGenerated > ago(7d)\n| where FileName in~ (\"RTCore64.sys\", \"DBUtil_2_3.sys\")\n| project TimeGenerated, DeviceName, FolderPath, SHA256, InitiatingProcessFileName",
             "schema_dependency": "DeviceImageLoadEvents (Defender XDR). If only Sysmon is onboarded, map to SecurityEvent/Event with EventID 7 and ImageLoaded.",
-            "assumptions": ["MDE advanced hunting tables present", "driver_load telemetry retained 7d"],
+            "assumptions": [
+              "MDE advanced hunting tables present",
+              "driver_load telemetry retained 7d"
+            ],
             "tuning": "Allowlist signed legitimate RTCore64.sys deployments by SHA256; alert only on unsigned or unexpected FolderPath.",
             "validation": "Load the vulnerable driver in an isolated VM and confirm the rule fires before production.",
             "status": "ready",
@@ -220,10 +360,13 @@
             "platform": "splunk",
             "language": "spl",
             "query_kind": "detection",
-            "objective": "Detect LockBit loader execution (svchost_update.exe) via the CIM Endpoint data model — runs without a guessed raw index",
+            "objective": "Detect LockBit loader execution (svchost_update.exe) via the CIM Endpoint data model \u2014 runs without a guessed raw index",
             "query": "| tstats summariesonly=true count from datamodel=Endpoint.Processes\n  where Processes.process_name=\"svchost_update.exe\"\n  by Processes.dest, Processes.user, Processes.parent_process_name, Processes.process\n| rename Processes.* AS *",
             "schema_dependency": "Splunk CIM Endpoint.Processes data model (Sysmon EID 1 / EDR process telemetry mapped to CIM). The single fact that would harden it is which index/sourcetype feeds the model.",
-            "assumptions": ["Endpoint data model is accelerated (drop summariesonly=true if not)", "process telemetry is CIM-mapped"],
+            "assumptions": [
+              "Endpoint data model is accelerated (drop summariesonly=true if not)",
+              "process telemetry is CIM-mapped"
+            ],
             "tuning": "Confirm coverage and find the index with the paired discovery query: | tstats count from datamodel=Endpoint.Processes by index, sourcetype (fall back to | tstats count where index=* by index, sourcetype if empty). Allowlist any legitimate svchost_update.exe; pivot on parent_process_name for the BYOVD chain.",
             "validation": "Detonate the loader in an isolated VM and confirm the rule fires before production.",
             "status": "needs_validation",
@@ -258,7 +401,6 @@
         ]
       }
     },
-
     {
       "persona": "enterprise_executive",
       "name": "Board-Ready Threat Brief",
@@ -275,23 +417,23 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "enterprise_executive"
         },
         "alert_level": {
           "level": "elevated",
-          "icon": "🟡",
+          "icon": "\ud83d\udfe1",
           "color": "#CA8A04",
           "message": "Heightened threat activity in financial sector; new business initiative increases exposure"
         },
         "executive_summary": {
           "headline": "Cyber Risk Elevated Due to New Business Initiative and Active Threat Campaigns",
           "key_points": [
-            "📈 Ransomware attacks on financial services up 23% vs. last quarter",
-            "🎯 Embedded finance platforms experiencing targeted API attacks",
-            "💰 Average breach cost for financial sector: $5.9M (industry highest)",
-            "🏦 Peer institutions reporting 2 major incidents this month",
-            "⚠️ New business initiative creates 3 additional attack vectors"
+            "\ud83d\udcc8 Ransomware attacks on financial services up 23% vs. last quarter",
+            "\ud83c\udfaf Embedded finance platforms experiencing targeted API attacks",
+            "\ud83d\udcb0 Average breach cost for financial sector: $5.9M (industry highest)",
+            "\ud83c\udfe6 Peer institutions reporting 2 major incidents this month",
+            "\u26a0\ufe0f New business initiative creates 3 additional attack vectors"
           ],
           "critical_actions": [
             "Approve $2.4M security enhancement budget for Q2",
@@ -310,11 +452,31 @@
             "assessment": "Above average risk compared to peers"
           },
           "risk_by_category": [
-            {"category": "Ransomware", "score": 78, "trend": "↑"},
-            {"category": "Third-Party Risk", "score": 71, "trend": "↑"},
-            {"category": "API Security", "score": 82, "trend": "↑"},
-            {"category": "Insider Threat", "score": 45, "trend": "→"},
-            {"category": "Cloud Security", "score": 58, "trend": "↓"}
+            {
+              "category": "Ransomware",
+              "score": 78,
+              "trend": "\u2191"
+            },
+            {
+              "category": "Third-Party Risk",
+              "score": 71,
+              "trend": "\u2191"
+            },
+            {
+              "category": "API Security",
+              "score": 82,
+              "trend": "\u2191"
+            },
+            {
+              "category": "Insider Threat",
+              "score": 45,
+              "trend": "\u2192"
+            },
+            {
+              "category": "Cloud Security",
+              "score": 58,
+              "trend": "\u2193"
+            }
           ]
         },
         "financial_impact": {
@@ -348,7 +510,6 @@
         ]
       }
     },
-    
     {
       "persona": "smb_security",
       "name": "SMB Ransomware Protection Checklist",
@@ -358,20 +519,26 @@
         "query_mode": "guided",
         "organization_sector": "Professional Services",
         "organization_size": "smb",
-        "technology_stack": ["Microsoft 365 / Azure", "Google Cloud / Workspace"],
+        "technology_stack": [
+          "Microsoft 365 / Azure",
+          "Google Cloud / Workspace"
+        ],
         "time_range": "7d",
-        "threat_categories": ["Ransomware", "BEC / Social Engineering"],
+        "threat_categories": [
+          "Ransomware",
+          "BEC / Social Engineering"
+        ],
         "output_format": "checklist"
       },
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "smb_security"
         },
         "alert_level": {
           "level": "elevated",
-          "icon": "🟡",
+          "icon": "\ud83d\udfe1",
           "message": "Professional services firms seeing increased BEC and ransomware activity"
         },
         "executive_summary": {
@@ -472,7 +639,6 @@
         ]
       }
     },
-    
     {
       "persona": "individual_researcher",
       "name": "Deep Dive: APT29 TTPs Analysis",
@@ -481,14 +647,18 @@
         "user_persona": "individual_researcher",
         "query_mode": "deep_research",
         "security_experience": "advanced",
-        "learning_interests": ["Threat intelligence analysis", "OSINT techniques", "Threat hunting"],
+        "learning_interests": [
+          "Threat intelligence analysis",
+          "OSINT techniques",
+          "Threat hunting"
+        ],
         "time_range": "90d",
         "natural_language_query": "What are the latest TTPs used by APT29 and how can I hunt for them?"
       },
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "individual_researcher"
         },
         "executive_summary": {
@@ -503,7 +673,12 @@
         "learning_content": {
           "threat_actor_profile": {
             "name": "APT29",
-            "aliases": ["Cozy Bear", "The Dukes", "Midnight Blizzard", "NOBELIUM"],
+            "aliases": [
+              "Cozy Bear",
+              "The Dukes",
+              "Midnight Blizzard",
+              "NOBELIUM"
+            ],
             "attribution": "Russian Foreign Intelligence Service (SVR)",
             "motivation": "Espionage",
             "active_since": "2008",
@@ -554,7 +729,9 @@
                 "step": 2,
                 "name": "Map to MITRE ATT&CK",
                 "description": "Use ATT&CK Navigator to visualize coverage",
-                "resources": ["https://mitre-attack.github.io/attack-navigator/"]
+                "resources": [
+                  "https://mitre-attack.github.io/attack-navigator/"
+                ]
               },
               {
                 "step": 3,
@@ -593,7 +770,6 @@
         }
       }
     },
-    
     {
       "persona": "individual_privacy",
       "name": "Family Online Safety Guide",
@@ -602,18 +778,22 @@
         "user_persona": "individual_privacy",
         "query_mode": "guided",
         "security_experience": "beginner",
-        "personal_focus_areas": ["Protecting my family online", "Phishing and scams", "Mobile device security"],
+        "personal_focus_areas": [
+          "Protecting my family online",
+          "Phishing and scams",
+          "Mobile device security"
+        ],
         "natural_language_query": "How do I protect my kids from online scams and keep our family devices safe?"
       },
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "individual_privacy"
         },
         "alert_level": {
           "level": "normal",
-          "icon": "🟢",
+          "icon": "\ud83d\udfe2",
           "message": "No specific threats targeting your profile, but good security habits are always important"
         },
         "friendly_summary": {
@@ -641,9 +821,9 @@
               "what_it_means": "Built-in tools that let you control what your kids can access",
               "why_it_matters": "Protects kids from inappropriate content and limits screen time",
               "how_to": {
-                "iphone_ipad": "Settings → Screen Time → Content & Privacy Restrictions",
-                "android": "Settings → Digital Wellbeing & Parental Controls",
-                "windows": "Settings → Accounts → Family",
+                "iphone_ipad": "Settings \u2192 Screen Time \u2192 Content & Privacy Restrictions",
+                "android": "Settings \u2192 Digital Wellbeing & Parental Controls",
+                "windows": "Settings \u2192 Accounts \u2192 Family",
                 "chromebook": "Use Family Link app"
               }
             },
@@ -651,11 +831,11 @@
               "tip": "Know the signs of phishing",
               "what_it_means": "Fake emails or messages trying to steal information",
               "red_flags": [
-                "😱 Creates panic ('Your account will be deleted!')",
-                "🎁 Too good to be true ('You won a prize!')",
-                "🔗 Asks you to click a link urgently",
-                "✍️ Has spelling mistakes or looks unprofessional",
-                "📧 Sender email doesn't match the company"
+                "\ud83d\ude31 Creates panic ('Your account will be deleted!')",
+                "\ud83c\udf81 Too good to be true ('You won a prize!')",
+                "\ud83d\udd17 Asks you to click a link urgently",
+                "\u270d\ufe0f Has spelling mistakes or looks unprofessional",
+                "\ud83d\udce7 Sender email doesn't match the company"
               ],
               "what_to_do": "When in doubt, don't click. Go directly to the website by typing it yourself."
             }
@@ -733,7 +913,6 @@
         }
       }
     },
-    
     {
       "persona": "red_team",
       "name": "Attack Path Analysis - Cloud Environment",
@@ -742,13 +921,16 @@
         "user_persona": "red_team",
         "query_mode": "deep_research",
         "time_range": "30d",
-        "threat_categories": ["Cloud Security", "Credential Attacks"],
+        "threat_categories": [
+          "Cloud Security",
+          "Credential Attacks"
+        ],
         "natural_language_query": "What are the most effective attack chains for compromising AWS environments based on recent campaigns?"
       },
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
-          "skill_version": "1.20.0",
+          "skill_version": "1.21.0",
           "persona_used": "red_team"
         },
         "executive_summary": {
@@ -767,18 +949,81 @@
             "chain_type": "multi_branch",
             "cwe_view": "CWE-1000",
             "links": [
-              { "cwe_id": "CWE-918", "role": "primary", "mitre_id": "T1190", "tactic": "Initial Access", "evidence": "SSRF reaching IMDS endpoint in web tier", "detection_opportunity": "Outbound request from web tier to 169.254.169.254 (link-local IMDS)", "data_source": "VPC flow logs / web proxy", "source": "The DFIR Report" },
-              { "cwe_id": "CWE-200", "role": "resultant", "mitre_id": "T1552.005", "tactic": "Credential Access", "evidence": "IMDS returns role credentials", "detection_opportunity": "GetCallerIdentity / first-seen API calls from an instance role outside its baseline", "data_source": "CloudTrail", "source": "MITRE ATT&CK" },
-              { "cwe_id": "CWE-522", "role": "resultant", "mitre_id": "T1078.004", "tactic": "Privilege Escalation", "evidence": "Branch A: over-permissive instance role reused for API access", "detection_opportunity": "Role credentials used from a non-instance IP / impossible-travel ASN", "data_source": "CloudTrail / GuardDuty", "source": "MITRE ATT&CK" },
-              { "cwe_id": "CWE-1391", "role": "resultant", "mitre_id": "T1078.004", "tactic": "Privilege Escalation", "evidence": "Branch B: weak/static long-lived keys recovered alongside role creds", "detection_opportunity": "Use of long-lived access keys that should have been rotated", "data_source": "IAM credential report", "source": "MITRE ATT&CK" }
+              {
+                "cwe_id": "CWE-918",
+                "role": "primary",
+                "mitre_id": "T1190",
+                "tactic": "Initial Access",
+                "evidence": "SSRF reaching IMDS endpoint in web tier",
+                "detection_opportunity": "Outbound request from web tier to 169.254.169.254 (link-local IMDS)",
+                "data_source": "VPC flow logs / web proxy",
+                "source": "The DFIR Report"
+              },
+              {
+                "cwe_id": "CWE-200",
+                "role": "resultant",
+                "mitre_id": "T1552.005",
+                "tactic": "Credential Access",
+                "evidence": "IMDS returns role credentials",
+                "detection_opportunity": "GetCallerIdentity / first-seen API calls from an instance role outside its baseline",
+                "data_source": "CloudTrail",
+                "source": "MITRE ATT&CK"
+              },
+              {
+                "cwe_id": "CWE-522",
+                "role": "resultant",
+                "mitre_id": "T1078.004",
+                "tactic": "Privilege Escalation",
+                "evidence": "Branch A: over-permissive instance role reused for API access",
+                "detection_opportunity": "Role credentials used from a non-instance IP / impossible-travel ASN",
+                "data_source": "CloudTrail / GuardDuty",
+                "source": "MITRE ATT&CK"
+              },
+              {
+                "cwe_id": "CWE-1391",
+                "role": "resultant",
+                "mitre_id": "T1078.004",
+                "tactic": "Privilege Escalation",
+                "evidence": "Branch B: weak/static long-lived keys recovered alongside role creds",
+                "detection_opportunity": "Use of long-lived access keys that should have been rotated",
+                "data_source": "IAM credential report",
+                "source": "MITRE ATT&CK"
+              }
             ],
-            "enabling_conditions": ["IMDSv1 reachable", "instance role broader than workload needs", "credential exposure forks to either role reuse (A) or static-key recovery (B)"],
+            "enabling_conditions": [
+              "IMDSv1 reachable",
+              "instance role broader than workload needs",
+              "credential exposure forks to either role reuse (A) or static-key recovery (B)"
+            ],
             "ai_assist_factor": "moderate",
-            "time_to_exploit": { "observed_days": 5, "trend": "accelerating", "source": "Zero Day Clock" },
+            "time_to_exploit": {
+              "observed_days": 5,
+              "trend": "accelerating",
+              "source": "Zero Day Clock"
+            },
             "break_points": [
-              { "at_link": "CWE-918", "control": "Enforce IMDSv2 (token-bound) and egress filtering from the web tier", "control_type": "preventive", "rationale": "Shared primary: closing it collapses both branch A and branch B", "mapped_mitigation": "MITRE M1037 / NIST SC-7" },
-              { "at_link": "CWE-200", "control": "Alert on instance-role API calls outside the workload baseline", "control_type": "detective", "rationale": "Catches credential use if the primary is ever reached", "mapped_mitigation": "NIST SI-4", "detection_telemetry": "CloudTrail: instance-role principal making first-seen or geo-anomalous API calls" },
-              { "at_link": "CWE-522", "control": "Scope instance roles to least privilege", "control_type": "preventive", "rationale": "Caps blast radius of branch A", "mapped_mitigation": "NIST AC-6" }
+              {
+                "at_link": "CWE-918",
+                "control": "Enforce IMDSv2 (token-bound) and egress filtering from the web tier",
+                "control_type": "preventive",
+                "rationale": "Shared primary: closing it collapses both branch A and branch B",
+                "mapped_mitigation": "MITRE M1037 / NIST SC-7"
+              },
+              {
+                "at_link": "CWE-200",
+                "control": "Alert on instance-role API calls outside the workload baseline",
+                "control_type": "detective",
+                "rationale": "Catches credential use if the primary is ever reached",
+                "mapped_mitigation": "NIST SI-4",
+                "detection_telemetry": "CloudTrail: instance-role principal making first-seen or geo-anomalous API calls"
+              },
+              {
+                "at_link": "CWE-522",
+                "control": "Scope instance roles to least privilege",
+                "control_type": "preventive",
+                "rationale": "Caps blast radius of branch A",
+                "mapped_mitigation": "NIST AC-6"
+              }
             ],
             "terminal_impact": "AWS account-level privilege escalation and data access via assumed role",
             "score": 86,
@@ -792,16 +1037,63 @@
             "chain_type": "named_chain",
             "cwe_view": "CWE-709",
             "links": [
-              { "cwe_id": "CWE-190", "role": "primary", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Unchecked size arithmetic in a media-parsing path", "detection_opportunity": "Malformed media file with anomalous length fields", "data_source": "Network IDS / file sandbox", "source": "Project Zero" },
-              { "cwe_id": "CWE-787", "role": "resultant", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Overflowed allocation yields out-of-bounds write", "detection_opportunity": "Process crash / heap corruption telemetry on the parser process", "data_source": "EDR / crash reporting", "source": "Project Zero" },
-              { "cwe_id": "CWE-94", "role": "resultant", "mitre_id": "T1203", "tactic": "Execution", "evidence": "Controlled write redirected to attacker code", "detection_opportunity": "Unexpected child process / RWX allocation from the parser", "data_source": "EDR process events", "source": "MITRE ATT&CK" }
+              {
+                "cwe_id": "CWE-190",
+                "role": "primary",
+                "mitre_id": "T1203",
+                "tactic": "Execution",
+                "evidence": "Unchecked size arithmetic in a media-parsing path",
+                "detection_opportunity": "Malformed media file with anomalous length fields",
+                "data_source": "Network IDS / file sandbox",
+                "source": "Project Zero"
+              },
+              {
+                "cwe_id": "CWE-787",
+                "role": "resultant",
+                "mitre_id": "T1203",
+                "tactic": "Execution",
+                "evidence": "Overflowed allocation yields out-of-bounds write",
+                "detection_opportunity": "Process crash / heap corruption telemetry on the parser process",
+                "data_source": "EDR / crash reporting",
+                "source": "Project Zero"
+              },
+              {
+                "cwe_id": "CWE-94",
+                "role": "resultant",
+                "mitre_id": "T1203",
+                "tactic": "Execution",
+                "evidence": "Controlled write redirected to attacker code",
+                "detection_opportunity": "Unexpected child process / RWX allocation from the parser",
+                "data_source": "EDR process events",
+                "source": "MITRE ATT&CK"
+              }
             ],
-            "enabling_conditions": ["attacker-supplied media reaches the vulnerable parser", "no bounds check between CWE-190 and CWE-787"],
+            "enabling_conditions": [
+              "attacker-supplied media reaches the vulnerable parser",
+              "no bounds check between CWE-190 and CWE-787"
+            ],
             "ai_assist_factor": "high",
-            "time_to_exploit": { "observed_days": 1, "trend": "accelerating", "source": "Project Zero 0day In the Wild" },
+            "time_to_exploit": {
+              "observed_days": 1,
+              "trend": "accelerating",
+              "source": "Project Zero 0day In the Wild"
+            },
             "break_points": [
-              { "at_link": "CWE-190", "control": "Checked/saturating arithmetic and size validation before allocation", "control_type": "preventive", "rationale": "Breaks the named chain at the integer-overflow→OOB-write boundary, invalidating the RCE tail", "mapped_mitigation": "NIST SI-10" },
-              { "at_link": "CWE-94", "control": "Sandbox the parser and alert on anomalous child processes", "control_type": "detective", "rationale": "Backstop if the overflow is reached on unpatched builds", "mapped_mitigation": "MITRE M1040", "detection_telemetry": "EDR: media-parser process spawning a shell or allocating RWX memory" }
+              {
+                "at_link": "CWE-190",
+                "control": "Checked/saturating arithmetic and size validation before allocation",
+                "control_type": "preventive",
+                "rationale": "Breaks the named chain at the integer-overflow\u2192OOB-write boundary, invalidating the RCE tail",
+                "mapped_mitigation": "NIST SI-10"
+              },
+              {
+                "at_link": "CWE-94",
+                "control": "Sandbox the parser and alert on anomalous child processes",
+                "control_type": "detective",
+                "rationale": "Backstop if the overflow is reached on unpatched builds",
+                "mapped_mitigation": "MITRE M1040",
+                "detection_telemetry": "EDR: media-parser process spawning a shell or allocating RWX memory"
+              }
             ],
             "terminal_impact": "Remote code execution in the context of the media application",
             "score": 91,
@@ -821,7 +1113,10 @@
                 "technique": "Exploit SSRF in web application",
                 "mitre_id": "T1190",
                 "target": "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-                "tools": ["Burp Suite", "Custom scripts"],
+                "tools": [
+                  "Burp Suite",
+                  "Custom scripts"
+                ],
                 "notes": "Works on EC2, ECS, EKS. IMDSv2 requires token but often not enforced."
               },
               {
@@ -833,7 +1128,11 @@
                   "aws iam list-attached-role-policies --role-name <role>",
                   "aws ec2 describe-instances --region us-east-1"
                 ],
-                "tools": ["AWS CLI", "Pacu", "ScoutSuite"]
+                "tools": [
+                  "AWS CLI",
+                  "Pacu",
+                  "ScoutSuite"
+                ]
               },
               {
                 "step": 3,
@@ -844,7 +1143,11 @@
                   "iam:AttachUserPolicy = self-escalation",
                   "sts:AssumeRole to privileged role"
                 ],
-                "tools": ["Pacu", "PMapper", "Cloudsplaining"]
+                "tools": [
+                  "Pacu",
+                  "PMapper",
+                  "Cloudsplaining"
+                ]
               },
               {
                 "step": 4,
@@ -862,7 +1165,11 @@
               }
             ],
             "total_time": "2-4 hours with good access",
-            "prerequisites": ["SSRF vulnerability", "IMDS accessible", "Overly permissive IAM"]
+            "prerequisites": [
+              "SSRF vulnerability",
+              "IMDS accessible",
+              "Overly permissive IAM"
+            ]
           }
         ],
         "tool_recommendations": [
@@ -870,7 +1177,11 @@
             "tool": "Pacu",
             "purpose": "AWS exploitation framework",
             "url": "https://github.com/RhinoSecurityLabs/pacu",
-            "key_modules": ["iam__privesc_scan", "lambda__backdoor_new_roles", "ec2__enum"]
+            "key_modules": [
+              "iam__privesc_scan",
+              "lambda__backdoor_new_roles",
+              "ec2__enum"
+            ]
           },
           {
             "tool": "ScoutSuite",
@@ -894,7 +1205,10 @@
           {
             "technique": "Use CloudTrail-excluded actions",
             "details": "Many read-only actions not logged by default in CloudTrail",
-            "examples": ["s3:GetObject (data events)", "sqs:ReceiveMessage"]
+            "examples": [
+              "s3:GetObject (data events)",
+              "sqs:ReceiveMessage"
+            ]
           },
           {
             "technique": "Operate from trusted IP ranges",

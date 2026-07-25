@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "type": "object",
   "definitions": {
     "ioc_network": {
@@ -1411,6 +1411,91 @@
                     "n/a"
                   ]
                 }
+              },
+              "evidence_basis": {
+                "type": "string",
+                "enum": [
+                  "named_chain_catalog",
+                  "osint_reported",
+                  "inferred"
+                ],
+                "description": "Where the chain comes from. named_chain_catalog=MITRE CWE-709 entry; osint_reported=a named public report describes this composition; inferred=composed by this analysis from CWE-1000 relationships. An 'inferred' chain is a hypothesis and MUST carry confidence: low (R3) \u2014 it has not been observed, only reasoned about."
+              },
+              "contributing_cves": {
+                "type": "array",
+                "description": "The individual CVEs that make up this chain, each with its own CVSS. This is what lets a defender see that low-scored vulnerabilities compose into a high-severity path.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "cve_id",
+                    "role_in_chain"
+                  ],
+                  "properties": {
+                    "cve_id": {
+                      "type": "string",
+                      "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+                    },
+                    "cvss_score": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 10.0
+                    },
+                    "cvss_version": {
+                      "type": "string",
+                      "enum": [
+                        "2.0",
+                        "3.0",
+                        "3.1",
+                        "4.0"
+                      ]
+                    },
+                    "cwe_id": {
+                      "type": "string",
+                      "pattern": "^CWE-[0-9]+$"
+                    },
+                    "role_in_chain": {
+                      "type": "string",
+                      "description": "Which link this CVE instantiates, e.g. 'entry point (CWE-918 SSRF)'"
+                    },
+                    "patch_status": {
+                      "type": "string",
+                      "enum": [
+                        "unpatched",
+                        "patched",
+                        "mitigated",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              },
+              "max_component_cvss": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 10.0,
+                "description": "Highest CVSS among contributing_cves. Reported alongside chain_severity so the gap between them is visible \u2014 that gap IS the finding."
+              },
+              "chain_severity": {
+                "type": "string",
+                "enum": [
+                  "Critical",
+                  "High",
+                  "Medium",
+                  "Low"
+                ],
+                "description": "Severity of the composed chain, which may exceed every component CVSS. A chain reaching RCE is Critical even when no single CVE scores above Medium."
+              },
+              "severity_uplift_rationale": {
+                "type": "string",
+                "maxLength": 800,
+                "description": "Required whenever chain_severity outranks max_component_cvss: why the composition is worse than its parts, in terms a patch-prioritisation owner can act on. Never a bare assertion."
+              },
+              "stack_relevance": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Which entries of the operator's technology_stack this chain applies to. A chain that matches nothing in the declared stack is not reported as an org finding."
               }
             }
           }

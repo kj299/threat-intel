@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.21.0] - 2026-07-25
+
+### Added
+
+- **`cwe_chaining` input — CWE chain analysis is now an option, OSINT-evidenced, and re-prioritises low-CVSS vulnerabilities.** Chain modelling previously ran unconditionally and was framed around AI-assisted attacks; it had no switch, no direction to source chains from public reporting, and no link between a chain's severity and its components' CVSS scores.
+
+  `cwe_chaining` takes `off` (report vulnerabilities individually), `catalog` (chains only from MITRE's own relationship data — CWE-709 named chains, CWE-1000 `CanPrecede`/`CanFollow`, deterministic and fully attributable), or `osint` (default; adds chains evidenced in vendor advisories, incident write-ups, CERT bulletins and exploit-chain research).
+
+  **The practical payoff is the low-CVSS uplift.** CVSS scores a vulnerability in isolation and structurally cannot express composition, so three Medium findings that chain into an unauthenticated path to an internal admin API are a Critical problem that a CVSS-ordered patch queue will not reach for months. Chains now record `contributing_cves[]` with each CVE's own score, `max_component_cvss`, `chain_severity`, and a `severity_uplift_rationale` that is **required** whenever the chain outranks its parts — the gap between those two numbers is the finding. The break-point control enters the Actions Matrix at the *chain's* priority, not the priority its individual CVEs would have earned.
+
+  Chain relevance is stack-specific, so this consumes the existing `technology_stack` input and records `stack_relevance`. A chain matching nothing in the declared stack is not reported as an org finding, and an empty stack is never guessed from the sector.
+
+  **Provenance is mandatory, because chain analysis is the most fabrication-prone part of this skill** — a plausible chain is easy to generate and hard to falsify. `evidence_basis` separates a CWE-709 catalog entry from a publicly reported composition from an `inferred` hypothesis, and an inferred chain must carry `confidence: low`. The reference is explicit that inventing the *reachability* between two weaknesses is as much a fabrication as inventing a CVE ID: if the reporting does not establish that one weakness's output reaches the next one's input, that goes in `enabling_conditions` rather than being assumed. A chain nobody has reported is still worth reporting — as a labelled hypothesis with its assumptions stated.
+
+  Schema (`cwe_chains[]`) gains `evidence_basis`, `contributing_cves[]`, `max_component_cvss`, `chain_severity`, `severity_uplift_rationale` and `stack_relevance`; all optional, so existing outputs remain valid. Mirrored into both `standalone/` prompts. Version cascaded to 1.21.0 across `spec.yaml`, the schema, all six examples, and this changelog.
+
+---
+
 ## [1.20.0] - 2026-07-25
 
 ### Removed
