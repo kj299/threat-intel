@@ -25,7 +25,8 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 - `skills/cyber-threat-intel/schemas/output.schema.json` -- JSON Schema for validating structured output
 - `skills/cyber-threat-intel/examples/outputs.json` -- one example output per persona
 - `tests/invalid/` -- negative schema fixtures (must be rejected)
-- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures; second job runs `mcp/` pytest suite + ruff lint
+- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures, source-list content parity (3 mirrored files), excluded-origin denylist; second job runs `mcp/` pytest suite (incl. skill-to-server tool parity) + ruff lint
+- `.github/workflows/report-staleness.yml` -- weekly alarm: opens/bumps an issue if `reports/` goes >10 days without a new report (see `docs/report-runbook.md`)
 - `mcp/` -- `threat-intel-mcp` MCP server (stdio transport); runtime counterpart to the prompt skill
   - `mcp/src/threat_intel_mcp/adapters/` -- IOC feed adapters: Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN (TAXII/STIX), Intel 471, Censys, plus the free public abuse.ch feeds URLhaus + ThreatFox; CVE feed adapters: CISA KEV (public JSON) + NVD (key optional). Each carries an in-process cache + egress allowlist. `base.py` documents the adapter **error taxonomy** (see Conventions)
   - `mcp/src/threat_intel_mcp/fanout.py` + `resilience.py` -- `fetch_all_iocs` concurrent fan-out; per-source circuit breaker + backoff retry
@@ -46,5 +47,6 @@ Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`
 - YAML: 2-space indent, snake_case keys.
 - All claims about capabilities should be honest about what prompt engineering can and cannot do.
 - No fictional infrastructure (fake domains, fake email addresses, fake pricing).
+- **Source Governance** (authoritative in `skills/cyber-threat-intel/references/source-matrix.md`): additions need a verified org + official URL with the verification source named in the PR; sources based in CN/RU/KP/BY/IR are excluded; CI enforces mirror parity and an excluded-origin denylist.
 - **MCP adapter error taxonomy** (authoritative in `mcp/src/threat_intel_mcp/adapters/base.py`): an adapter's `fetch` raises `ValueError` **only** for caller errors (bad `feed_types`/`time_range`) — the server tool surfaces these verbatim; `CredentialError`/`KeyError` for missing/unreadable credentials — degrade to `unverified`, non-retryable; and **anything else** (`httpx` errors, `RuntimeError`, parse failures, and a **malformed 200 body**) for upstream/transient problems — degrade + retryable. Never raise `ValueError` for a malformed upstream body: the tool re-raises it and crashes instead of degrading. Every single-feed tool has a malformed-body degrade guard in `mcp/tests/test_server_smoke.py`.
 - **When a repository change alters what the code does, update the architecture/layout docs to match** — `docs/architecture.md`, the layout above, and `mcp/README.md` must reflect the real code, not an aspirational version.

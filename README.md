@@ -256,6 +256,14 @@ CI runs the same validation plus version/persona/tier parity checks across `spec
 
 ---
 
+## Generated Reports (`reports/`)
+
+Dated threat-intelligence reports produced by running the skill on a schedule (default: `enterprise_soc` persona, 7-day lookback). Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
+
+How they're generated, how to run one manually (including wiring the MCP server for live-data reports), and the weekly staleness alarm that fires if the cadence dies: see [docs/report-runbook.md](docs/report-runbook.md).
+
+---
+
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, ThreatFox; CVE feeds CISA KEV, NVD) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.

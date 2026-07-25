@@ -1,0 +1,58 @@
+name: report-staleness
+
+# Issue #77: the scheduled threat-intel reports in reports/ died silently once
+# (nothing after 2026-07-06, unnoticed for 18+ days). This guard makes cadence
+# death visible: if reports/ hasn't been touched in MAX_AGE_DAYS, open (or
+# bump) a tracking issue. It deliberately does NOT generate reports — report
+# generation needs a model session (see docs/report-runbook.md); this only
+# alarms when that session stops delivering.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC (off the :00 herd)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      MAX_AGE_DAYS: 10
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history for the last reports/ commit date
+
+      - name: Alarm if reports/ is stale
+        run: |
+          set -euo pipefail
+          last=$(git log -1 --format=%ct -- reports/ || echo 0)
+          if [ "$last" -eq 0 ]; then
+            echo "::warning::reports/ has no history at all"
+            exit 0
+          fi
+          age_days=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Last reports/ commit: $(git log -1 --format=%cs -- reports/) (${age_days}d ago; threshold ${MAX_AGE_DAYS}d)"
+          if [ "$age_days" -le "$MAX_AGE_DAYS" ]; then
+            echo "OK: report cadence healthy"
+            exit 0
+          fi
+          title="Report pipeline stale: no new report in ${age_days} days"
+          body="The newest commit touching \`reports/\` is $(git log -1 --format=%cs -- reports/) — ${age_days} days ago, over the ${MAX_AGE_DAYS}-day threshold.
+
+          The scheduled report session has likely stopped running. See \`docs/report-runbook.md\` for how reports are produced and how to run one manually. Close this issue when a fresh report lands in \`reports/\`.
+
+          _Opened automatically by the report-staleness workflow._"
+          # Title-based dedupe: bump the existing open alarm instead of stacking new ones.
+          existing=$(gh issue list --state open --search "Report pipeline stale in:title" --json number --jq '.[0].number' || true)
+          if [ -n "${existing:-}" ] && [ "${existing}" != "null" ]; then
+            gh issue comment "$existing" --body "Still stale: ${age_days} days since the last report (checked $(date -u +%F))."
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+        env:
+          GH_REPO: ${{ github.repository }}
