@@ -39,6 +39,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `mcp/src/threat_intel_mcp/__main__.py` -- `python -m threat_intel_mcp` entry point. The `threat-intel-mcp` console script only resolves when the interpreter's scripts directory is on `PATH`, which it frequently is not on Windows; the module form always works and is what the plugin manifest and the documented `claude mcp add` registration use
   - `mcp/src/threat_intel_mcp/server.py` -- FastMCP entry point: `fetch_all_iocs` + 11 single-feed IOC tools; `fetch_all_cves` + `cisa_kev_fetch_cves` + `nvd_fetch_cves`; `list_available_feeds` (IOC feeds under `feeds`, CVE feeds under `cve_sources`)
   - `mcp/tests/` -- unit + httpx-mock integration tests (no live network)
+  - `mcp/tests/cassettes/` + `mcp/tests/vcr_config.py` + `mcp/scripts/record_cassettes.py` -- vcrpy cassettes: real feed responses recorded once and replayed offline, so at least one test per adapter runs against bytes the service actually sent rather than a fixture written from belief (#105). Recording needs egress the dev sandbox lacks -- use the `record-cassettes` workflow. Cassette tests **skip** when no recording is present. Credential scrubbing is asserted in CI by `tests/test_vcr_harness.py`
 
 Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
 

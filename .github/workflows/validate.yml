@@ -652,4 +652,4 @@ jobs:
         run: python -m pytest tests/ -v --tb=short
 
       - name: Lint (ruff)
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/
