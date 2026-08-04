@@ -24,6 +24,20 @@ updates:
           - ruff
           - coverage
           - vcrpy
+      # pydantic pins pydantic-core to an exact version, so the two are not
+      # independently upgradable. Dependabot bumped pydantic-core alone in #99
+      # and produced an unsatisfiable constraint set:
+      #   pydantic 2.13.4 depends on pydantic-core==2.46.4
+      #   The user requested (constraint) pydantic-core==2.47.0
+      #   ERROR: ResolutionImpossible
+      # Grouping them means the next bump carries the matching pair, instead of
+      # reopening the same impossible PR on every pydantic-core release.
+      pydantic:
+        patterns:
+          - pydantic
+          - pydantic-core
+          - pydantic_core
+          - pydantic-settings
 
   - package-ecosystem: github-actions
     directory: / # .github/workflows/*
