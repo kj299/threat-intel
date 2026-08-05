@@ -21,7 +21,9 @@ import sys
 
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+# mcp 2.0.0 removed mcp.server.fastmcp; MCPServer is the successor and keeps
+# a compatible .tool() decorator and .run() (stdio remains the default).
+from mcp.server import MCPServer
 
 from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.cisa_kev import CISAKEVAdapter, FEED_TYPES as CISA_KEV_FEED_TYPES
@@ -50,7 +52,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP(
+mcp = MCPServer(
     "threat-intel-mcp",
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
