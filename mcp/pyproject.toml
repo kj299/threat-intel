@@ -4,13 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "threat-intel-mcp"
-version = "0.14.3"
+version = "0.15.0"
 description = "MCP server that delivers live threat intelligence feeds to Claude, normalised to the threat-intel skill schema"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-    "mcp>=1.0",
+    # >=2.0: mcp 2.0.0 removed mcp.server.fastmcp, so server.py cannot
+    # import on 1.x. constraints-dev.txt pins the exact version for CI,
+    # but the floor is the consumer contract and must move too.
+    "mcp>=2.0",
     "httpx>=0.27",
     "jsonschema>=4.23",
     "rfc3339-validator>=0.1",

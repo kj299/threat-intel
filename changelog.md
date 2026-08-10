@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Migrated to the MCP SDK 2.0 (`mcp` 1.28.1 -> 2.0.0), MCP server v0.15.0.** 2.0.0 removes `mcp.server.fastmcp` entirely — there is no `fastmcp` module and no separate `fastmcp` package — so `server.py` could not import and CI reported all 427 tests as failures from a single aborted collection. The successor is `MCPServer`, exported from `mcp.server`.
+
+  The change is two lines. `MCPServer.tool()` keeps a compatible signature and `run()` still defaults to stdio, so all **15 `@mcp.tool()` decorators and the `mcp.run()` call are untouched** — that compatibility is now asserted by a test rather than assumed.
+
+  **`pyproject.toml`'s floor moved from `mcp>=1.0` to `mcp>=2.0`.** This is the part a version bump alone would have missed: `constraints-dev.txt` pins the exact version for CI and dev, but the floor is the *consumer* contract, and a downstream install without `-c` could still have resolved 1.x and hit the same `ModuleNotFoundError`. The lock protects this repo's builds; only the floor protects anyone installing the package.
+
+  `instructions` is verified to reach the client, not just to be accepted by the constructor: a new test asserts it appears in the payload `create_initialization_options()` produces and still names ThreatFox, CISA KEV, `fetch_all_iocs` and `fetch_all_cves`. That string is the only place the tier structure is explained to a consumer, and an SDK that accepted the kwarg while quietly dropping it would be a silent regression — every tool would still work, and the caller would no longer know what the feeds are.
+
+  2.0.0 also brings five new transitive dependencies — `httpx2`, `httpcore2`, `mcp-types`, `opentelemetry-api` and `truststore` — all now pinned in `constraints-dev.txt`. Leaving them unpinned would have quietly reopened the hole #80 closed: a future release of any of them could break a build that touched none of it, which is the whole reason the lock exists. (Notably, `mcp` 2.0 depends on `httpx2` while our adapters still use `httpx` — both are present, and only ours is on the request path.)
+
+  Verified against the pinned set in a clean environment, not against whatever pip resolved as latest: install from `-c constraints-dev.txt`, 492 tests pass, lint clean, `python -m threat_intel_mcp` starts and exits 0, and `instructions` still arrives at 1023 chars with 15 tools registered.
+
 ### Fixed
 
 - **Dependabot could not upgrade `pydantic-core`, and kept trying** (`.github/dependabot.yml`). `pydantic` pins `pydantic-core` to an exact version, so bumping the transitive pin alone produces an unsatisfiable constraint set — #99 failed all three matrix jobs with `pydantic 2.13.4 depends on pydantic-core==2.46.4 / The user requested (constraint) pydantic-core==2.47.0 / ResolutionImpossible`. The lock file did exactly what #80 added it for: caught an impossible upgrade before it reached `main`. The two are now grouped (with `pydantic-settings`) so a bump carries the matching pair instead of reopening the same broken PR on every `pydantic-core` release.
