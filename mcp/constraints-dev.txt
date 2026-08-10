@@ -44,7 +44,12 @@ pluggy==1.6.0
 pycparser==3.0
 pydantic-settings==2.14.2
 pydantic==2.13.4
-pydantic_core==2.46.4
+# pydantic_core is deliberately NOT pinned here. pydantic pins it to an exact
+# version (pydantic 2.13.4 -> pydantic-core==2.46.4), so the resolution is
+# already fully determined and a second pin can only ever disagree with it.
+# Pinning it produced an unsatisfiable set every time pydantic-core released
+# ahead of pydantic -- see #99 and #125, both of which failed all three matrix
+# jobs with ResolutionImpossible.
 Pygments==2.20.0
 PyJWT==2.13.0
 pytest-asyncio==1.4.0
