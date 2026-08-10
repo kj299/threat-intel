@@ -39,10 +39,10 @@ jsonschema==4.26.0
 mcp-types==2.0.0
 mcp==2.0.0
 opentelemetry-api==1.44.0
-packaging==26.2
+packaging==26.3
 pluggy==1.6.0
 pycparser==3.0
-pydantic-settings==2.14.2
+pydantic-settings==2.15.0
 pydantic==2.13.4
 # pydantic_core is deliberately NOT pinned here. pydantic pins it to an exact
 # version (pydantic 2.13.4 -> pydantic-core==2.46.4), so the resolution is
@@ -71,6 +71,6 @@ truststore==0.10.4
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
-uvicorn==0.51.0
+uvicorn==0.52.1
 vcrpy==8.3.0
-wrapt==2.2.2
+wrapt==2.3.0
