@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Unpinned `pydantic_core` — the grouping fix in #124 did not work.** #125 reopened the same `ResolutionImpossible` that killed #99, because a Dependabot *group* only batches updates that are available at the same moment. `pydantic` 2.13.4 is the latest release and pins `pydantic-core==2.46.4`, so when `pydantic-core` 2.47.0 shipped there was nothing to batch it with and the group produced the same single unsatisfiable bump. Verified against the current `main`, not inferred from the stale CI run.
+
+  The real fix is that `pydantic_core` should never have been pinned in `constraints-dev.txt`. `pydantic` pins it exactly, so the resolution is already fully determined — a second pin adds no reproducibility and can only ever disagree. With the line removed, pip still resolves `pydantic_core` to exactly 2.46.4, and Dependabot has nothing left to propose. The group is kept for `pydantic`/`pydantic-settings`, with its comment corrected to say plainly that grouping was not the fix.
+
 ### Changed
 
 - **Migrated to the MCP SDK 2.0 (`mcp` 1.28.1 -> 2.0.0), MCP server v0.15.0.** 2.0.0 removes `mcp.server.fastmcp` entirely — there is no `fastmcp` module and no separate `fastmcp` package — so `server.py` could not import and CI reported all 427 tests as failures from a single aborted collection. The successor is `MCPServer`, exported from `mcp.server`.
