@@ -25,9 +25,9 @@ jobs:
     name: JSON, YAML, and schema conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # Issue #81: pinned, not "3.x" — a floating version silently jumps to
           # each new CPython the day GitHub's runners adopt it.
@@ -636,9 +636,9 @@ jobs:
       run:
         working-directory: mcp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 

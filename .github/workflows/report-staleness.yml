@@ -23,7 +23,7 @@ jobs:
       MAX_AGE_DAYS: 10
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # need full history for the last reports/ commit date
 
