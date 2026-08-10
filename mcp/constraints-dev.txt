@@ -23,24 +23,33 @@ certifi==2026.7.22
 cffi==2.1.0
 charset-normalizer==3.4.9
 click==8.4.2
-coverage==7.15.2
+coverage==7.15.4
 cryptography==49.0.0
 h11==0.16.0
+httpcore2==2.9.1
 httpcore==1.0.9
 httpx-sse==0.4.3
+httpx2==2.9.1
 httpx==0.28.1
 hvac==2.4.0
 idna==3.18
 iniconfig==2.3.0
 jsonschema-specifications==2025.9.1
 jsonschema==4.26.0
-mcp==1.28.1
+mcp-types==2.0.0
+mcp==2.0.0
+opentelemetry-api==1.44.0
 packaging==26.2
 pluggy==1.6.0
 pycparser==3.0
 pydantic-settings==2.14.2
 pydantic==2.13.4
-pydantic_core==2.46.4
+# pydantic_core is deliberately NOT pinned here. pydantic pins it to an exact
+# version (pydantic 2.13.4 -> pydantic-core==2.46.4), so the resolution is
+# already fully determined and a second pin can only ever disagree with it.
+# Pinning it produced an unsatisfiable set every time pydantic-core released
+# ahead of pydantic -- see #99 and #125, both of which failed all three matrix
+# jobs with ResolutionImpossible.
 Pygments==2.20.0
 PyJWT==2.13.0
 pytest-asyncio==1.4.0
@@ -54,13 +63,14 @@ referencing==0.37.0
 requests==2.34.2
 rfc3339-validator==0.1.4
 rpds-py==2026.6.3
-ruff==0.16.0
+ruff==0.16.1
 six==1.17.0
 sse-starlette==3.4.6
 starlette==1.3.1
+truststore==0.10.4
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
 uvicorn==0.52.1
 vcrpy==8.3.0
-wrapt==2.2.2
+wrapt==2.3.0

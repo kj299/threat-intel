@@ -10,6 +10,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Unpinned `pydantic_core` — the grouping fix in #124 did not work.** #125 reopened the same `ResolutionImpossible` that killed #99, because a Dependabot *group* only batches updates that are available at the same moment. `pydantic` 2.13.4 is the latest release and pins `pydantic-core==2.46.4`, so when `pydantic-core` 2.47.0 shipped there was nothing to batch it with and the group produced the same single unsatisfiable bump. Verified against the current `main`, not inferred from the stale CI run.
+
+  The real fix is that `pydantic_core` should never have been pinned in `constraints-dev.txt`. `pydantic` pins it exactly, so the resolution is already fully determined — a second pin adds no reproducibility and can only ever disagree. With the line removed, pip still resolves `pydantic_core` to exactly 2.46.4, and Dependabot has nothing left to propose. The group is kept for `pydantic`/`pydantic-settings`, with its comment corrected to say plainly that grouping was not the fix.
+
+### Changed
+
+- **Migrated to the MCP SDK 2.0 (`mcp` 1.28.1 -> 2.0.0), MCP server v0.15.0.** 2.0.0 removes `mcp.server.fastmcp` entirely — there is no `fastmcp` module and no separate `fastmcp` package — so `server.py` could not import and CI reported all 427 tests as failures from a single aborted collection. The successor is `MCPServer`, exported from `mcp.server`.
+
+  The change is two lines. `MCPServer.tool()` keeps a compatible signature and `run()` still defaults to stdio, so all **15 `@mcp.tool()` decorators and the `mcp.run()` call are untouched** — that compatibility is now asserted by a test rather than assumed.
+
+  **`pyproject.toml`'s floor moved from `mcp>=1.0` to `mcp>=2.0`.** This is the part a version bump alone would have missed: `constraints-dev.txt` pins the exact version for CI and dev, but the floor is the *consumer* contract, and a downstream install without `-c` could still have resolved 1.x and hit the same `ModuleNotFoundError`. The lock protects this repo's builds; only the floor protects anyone installing the package.
+
+  `instructions` is verified to reach the client, not just to be accepted by the constructor: a new test asserts it appears in the payload `create_initialization_options()` produces and still names ThreatFox, CISA KEV, `fetch_all_iocs` and `fetch_all_cves`. That string is the only place the tier structure is explained to a consumer, and an SDK that accepted the kwarg while quietly dropping it would be a silent regression — every tool would still work, and the caller would no longer know what the feeds are.
+
+  2.0.0 also brings five new transitive dependencies — `httpx2`, `httpcore2`, `mcp-types`, `opentelemetry-api` and `truststore` — all now pinned in `constraints-dev.txt`. Leaving them unpinned would have quietly reopened the hole #80 closed: a future release of any of them could break a build that touched none of it, which is the whole reason the lock exists. (Notably, `mcp` 2.0 depends on `httpx2` while our adapters still use `httpx` — both are present, and only ours is on the request path.)
+
+  Verified against the pinned set in a clean environment, not against whatever pip resolved as latest: install from `-c constraints-dev.txt`, 492 tests pass, lint clean, `python -m threat_intel_mcp` starts and exits 0, and `instructions` still arrives at 1023 chars with 15 tools registered.
+
+### Fixed
+
 - **Dependabot could not upgrade `pydantic-core`, and kept trying** (`.github/dependabot.yml`). `pydantic` pins `pydantic-core` to an exact version, so bumping the transitive pin alone produces an unsatisfiable constraint set — #99 failed all three matrix jobs with `pydantic 2.13.4 depends on pydantic-core==2.46.4 / The user requested (constraint) pydantic-core==2.47.0 / ResolutionImpossible`. The lock file did exactly what #80 added it for: caught an impossible upgrade before it reached `main`. The two are now grouped (with `pydantic-settings`) so a bump carries the matching pair instead of reopening the same broken PR on every `pydantic-core` release.
 
 - **The cassette playback test used the wrong no-credential stub** (`mcp/tests/test_cassette_playback.py`, issue #105). The first successful recording still failed the workflow's playback gate: both NVD tests raised `KeyError: 'no credential configured for nvd.api_key'`. The adapter was right and the test was wrong — `CredentialNotFoundError` subclasses `KeyError` but not the reverse, so a bare `KeyError` reads as a *provider outage*, which `adapters/base.py` says must propagate rather than silently downgrade to unauthenticated access. The stub now raises `CredentialNotFoundError`, matching `NoKeyCredentials` in `test_nvd.py`, which had the pattern right all along. A new test asserts the fallback engages and runs whether or not a cassette is present, so the same mistake can no longer hide until a recording exists.

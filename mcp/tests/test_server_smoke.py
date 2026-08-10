@@ -450,3 +450,39 @@ async def test_list_available_feeds_reports_cve_sources_separately():
     assert result["cve_aggregate_tool"] == "fetch_all_cves"
     # CVE sources must not leak into the IOC feed list.
     assert _EXPECTED_CVE_SOURCES.isdisjoint({f["name"] for f in result["feeds"]})
+
+
+def test_server_instructions_reach_the_initialize_payload():
+    """The tool docstrings tell a client *how* to call each tool; `instructions`
+    tells it *why the server exists* and which feeds are available. It is the
+    only place the tier structure is explained to a consumer.
+
+    Asserted against the initialize options the client actually receives, not
+    against the constructor argument — those are the same thing today, but the
+    mcp 1.x -> 2.0 migration moved the server class wholesale, and a future SDK
+    change could accept the kwarg and quietly stop sending it. A server that
+    keeps its instructions to itself is a silent regression: every tool still
+    works, and the caller no longer knows what the feeds are.
+    """
+    options = server.mcp._lowlevel_server.create_initialization_options()
+
+    assert options.instructions, "instructions absent from the initialize payload"
+    for expected in ("ThreatFox", "CISA KEV", "fetch_all_iocs", "fetch_all_cves"):
+        assert expected in options.instructions, (
+            f"{expected!r} missing from server instructions — the feed guidance "
+            "a client relies on has been truncated or dropped"
+        )
+
+
+def test_every_registered_tool_is_exposed_by_the_server():
+    """Guards the migration itself: 15 @mcp.tool() decorators must survive.
+
+    mcp 2.0 kept a compatible .tool() decorator, so the decorators were left
+    untouched. This asserts that compatibility rather than assuming it.
+    """
+    registered = {t.name for t in server.mcp._tool_manager.list_tools()}
+    assert registered == set(_ALL_SINGLE_FEED_TOOLS) | {
+        "fetch_all_iocs",
+        "fetch_all_cves",
+        "list_available_feeds",
+    }
