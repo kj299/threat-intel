@@ -30,15 +30,35 @@ and opens a PR adding the dated report (commit convention:
 `Add scheduled threat-intel report: YYYY-MM-DD (<persona>, <range>)`).
 `workflow_dispatch` runs it on demand with a chosen persona and time range.
 
-**Enabling it:** the workflow needs an `ANTHROPIC_API_KEY` repository secret.
-Without it every step skips and the run succeeds with a notice, so the workflow
-is inert until you opt in — it will not fail weekly in an unconfigured repo.
+**Enabling it:** the workflow needs one credential, as a repository secret.
+Either works, and they bill differently:
 
-> **Not yet verified.** The workflow was authored against the published
-> `claude-code-action` inputs but has never executed (no key is configured, and
-> the action's docs carry no cron example). **Run it once via `workflow_dispatch`
-> and review the resulting PR before relying on the schedule** — expect to tune
-> `--allowedTools` on that first run.
+| Secret | Where it comes from | Billing |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | [Claude Console](https://platform.claude.com) | Per token |
+| `CLAUDE_CODE_OAUTH_TOKEN` | `claude setup-token` | Against a Pro / Max / Team / Enterprise subscription |
+
+Set whichever suits you — this runs weekly forever, so it is a standing billing
+decision rather than a one-off. If both are set the API key wins, following
+Claude Code's own [credential precedence](https://code.claude.com/docs/en/iam#authentication-precedence).
+With neither set every step skips and the run succeeds with a notice, so the
+workflow is inert until you opt in — it will not fail weekly in an
+unconfigured repo.
+
+> **Not yet verified.** The workflow has never executed, because no credential
+> is configured and the action's docs carry no cron example. **Run it once via
+> `workflow_dispatch` and review the resulting PR before relying on the
+> schedule.**
+>
+> The static wiring *is* verified against `claude-code-action`'s `action.yml` at
+> the `v1` tag: `prompt`, `anthropic_api_key`, `claude_code_oauth_token` and
+> `claude_args` all exist as inputs, and the `--allowedTools` value is correct
+> as written — a permission rule naming only the server (`mcp__threat-intel`)
+> [matches every tool that server provides](https://code.claude.com/docs/en/permissions),
+> so no per-tool enumeration is needed. What the first run has to prove is the
+> run itself: whether `--max-turns 40` covers a nine-tier research pass ending
+> in a commit and a PR, and whether the skill behaves as expected with feeds
+> connected.
 
 Runner egress matters here: GitHub-hosted runners have open outbound internet,
 so the keyless feeds are reachable from Actions even where a restricted dev
