@@ -7,15 +7,36 @@ name: scheduled-report
 # the mechanism itself, committed so it is reproducible and reviewable.
 #
 # ─── STATUS: UNVERIFIED UNTIL FIRST MANUAL RUN ───────────────────────────────
-# Authored against the published claude-code-action inputs (prompt,
-# anthropic_api_key, claude_args) but never executed — this repo has no
-# ANTHROPIC_API_KEY configured, and the action's docs carry no cron example.
-# Run it once via workflow_dispatch and check the resulting PR before trusting
-# the schedule. Expect to tune --allowedTools on that first run.
+# Never executed — no credential is configured here, and the action's docs carry
+# no cron example. Run it once via workflow_dispatch and check the resulting PR
+# before trusting the schedule.
+#
+# Input names are verified against claude-code-action's action.yml at the v1 tag:
+# prompt, anthropic_api_key, claude_code_oauth_token and claude_args all exist.
+# The --allowedTools value is verified too — a permission rule naming only the
+# server ("mcp__threat-intel") matches every tool that server provides, so the
+# MCP half needs no per-tool enumeration. What is still unproven is the run
+# itself: whether --max-turns 40 is enough for a nine-tier research pass that
+# ends in a commit and a PR, and whether the skill behaves as expected with feeds
+# actually connected.
+#
+# ─── CREDENTIAL: EITHER ONE WORKS ────────────────────────────────────────────
+# Set exactly one repository secret:
+#
+#   ANTHROPIC_API_KEY        — a Claude Console API key, billed per token.
+#   CLAUDE_CODE_OAUTH_TOKEN  — from `claude setup-token`, billed against a Pro,
+#                              Max, Team or Enterprise subscription instead.
+#
+# This workflow runs weekly forever, so the choice is a standing billing
+# decision, not a one-off. Both inputs are passed to the action below; the
+# action resolves each with `inputs.x || env.x`, so the unset one arrives empty
+# and is ignored. If both are set the API key wins — that is Claude Code's own
+# credential precedence (ANTHROPIC_API_KEY outranks CLAUDE_CODE_OAUTH_TOKEN),
+# not something this workflow decides.
 #
 # ─── SAFE WHEN UNCONFIGURED ──────────────────────────────────────────────────
-# Without the ANTHROPIC_API_KEY secret every step is skipped and the run
-# succeeds with a notice. It will not fail weekly in a repo that hasn't opted in.
+# With neither secret set every step is skipped and the run succeeds with a
+# notice. It will not fail weekly in a repo that hasn't opted in.
 #
 # ─── NOTE FOR #76 ────────────────────────────────────────────────────────────
 # GitHub-hosted runners have open outbound internet, so the keyless feeds
@@ -51,14 +72,20 @@ jobs:
       - name: Check whether report generation is configured
         id: guard
         env:
-          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ -n "$KEY" ]; then
+          if [ -n "$API_KEY" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using ANTHROPIC_API_KEY (per-token billing)."
+          elif [ -n "$OAUTH_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using CLAUDE_CODE_OAUTH_TOKEN (subscription billing)."
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY is not set — skipping report generation. \
-            Add the secret to enable the weekly cadence (see docs/report-runbook.md)."
+            echo "::notice::Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set \
+            — skipping report generation. Set either one to enable the weekly cadence \
+            (see docs/report-runbook.md)."
           fi
 
       - uses: actions/checkout@v7
@@ -104,7 +131,10 @@ jobs:
         if: steps.guard.outputs.configured == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          # Whichever secret is unset arrives as an empty string, which the
+          # action treats as absent. See the credential note in the header.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
             --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
             --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"

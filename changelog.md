@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`scheduled-report.yml` now accepts either credential: `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`** (issue #104). The workflow previously demanded a Console API key, which is billed per token — and this runs weekly forever, so enabling it meant accepting a standing metered charge. `claude setup-token` produces an OAuth token that bills against an existing Pro/Max/Team/Enterprise subscription instead, and `claude-code-action` has taken a `claude_code_oauth_token` input all along. Requiring the key was an unnecessary condition on the one action that unblocks #76, #100's live confirmation, and the first live-data report.
+
+  Both inputs are passed to the action. The action resolves each as `inputs.x || env.x`, so the unset secret arrives as an empty string and is ignored — verified against `action.yml` at the `v1` tag rather than assumed. If both are set the API key wins, which is Claude Code's own credential precedence and not a rule this workflow invents. The guard step now reports *which* credential a run used, so the billing path is visible in the log instead of inferred.
+
+### Changed
+
+- **Narrowed the UNVERIFIED caveat on `scheduled-report.yml` to what is actually unproven.** It previously warned that the whole workflow was authored from docs and that `--allowedTools` should be expected to need tuning. Two of those doubts are now settled by checking the sources: every input the workflow passes (`prompt`, `anthropic_api_key`, `claude_code_oauth_token`, `claude_args`) exists in `claude-code-action`'s `action.yml` at `v1`, and the `mcp__threat-intel` permission rule is correct as written — a rule naming only the server matches every tool that server provides, so no per-tool enumeration is required.
+
+  What remains genuinely unverified is the run, not the wiring: whether `--max-turns 40` covers a nine-tier research pass that ends in a commit and a PR, and how the skill behaves with feeds actually connected. Saying so precisely matters — a caveat that flags everything equally tells the next reader nothing about where to look when the first run fails.
+
 ### Fixed
 
 - **Unpinned `pydantic_core` — the grouping fix in #124 did not work.** #125 reopened the same `ResolutionImpossible` that killed #99, because a Dependabot *group* only batches updates that are available at the same moment. `pydantic` 2.13.4 is the latest release and pins `pydantic-core==2.46.4`, so when `pydantic-core` 2.47.0 shipped there was nothing to batch it with and the group produced the same single unsatisfiable bump. Verified against the current `main`, not inferred from the stale CI run.
