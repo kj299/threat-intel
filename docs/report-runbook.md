@@ -76,20 +76,21 @@ With neither set every step skips and the run succeeds with a notice, so the
 workflow is inert until you opt in — it will not fail weekly in an
 unconfigured repo.
 
-> **Not yet verified.** The workflow has never executed, because no credential
-> is configured and the action's docs carry no cron example. **Run it once via
-> `workflow_dispatch` and review the resulting PR before relying on the
-> schedule.**
+> **Verified end to end** by run `33326622088` on 2026-08-30, which produced
+> [`reports/2026-08-30-threat-intel.md`](../reports/2026-08-30-threat-intel.md)
+> — the first report in this repository generated from live feed data rather
+> than web search. `threat-intel-mcp` was connected; ThreatFox and CISA KEV
+> returned live data and the credential-gated feeds degraded to `unverified`
+> as designed.
 >
-> The static wiring *is* verified against `claude-code-action`'s `action.yml` at
-> the `v1` tag: `prompt`, `anthropic_api_key`, `claude_code_oauth_token` and
-> `claude_args` all exist as inputs, and the `--allowedTools` value is correct
-> as written — a permission rule naming only the server (`mcp__threat-intel`)
-> [matches every tool that server provides](https://code.claude.com/docs/en/permissions),
-> so no per-tool enumeration is needed. What the first run has to prove is the
-> run itself: whether `--max-turns 40` covers a nine-tier research pass ending
-> in a commit and a PR, and whether the skill behaves as expected with feeds
-> connected.
+> Getting there took seven dispatches. Worth knowing why, because it bears on
+> how much to trust a workflow that has only been read: the static wiring was
+> verified beforehand against `claude-code-action`'s `action.yml` and the
+> permissions docs, and **that verification held** — the input names and the
+> `mcp__threat-intel` rule were both correct. What it could not surface was a
+> missing `id-token: write` permission, a stale API key overriding the
+> configured credential, or routing that keyed off a secret's *name* rather
+> than the credential's format. Each of those needed an actual run.
 
 ### Feed credentials do not go in this workflow
 

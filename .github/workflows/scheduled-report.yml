@@ -6,19 +6,21 @@ name: scheduled-report
 # described or ran it. report-staleness.yml detects that death; this workflow is
 # the mechanism itself, committed so it is reproducible and reviewable.
 #
-# ─── STATUS: UNVERIFIED UNTIL FIRST MANUAL RUN ───────────────────────────────
-# Never executed — no credential is configured here, and the action's docs carry
-# no cron example. Run it once via workflow_dispatch and check the resulting PR
-# before trusting the schedule.
+# ─── STATUS: VERIFIED END TO END (run 33326622088, 2026-08-30) ───────────────
+# This workflow has produced a real report from live feeds: reports/
+# 2026-08-30-threat-intel.md, merged as 6c53cf5. That run researched, wrote,
+# committed and opened a PR with threat-intel-mcp connected — ThreatFox and
+# CISA KEV returning live data, the other feeds correctly degrading to
+# unverified for want of credentials.
 #
-# Input names are verified against claude-code-action's action.yml at the v1 tag:
-# prompt, anthropic_api_key, claude_code_oauth_token and claude_args all exist.
-# The --allowedTools value is verified too — a permission rule naming only the
-# server ("mcp__threat-intel") matches every tool that server provides, so the
-# MCP half needs no per-tool enumeration. What is still unproven is the run
-# itself: whether --max-turns 40 is enough for a nine-tier research pass that
-# ends in a commit and a PR, and whether the skill behaves as expected with feeds
-# actually connected.
+# Getting there took seven dispatches, and every defect they found is fixed
+# below: the missing id-token permission, a stale API key overriding the
+# configured credential, and routing that keyed off the secret's name rather
+# than the credential's format. None of those were visible without executing
+# it — the input names and the --allowedTools rule were verified from the
+# action's own action.yml and the permissions docs beforehand, and both were
+# correct. Authored-correctly and executed-correctly stayed different claims
+# right up to the run.
 #
 # ─── CREDENTIAL: EITHER ONE WORKS ────────────────────────────────────────────
 # Set one repository secret:
@@ -218,10 +220,19 @@ jobs:
           # with an identity-linked API key" (run 33323829864). Unset for OAuth
           # tokens and for workspace-scoped keys, and empty is treated as absent.
           anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          # --max-turns is a runaway guard, not a budget, and it must sit well
+          # clear of a normal run. The first successful report (run 33326622088)
+          # took 50 turns with only two feeds responding, and the action treats
+          # exceeding the ceiling as a hard job failure *even when the agent
+          # finished successfully* — that run had already committed the report
+          # and opened the PR before the check fired. A tight ceiling therefore
+          # buys nothing and costs a full re-run plus a red job that looks like
+          # breakage. 80 leaves room for the credentialed feeds that are not yet
+          # configured, each of which adds tool calls to the same pass.
           claude_args: >-
             --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
             --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"
-            --max-turns 40
+            --max-turns 80
           prompt: |
             Generate this week's threat intelligence report using the
             cyber-threat-intel skill in skills/cyber-threat-intel/SKILL.md.
