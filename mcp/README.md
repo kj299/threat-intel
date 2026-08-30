@@ -51,6 +51,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | ThreatFox adapter (free public abuse.ch feed, no key) | ✅ Phase 2 |
+| Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -464,3 +465,38 @@ tests/
 This package provides the **runtime and live data**. [`kj299/threat-intel`](https://github.com/kj299/threat-intel) provides the **prompt and schema**. The AI assistant uses both together: the skill structures the report; this server supplies current IOCs from subscribed feeds.
 
 Schema contract: `ioc_network` objects from this server match the definition in [`skills/cyber-threat-intel/schemas/output.schema.json`](https://github.com/kj299/threat-intel/blob/main/skills/cyber-threat-intel/schemas/output.schema.json) exactly.
+
+## Rendering an executive overview
+
+The skill emits markdown plus structured `risk_dashboard` / `financial_impact` /
+`investment_recommendations` data. To render that data as the visual dashboard
+the `enterprise_executive` persona advertises (issue #110):
+
+```bash
+python -m threat_intel_mcp.render report.json -o overview.html
+```
+
+One self-contained landscape page — no external stylesheet, script, font or
+image, so it survives being emailed and opened offline.
+
+**This is not an MCP tool, deliberately.** The server's tool surface is the
+*feed* contract: every tool there is mirrored in both skill files and asserted
+by the skill↔server parity test (#79). Rendering is a local transform of data
+the caller already holds, so putting it on that surface would widen a contract
+that exists to stop the skill calling functions that don't exist.
+
+Three design decisions are enforced by tests, because a dashboard makes
+modelled numbers look measured:
+
+- **Sequential single-hue ramp for risk, not red/amber/green.** Status hues are
+  non-monotonic in greyscale luminance — `warning` (0.522) is *lighter* than
+  both `good` (0.263) and `serious` (0.348) — so a printed traffic-light
+  dashboard shows "low" and "high" as near-identical greys. The ramp darkens
+  monotonically with severity (0.448 → 0.080), so paper agrees with screen.
+- **Never colour alone.** Every score carries its numeral and band word; every
+  trend carries an arrow *and* the word. Trend is not colour-coded at all, since
+  risk level and direction of travel are separate axes.
+- **Provenance at the point of display.** Modelled figures carry a `MODELLED`
+  chip inside the tile, not in a footnote; an absent coverage badge renders as
+  `COVERAGE NOT REPORTED`; an empty category set renders as an explicit absence
+  rather than a reassuring green (R3/R4, the same principle as #106).
