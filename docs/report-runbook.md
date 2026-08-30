@@ -60,6 +60,37 @@ unconfigured repo.
 > in a commit and a PR, and whether the skill behaves as expected with feeds
 > connected.
 
+### Feed credentials do not go in this workflow
+
+The report run needs no feed API keys — ThreatFox and CISA KEV are keyless and
+NVD works unauthenticated. **Do not add `QFEEDS_API_KEY`, `VIRUSTOTAL_API_KEY`,
+or any of the other ten** to `scheduled-report.yml`. CI blocks it (*Agent
+credential isolation* in `validate.yml`), and the reason is worth understanding
+before working around the check.
+
+This workflow runs an LLM agent whose entire job is to ingest untrusted content
+— threat feeds, vendor blogs, leak-site aggregators, arbitrary web pages —
+while holding `Write` access and the ability to open a PR. That is a
+prompt-injection surface by construction: the reports quote adversary-controlled
+text. Any credential in that step's environment is reachable by the agent and
+can leave in a file it commits. Log masking does not cover a committed file.
+
+Narrowing `--allowedTools` does not mitigate it. Claude Code runs a built-in set
+of read-only Bash commands *without consulting the allowlist*, and that set
+includes `echo` and `cat` — the [permissions
+docs](https://code.claude.com/docs/en/permissions) state it "is not
+configurable". So `echo $VIRUSTOTAL_API_KEY` is available under any Bash allow
+rule, and writing deny rules for every way a shell can read its own environment
+is whack-a-mole that would only look like protection.
+
+If paid feeds are wanted in the weekly report later, the fix is architectural:
+fetch them in a **separate step** that runs a fixed script and writes results to
+a file, then let the agent read that file. Credentials then live in a step the
+agent never touches — the shape [`record-cassettes.yml`](../.github/workflows/record-cassettes.yml)
+already uses. `mcp/src/threat_intel_mcp/vault/env.py` makes the same point about
+environment variables generally, and a scheduled Actions job is a non-local
+deployment by its own definition.
+
 Runner egress matters here: GitHub-hosted runners have open outbound internet,
 so the keyless feeds are reachable from Actions even where a restricted dev
 sandbox blocks them. The workflow proves this per-run — it fetches ThreatFox and
