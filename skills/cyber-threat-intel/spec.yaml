@@ -128,6 +128,11 @@ persona_profiles:
     name: "Executive Leadership / Board"
     output_preferences:
       detail_level: executive_summary
+      # The skill emits markdown plus the structured risk_dashboard /
+      # financial_impact / investment_recommendations data. The dashboard itself
+      # is rendered from that JSON by `python -m threat_intel_mcp.render`
+      # (issue #110) — see references/personas.md, "Rendering the visual
+      # dashboard".
       format: visual_dashboard
       max_pages: 2
       include_financials: true
