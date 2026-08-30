@@ -77,7 +77,7 @@ threat-intel/
 +-- README.md                                         # this file
 +-- LICENSE
 +-- CLAUDE.md                                         # AI-assistant project context
-+-- docs.md                                           # human-readable spec documentation
++-- docs/                                             # documentation (index.md, architecture.md, runbooks)
 +-- changelog.md
 +-- contributing.md
 +-- .github/workflows/validate.yml                    # CI: layout + schema + parity checks

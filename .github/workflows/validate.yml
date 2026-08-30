@@ -38,6 +38,48 @@ jobs:
         # part of that resolved set, so both jobs agree on versions.
         run: pip install jsonschema pyyaml rfc3339-validator pytest -c mcp/constraints-dev.txt
 
+      - name: Relative markdown links resolve (issue #86)
+        run: |
+          python <<'PY'
+          # Issue #86 consolidated docs.md into docs/index.md. Moving a file
+          # silently breaks every relative link into it, and "grep before
+          # moving" is a step that gets skipped exactly once.
+          #
+          # Fenced and inline code are stripped first: contributing.md contains
+          # regex examples like `[...](.*\.md)` that are prose, not links, and a
+          # checker that flags those gets muted like any other false alarm.
+          import pathlib, re, sys
+
+          FENCE = re.compile(r"```.*?```", re.S)
+          CODE = re.compile(r"`[^`]*`")
+          LINK = re.compile(r"\[[^\]]*\]\((?!https?:|mailto:|#)([^)#]+)(?:#[^)]*)?\)")
+
+          # Historical snapshots describe the layout as it was when written;
+          # their links were correct then. Rewriting them to point at today's
+          # paths would falsify the record, the same reason changelog entries
+          # are never edited after the fact.
+          EXCLUDED = ("docs/releases/",)
+
+          broken, checked = [], 0
+          for md in sorted(pathlib.Path(".").rglob("*.md")):
+              rel = md.as_posix()
+              if rel.startswith("./"):
+                  rel = rel[2:]
+              if any(rel.startswith(prefix) for prefix in EXCLUDED):
+                  continue
+              text = CODE.sub("", FENCE.sub("", md.read_text(encoding="utf-8")))
+              for target in LINK.findall(text):
+                  checked += 1
+                  if not (md.parent / target).exists():
+                      broken.append(f"{rel} -> {target}")
+          if broken:
+              print("FAIL: broken relative links:")
+              for entry in broken:
+                  print(f"  {entry}")
+              sys.exit(1)
+          print(f"OK: {checked} relative links resolve (excluding {', '.join(EXCLUDED)})")
+          PY
+
       - name: Skill-output honesty evals (issue #83)
         # Structure is validated exhaustively above; this checks what the R1-R6
         # protocol exists to produce — honest badges, no fabrication, cited

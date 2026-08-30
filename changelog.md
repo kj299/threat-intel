@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`SECURITY.md`, `CODEOWNERS`, and a documented disclosure channel** (issue #85). A repository that handles API credentials for ten commercial intel feeds had no way for someone to report a credential-handling bug privately. `SECURITY.md` names scope in priority order (credential handling, egress allowlist, sanitisation, **prompt injection through retrieved content** — the skill's whole job is ingesting adversary-controlled text), says plainly what is out of scope, and lists what the project already does so a reporter can tell a gap from a deliberate choice.
+
+  The channel is **GitHub private vulnerability reporting, not an email address** — inventing a `security@` for a one-person project would be exactly the fictional infrastructure this repository's own conventions forbid.
+
+- **A relative-link check in CI** (issue #86). Moving a documentation file silently breaks every relative link into it, and "grep before moving" is a step that gets skipped exactly once. Fenced and inline code are stripped first, because `contributing.md` contains regex examples like `[...](.*\.md)` that are prose rather than links — a checker that flags those gets muted like any other false alarm. `docs/releases/` is excluded: those are historical snapshots whose links were correct for the layout they described, and rewriting them would falsify the record for the same reason changelog entries are never edited after the fact.
+
+### Changed
+
+- **`docs.md` folded into `docs/index.md`** (issue #86). A root *file* and a root *directory* with near-identical names is navigation friction: "check the docs" was ambiguous and tab-completion collided. Verified against `origin/main` that the move introduced **zero** new broken links (6 before, 6 after, all six pre-existing and confined to the historical `docs/releases/v1.1.0-review.md`).
+
+  The move also surfaced that the file was **14 versions stale** — it declared `1.7.0` while the skill is at `1.21.0` — which is the more interesting problem: it duplicates most of `README.md`'s sections, so it was a second source of truth that had already drifted. The version header now derives from `spec.yaml`. Collapsing the remaining duplication is deliberately left as follow-up rather than rewriting 206 lines of prose in a hygiene change.
+
+- **Branch-per-change documented as the convention** (issue #87). The repository shipped its first ~25 PRs from one long-lived branch, and because squash-merge rewrites history every cycle needed a `--force-with-lease` — routinely overriding a safety mechanism, which trains the wrong reflex and loses work the one time the "are those commits really merged?" check is wrong. `contributing.md` now specifies short-lived `feat/`/`fix/`/`docs/`/`chore/` branches deleted on merge, which removes the force push rather than making it safer.
+
 - **The #84 refactor trigger is now a CI trip-wire, not a note in a backlog** (`mcp/tests/test_pipeline_duplication.py`). Issue #84 deliberately *defers* generalising the duplicated IOC/CVE output pipeline until a third output type is real, and files the issue so the trigger is written down. Its acceptance criteria — "no third copy ever lands", "the refactor precedes any third type" — describe a future moment nobody is watching for. This makes them mechanical, the same move already applied to source governance (#88), skill/server tool parity (#79) and agent credential isolation (#149). **No refactor is performed: deferral is the issue's own instruction, and this is what makes continuing to honour it safe.**
 
   A third module growing the `_SUMMARY_KEYS`/`_degraded`/`_run_source` signature now fails the build with the refactor plan in the message, at the moment someone is adding it. Refactoring *down* to one pipeline is explicitly not blocked — a guard that fires when the duplication is removed would punish the change it exists to encourage — and a meta-test asserts the signature still matches the real modules, since a detector that silently matches nothing reads as coverage while providing none.

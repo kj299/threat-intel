@@ -27,6 +27,23 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Ski
 5. Commit with a clear message (see Commit Message Examples section below)
 6. Push and open a Pull Request
 
+### Branch Naming
+
+**One short-lived branch per change**, named for what it does: `feat/`, `fix/`,
+`docs/`, `chore/`. Delete it when the PR merges — the repository has
+"Automatically delete head branches" enabled, so this happens for you.
+
+This is worth stating because the repository did the opposite for its first
+~25 PRs, shipping everything from one long-lived branch. Squash-merge rewrites
+history, so every new cycle needed `git checkout -B <branch> origin/main`
+followed by `git push --force-with-lease` — routinely overriding a safety
+mechanism, which trains exactly the wrong reflex. One mistaken "yes, those
+commits really are merged" loses work. A branch per change removes the force
+push entirely rather than making it safer (issue #87).
+
+The branch name should still describe its contents at merge time. If it no
+longer does, the change grew beyond its branch and probably wants splitting.
+
 ### Testing Your Changes Locally
 
 > A GitHub Actions workflow ([`validate`](.github/workflows/validate.yml)) runs the same JSON/YAML/schema-conformance checks on every PR. Catching errors locally is faster, but the server check is the source of truth.
@@ -190,6 +207,17 @@ Types: feat, fix, docs, refactor, chore
 ---
 
 ## Security
+
+**Found a vulnerability? Do not open a public issue.** Use GitHub's
+[private vulnerability reporting](https://github.com/kj299/threat-intel/security/advisories/new);
+scope, expectations and what this project already does are in
+[SECURITY.md](SECURITY.md).
+
+This repository has GitHub **secret scanning and push protection** enabled as a
+backstop. They are a backstop, not the control: credentials belong in `.env`
+(git-ignored) or Vault, never in a commit. If push protection ever blocks a
+push of yours, treat it as correct until proven otherwise — rotate the
+credential first, argue with the scanner second.
 
 Do not include in contributions:
 - API keys, tokens, or credentials
