@@ -1,8 +1,8 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.7.0 | **License:** MIT | **Author:** kj299 | **Last Updated:** 2026-06-10
+**Version:** 1.21.0 | **License:** MIT | **Author:** kj299 | **Skill spec:** [spec.yaml](../skills/cyber-threat-intel/spec.yaml)
 
-**Skill location:** [skills/cyber-threat-intel/](skills/cyber-threat-intel/)
+**Skill location:** [skills/cyber-threat-intel/](../skills/cyber-threat-intel/)
 
 **Personas:** enterprise_soc, enterprise_executive, smb_security, individual_researcher, individual_privacy, red_team
 
@@ -10,7 +10,7 @@
 
 This is an [Anthropic Agent Skill](https://code.claude.com/docs/en/skills) that guides AI assistants to produce professional-grade threat intelligence reports. It references 150+ intelligence sources, supports 6 user personas, and outputs structured analysis including IOCs, TTPs, detection rules, and executive summaries.
 
-For the long-form prompt (suitable for non-Claude assistants like ChatGPT or Copilot), see [skills/cyber-threat-intel/references/original-prompt.md](skills/cyber-threat-intel/references/original-prompt.md).
+For the long-form prompt (suitable for non-Claude assistants like ChatGPT or Copilot), see [skills/cyber-threat-intel/references/original-prompt.md](../skills/cyber-threat-intel/references/original-prompt.md).
 
 ## How It Works
 
@@ -97,7 +97,7 @@ The skill references sources organized by priority:
 
 These are references for the AI to draw from based on its training data. There are no live API integrations.
 
-> The table above shows examples per tier for orientation. **The complete source matrix referenced by the source-coverage guidance (R1–R6) lives in [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
+> The table above shows examples per tier for orientation. **The complete source matrix referenced by the source-coverage guidance (R1–R6) lives in [skills/cyber-threat-intel/references/source-matrix.md](../skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
 
 ## Threat Scoring
 
@@ -134,10 +134,10 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 
 To drive the skill programmatically (Claude Code, an OpenAI pipeline, or a tool that ingests its output):
 
-- **Feed the self-contained artifact** [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md). It inlines the source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract. Do not feed `spec.yaml` alone (CI spec only — no workflow / SIEM guidance). The legacy `cyber_threat_skill.yaml` was split/renamed in 1.2.0 and no longer exists; a consumer auto-discovering that filename loads nothing and produces empty output.
+- **Feed the self-contained artifact** [`standalone/cyber-threat-intel-prompt.md`](../standalone/cyber-threat-intel-prompt.md). It inlines the source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract. Do not feed `spec.yaml` alone (CI spec only — no workflow / SIEM guidance). The legacy `cyber_threat_skill.yaml` was split/renamed in 1.2.0 and no longer exists; a consumer auto-discovering that filename loads nothing and produces empty output.
 - **Structured IOC hand-off**: with `build_iocs_and_queries` on (default), `delimited_batch_export` carries `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity`, `actor`), `source`, `confidence`. Map to your importer's columns (e.g. `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`).
 - **The consumer owns input validation.** The skill emits raw typed values and never escapes/sanitizes on a tool's behalf. For ingestibility, `detection_value` should be a concrete metacharacter-free ASCII literal and `detection_method` one of the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`) — strict importers drop rows that violate this. (See *Limitations* below.)
-- **Validate** output against [`schemas/output.schema.json`](skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
+- **Validate** output against [`schemas/output.schema.json`](../skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
 
 ## Compliance Mapping
 
@@ -172,7 +172,7 @@ The skill can map findings to:
 
 ## Schema Validation
 
-Use [skills/cyber-threat-intel/schemas/output.schema.json](skills/cyber-threat-intel/schemas/output.schema.json) to validate structured output:
+Use [skills/cyber-threat-intel/schemas/output.schema.json](../skills/cyber-threat-intel/schemas/output.schema.json) to validate structured output:
 
 ```bash
 pip install jsonschema rfc3339-validator
@@ -189,18 +189,18 @@ A conforming threat intelligence report includes:
 - `threats[]` — each entry carries `technique_name`, `mitre_id`, `cves`, `exploit_maturity`, `source`
 - IOC blocks (network, host, email) — each indicator carries `type`, `value`, `confidence`, `source`
 
-See [skills/cyber-threat-intel/examples/outputs.json](skills/cyber-threat-intel/examples/outputs.json) for complete valid examples across all 6 personas.
+See [skills/cyber-threat-intel/examples/outputs.json](../skills/cyber-threat-intel/examples/outputs.json) for complete valid examples across all 6 personas.
 
 ### Common Validation Errors
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md) |
-| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [output.schema.json](skills/cyber-threat-intel/schemas/output.schema.json) |
+| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [skills/cyber-threat-intel/references/source-matrix.md](../skills/cyber-threat-intel/references/source-matrix.md) |
+| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [output.schema.json](../skills/cyber-threat-intel/schemas/output.schema.json) |
 | `'high' is not one of ['High', 'Medium', 'Low']` | Confidence value uses wrong case | Use capitalized values: `High`, `Medium`, `Low` |
 | `'<value>' is not one of [...]` on `exploit_maturity` | Invalid enum value | Use one of: `None`, `PoC`, `Weaponized`, `In-The-Wild` |
 | `'<value>' is not one of [...]` on `priority` | Invalid priority value | Use one of: `P1-CRITICAL`, `P2-HIGH`, `P3-MEDIUM`, `P4-LOW`, `P5-INFO` |
 
 ## Examples
 
-See [skills/cyber-threat-intel/examples/outputs.json](skills/cyber-threat-intel/examples/outputs.json) for complete example outputs across all 6 personas.
+See [skills/cyber-threat-intel/examples/outputs.json](../skills/cyber-threat-intel/examples/outputs.json) for complete example outputs across all 6 personas.

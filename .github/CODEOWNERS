@@ -1,0 +1,17 @@
+# Review routing (issue #85). One maintainer, so one rule — the value is that
+# GitHub now requests review automatically instead of it being implicit.
+* @kj299
+
+# Called out separately not to change routing (the catch-all already covers
+# them) but because a reviewer should know these carry more than they look:
+#
+#   the credential and egress boundary
+/mcp/src/threat_intel_mcp/vault/            @kj299
+/mcp/src/threat_intel_mcp/netpolicy.py      @kj299
+#   an agent over untrusted content, which CI bars from holding feed creds (#149)
+/.github/workflows/scheduled-report.yml     @kj299
+#   the checks that make the repo's conventions enforceable rather than aspirational
+/.github/workflows/validate.yml             @kj299
+/evals/                                     @kj299
+#   the disclosure contract itself
+/SECURITY.md                                @kj299

@@ -44,7 +44,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `mcp/tests/` -- unit + httpx-mock integration tests (no live network); `test_pipeline_duplication.py` is the **#84 trip-wire** -- the IOC and CVE output pipelines are a sanctioned pair, and CI fails if a *third* copy of the fan-out/finalize machinery lands or if the two existing copies **structurally diverge** (compared as control-flow shape with identifiers stripped, not text similarity -- a 0.90 difflib floor missed a real four-line drift)
   - `mcp/tests/cassettes/` + `mcp/tests/vcr_config.py` + `mcp/scripts/record_cassettes.py` -- vcrpy cassettes: real feed responses recorded once and replayed offline, so at least one test per adapter runs against bytes the service actually sent rather than a fixture written from belief (#105). Recording needs egress the dev sandbox lacks -- use the `record-cassettes` workflow. Cassette tests **skip** when no recording is present. Credential scrubbing is asserted in CI by `tests/test_vcr_harness.py`
 
-Repo-root `README.md`, `LICENSE`, `CLAUDE.md`, `changelog.md`, `contributing.md`, `docs.md` stay at the root.
+Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `contributing.md` stay at the root. **All prose documentation lives in `docs/`** -- `docs.md` was folded to `docs/index.md` (#86) because a root file and a root directory with near-identical names is navigation friction, and CI now fails on any broken relative markdown link outside the historical `docs/releases/` snapshots.
 
 ## Conventions
 
