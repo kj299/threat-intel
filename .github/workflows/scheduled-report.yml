@@ -88,6 +88,12 @@ on:
 permissions:
   contents: write # commit the report to a branch
   pull-requests: write # open the PR carrying it
+  # Required by claude-code-action, and not optional: it mints its GitHub token
+  # by exchanging an Actions OIDC token (setupGitHubToken -> getOidcToken).
+  # Without this the action retries three times and fails in ~15s with
+  # "Could not fetch an OIDC token", before Claude is ever invoked. Found on the
+  # first real dispatch (run 33320791061) — the steps before it all passed.
+  id-token: write
 
 jobs:
   generate:
