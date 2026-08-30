@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Credentials are routed by their own format, not by which secret they were pasted into** (issue #104). A Console API key (`sk-ant-api…`) and a `claude setup-token` OAuth token (`sk-ant-oat…`) authenticate differently and are not interchangeable, but only the API key exists on a web page — the OAuth token is produced solely by a terminal command. An API key pasted into the OAuth secret was therefore forwarded to the OAuth input, and every request 400'd. The secret's *name* silently decided the outcome, which is a bad property for a credential to have.
+
+  The guard now tests the prefix (never echoing the value) and routes to the correct action input either way, emitting an `auth` output the generate step keys off. When the OAuth secret does not look like a `setup-token` output it logs a warning saying exactly that, and that no website can produce one. Verified across five scenarios, including a real token, a key in the wrong slot, and both present.
+
+- **`ANTHROPIC_WORKSPACE_ID` is now supported.** An identity-linked API key — one scoped to *All workspaces* rather than a single workspace — is rejected with `400 anthropic-workspace-id is required when authenticating with an identity-linked API key` (run `33323829864`). `claude-code-action` exposes an `anthropic_workspace_id` input for this; it is now wired to an optional secret. OAuth tokens and workspace-scoped keys need nothing extra.
+
 - **The OAuth token now wins over `ANTHROPIC_API_KEY`, and only the chosen credential is passed** (issue #104). Run `33322230662` failed after three minutes of retries against a credit-less Console key while a valid subscription token was configured — because the workflow passed *both* credentials to the action, and Claude Code's own precedence ranks `ANTHROPIC_API_KEY` above `CLAUDE_CODE_OAUTH_TOKEN`. The guard reported which credential it selected, but that selection was not binding on what actually got used.
 
   Two changes make it binding. The guard checks the OAuth token first, and the generate step blanks the credential it did not choose rather than forwarding both. Verified across all four secret combinations, including the one that matters here: OAuth token present alongside a stale API key now yields `anthropic_api_key: ''`.
