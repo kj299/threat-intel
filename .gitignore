@@ -33,3 +33,11 @@ coverage.xml
 .claude/*.lock
 # Claude Code agent worktrees (managed by the SDK, not project files)
 .claude/worktrees/
+
+# Python artifacts
+# Root-level now that Python lives in two places (mcp/ and evals/); mcp/ has
+# its own .gitignore predating this, which stays as the more specific rule.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/

@@ -36,7 +36,19 @@ jobs:
       - name: Install dependencies (pinned)
         # Issue #80: same lock as the mcp-tests job — these three packages are
         # part of that resolved set, so both jobs agree on versions.
-        run: pip install jsonschema pyyaml rfc3339-validator -c mcp/constraints-dev.txt
+        run: pip install jsonschema pyyaml rfc3339-validator pytest -c mcp/constraints-dev.txt
+
+      - name: Skill-output honesty evals (issue #83)
+        # Structure is validated exhaustively above; this checks what the R1-R6
+        # protocol exists to produce — honest badges, no fabrication, cited
+        # indicators, graceful sparsity — over every committed report.
+        #
+        # Deterministic and offline by construction: the model-invoking
+        # scenarios live behind `run.py --scenario` and are never PR-gating.
+        # Bundling the two would have meant no eval ran until both worked.
+        run: |
+          python -m pytest evals/ -q
+          python evals/run.py --corpus
 
       - name: Validate skill directory layout (Anthropic Agent Skills convention)
         run: |
