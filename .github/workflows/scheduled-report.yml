@@ -190,6 +190,21 @@ jobs:
           # choice actually binding.
           anthropic_api_key: ${{ (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH) == '' && secrets.ANTHROPIC_API_KEY || '' }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
+          # ─── TEMPORARY DIAGNOSTIC — REMOVE ONCE A RUN SUCCEEDS ───────────
+          # The action hides the SDK's output by default, which leaves the only
+          # information about a first-turn failure being `is_error: true` with
+          # no message. Runs 33322230662 and 33323254416 both died at turn 1
+          # with total_cost_usd 0 and an empty modelUsage — a rejected
+          # credential — and the reason was unreadable.
+          #
+          # Safe to enable here specifically: CI forbids feed credentials in
+          # this workflow (see "Agent credential isolation" in validate.yml),
+          # the model credential is a registered secret and is masked in logs,
+          # and a run that fails at turn 1 produces no agent conversation to
+          # expose. Remove it the moment a run gets past the first turn — a
+          # successful run DOES produce agent output, and that output is
+          # derived from untrusted feed content.
+          show_full_output: true
           claude_args: >-
             --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
             --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"
