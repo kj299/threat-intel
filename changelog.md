@@ -10,6 +10,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **MISP ZeroMQ adapter — the first concrete `ProtocolAdapter`** (`transports/misp_zmq.py`, issue #162). `ProtocolAdapter` shipped in Phase 3 with no live subclass, and a base class with no implementation is a design sketch. This is the first real one.
+
+  **It deliberately proves the transport, not the credential path.** MISP's ZeroMQ interface has *no authentication* — the official docs state the channel "is available to localhost only," relying on network isolation — so this adapter loads no credential bundle and exercises none of `vault/protocols.py`. That distinction is why #162 was narrowed away from #1's scope, and it is stated in the module docstring, the README and `docs/architecture.md` so a merged ZeroMQ adapter is never mistaken for evidence that the protocol credential path works.
+
+  Three contract details were read from MISP's own source rather than recalled, each of which a plausible guess gets wrong:
+
+  - **Framing is a single frame** with topic and JSON split on the *first space* (`MISP/tools/misp-zmq/sub.py`: `topic, s, m = message.decode('utf-8').partition(" ")`). A multipart reader — the natural assumption — gets nothing. Exactly the class of error as the ThreatFox comma-then-space dialect that returned 0 IOCs from a live 1 MB response (#100).
+  - **`to_ids` is a string** `"1"`/`"0"`, and it is MISP's own "actionable for detection" flag. A truthiness check on the raw value treats `"0"` as `True` and emits every piece of analyst context as a blockable indicator.
+  - **`misp_json_self` is a per-minute keep-alive** carrying no indicators. It is what separates "connected, quiet" from "never connected" — the transport-level form of the empty-parse distinction in #106, and the adapter escalates a window with no frames *at all* to `UpstreamFormatError` rather than reporting a confident zero.
+
+  `guard_parsed` counts *recognised* attribute structures, not *retained* ones. Counting retained records would raise on a batch of legitimately non-network attributes (file hashes, `to_ids=0` context) — the false-alarm case that function's own docstring warns against.
+
+  Endpoint is operator-supplied with **no default committed**: MISP's own default is localhost-only, and baking it in would be a guess about someone else's deployment. `pyzmq` is an optional `[zmq]` extra rather than a core dependency, per the base module's rule that protocol client libraries are added by whoever wires that transport — and is in `dev` so the tests *run* in CI rather than silently skipping, since an `importorskip` that always skips is a suite reporting coverage it does not have.
+
+  Twenty tests, including an end-to-end run against an in-process `zmq.PUB` on an ephemeral loopback port — the ZeroMQ analogue of the REST adapters' cassettes, with no live network.
+
+  **Known limitation, deliberate:** each `fetch` collects for a bounded window, so messages published *between* calls are missed. A background subscriber would capture everything at the cost of this server's first long-lived task; that is a follow-up to decide on evidence, not an oversight.
+
 - **Credential redaction now covers the protocols issue #1 exists for** (`mcp/src/threat_intel_mcp/audit.py`). The issue's second acceptance criterion is *"credentials never appear in logs in plain text"*, and a July progress note recorded it as met. It held for REST and **failed for gRPC, MQTT, WebSocket and GraphQL** — the four protocols the issue names. Measured before the fix, three credential shapes passed through `redact_url` unchanged: a gRPC mTLS **private key** (a PEM block is not a `name=value` pair), an MQTT `mqtts://user:pass@host` **connection string**, and a quoted `{'Authorization': 'token …'}` **header dict**. The `_RedactingFilter` was also installed on `httpx`/`httpcore` only, so all four protocol client libraries logged unfiltered. The credential *storage* for those protocols shipped; the redaction never followed it.
 
   Four patterns added — whole PEM blocks (a partially redacted key is still a leaked key), URL userinfo (username kept, since knowing *which* principal connected is what an audit log is for), quoted auth values matched as complete quoted strings, and the bare `password: value` form. `REDACTED_LOGGERS` now names every transport that has a credential bundle, and a test maps bundles to loggers by name so a fifth bundle cannot be added without its logger being covered.

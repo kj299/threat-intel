@@ -22,7 +22,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Protocol client libraries are deliberately not core dependencies: the
+# ProtocolAdapter base ships no live feed, and a REST-only deployment should not
+# pull a ZeroMQ binding. Installed by the operator who wires that transport.
+zmq = ["pyzmq>=26"]
 dev = [
+    # pyzmq is in dev too so the MISP ZeroMQ tests RUN in CI rather than
+    # silently skipping — an importorskip that always skips is a test suite
+    # reporting coverage it does not have.
+    "pyzmq>=26",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-httpx>=0.30",

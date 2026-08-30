@@ -500,3 +500,45 @@ modelled numbers look measured:
   chip inside the tile, not in a footnote; an absent coverage badge renders as
   `COVERAGE NOT REPORTED`; an empty category set renders as an explicit absence
   rather than a reassuring green (R3/R4, the same principle as #106).
+
+## MISP ZeroMQ (first protocol feed)
+
+Issue #162. The first concrete `ProtocolAdapter` — `ProtocolAdapter` previously
+had no live subclass, and a base class with no implementation is a design sketch.
+
+```python
+from threat_intel_mcp.transports.misp_zmq import MISPZMQAdapter
+
+adapter = MISPZMQAdapter(endpoint="tcp://your-misp-host:50000", window_seconds=5.0)
+result = await adapter.fetch(time_range="7d")
+```
+
+Install the extra: `pip install -e ".[zmq]"`.
+
+**This adapter uses no credentials.** MISP's ZeroMQ interface has no
+authentication — the official documentation states the channel "is available to
+localhost only," relying on network isolation. It therefore exercises **none** of
+the credential bundles in `vault/protocols.py`. A working ZeroMQ adapter is not
+evidence that the protocol credential path works; that stays unexercised until a
+feed with real auth appears.
+
+Three details worth knowing, each read from MISP's own source rather than assumed:
+
+- **Framing is a single frame**, topic and JSON separated by the *first* space
+  (`MISP/tools/misp-zmq/sub.py`). A multipart reader — the natural guess — gets
+  nothing. Same class of error as the ThreatFox comma-then-space dialect (#100).
+- **`to_ids` is a string** `"1"`/`"0"`, and it is MISP's own flag for "actionable
+  for detection". A truthiness check treats `"0"` as True and emits every piece
+  of context as a blockable indicator.
+- **`misp_json_self` is a per-minute keep-alive.** It carries no indicators but
+  distinguishes "connected, quiet" from "never connected" — the transport-level
+  form of the empty-parse distinction in #106.
+
+**No endpoint is committed.** MISP's own default is `tcp://127.0.0.1:50000`, but
+baking that in would be a guess about someone else's deployment.
+
+**Bounded window, not a background subscriber.** Each `fetch` collects for
+`window_seconds` and returns what arrived, so messages published *between* calls
+are missed. A background subscriber draining into a buffer would capture
+everything at the cost of this server's first long-lived task; that is a
+deliberate follow-up, not an oversight.
