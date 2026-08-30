@@ -116,23 +116,46 @@ jobs:
           # CLAUDE_CODE_OAUTH_TOKEN is accepted too so a rename needs no code
           # change. An unset secret is an empty string, so `||` picks the one
           # that exists.
-          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
+          OAUTH_SECRET: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
         run: |
-          # Subscription billing wins when both are present. This ordering is
-          # deliberate and is the opposite of Claude Code's own credential
-          # precedence, which ranks ANTHROPIC_API_KEY above the OAuth token —
-          # which is why the generate step below passes only the chosen one
-          # rather than both. A leftover API key must not be able to hijack a
-          # run that a subscription token was configured for (it did exactly
-          # that in run 33322230662, failing after 3 minutes of retries).
+          # Route by the credential's OWN FORMAT, not by which secret it landed
+          # in. `claude setup-token` mints an OAuth token (sk-ant-oat*); the
+          # Console website issues an API key (sk-ant-api*). They authenticate
+          # differently and are not interchangeable, so an API key pasted into
+          # the OAuth secret must still reach the API-key input — otherwise
+          # every request 400s and the secret's name silently decides the
+          # outcome. That is what happened in run 33323829864.
+          #
+          # Only the prefix is tested; the value is never echoed.
+          case "$OAUTH_SECRET" in
+            sk-ant-oat*) OAUTH_TOKEN="$OAUTH_SECRET" ;;
+            "")          ;;
+            *)           # not an OAuth token — treat it as an API key
+                         [ -n "$API_KEY" ] || API_KEY="$OAUTH_SECRET"
+                         echo "::warning::The OAuth secret does not look like a \
+                         \`claude setup-token\` output (expected an sk-ant-oat prefix). \
+                         Treating it as an API key. An OAuth token cannot be copied \
+                         from the Console website — it is produced only by running \
+                         \`claude setup-token\`." ;;
+          esac
+
+          # Subscription billing wins when both are genuinely present. This is
+          # the opposite of Claude Code's own credential precedence, which ranks
+          # ANTHROPIC_API_KEY above the OAuth token — which is why the generate
+          # step passes only the chosen one rather than both. A leftover API key
+          # must not hijack a run a subscription token was configured for (it
+          # did exactly that in run 33322230662).
           if [ -n "$OAUTH_TOKEN" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "auth=oauth" >> "$GITHUB_OUTPUT"
             echo "::notice::Using OAuth token (subscription billing)."
           elif [ -n "$API_KEY" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Using ANTHROPIC_API_KEY (per-token billing)."
+            echo "auth=api_key" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using API key (per-token billing; requires Console credits)."
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "auth=none" >> "$GITHUB_OUTPUT"
             echo "::notice::No model credential is set \
             — skipping report generation. Set CLAUDEOUATH / CLAUDE_CODE_OAUTH_TOKEN \
             or ANTHROPIC_API_KEY to enable the weekly cadence \
@@ -188,8 +211,13 @@ jobs:
           # leftover API key silently override the subscription token this repo
           # is configured for. Blanking the unused one is what makes the guard's
           # choice actually binding.
-          anthropic_api_key: ${{ (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH) == '' && secrets.ANTHROPIC_API_KEY || '' }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
+          anthropic_api_key: ${{ steps.guard.outputs.auth == 'api_key' && (secrets.ANTHROPIC_API_KEY || secrets.CLAUDEOUATH || secrets.CLAUDE_CODE_OAUTH_TOKEN) || '' }}
+          claude_code_oauth_token: ${{ steps.guard.outputs.auth == 'oauth' && (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH) || '' }}
+          # Only needed for an identity-linked API key, which the API rejects
+          # without it: "anthropic-workspace-id is required when authenticating
+          # with an identity-linked API key" (run 33323829864). Unset for OAuth
+          # tokens and for workspace-scoped keys, and empty is treated as absent.
+          anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           claude_args: >-
             --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
             --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"

@@ -38,10 +38,31 @@ Either works, and they bill differently:
 | `CLAUDEOUATH` *(or `CLAUDE_CODE_OAUTH_TOKEN` — either name is read)* | `claude setup-token` | Against a Pro / Max / Team / Enterprise subscription |
 | `ANTHROPIC_API_KEY` | [Claude Console](https://platform.claude.com) | Per token, **and requires credits** |
 
+**These are two different credentials, and only one of them exists on a web
+page.** A Console API key (`sk-ant-api…`) is copied from
+[platform.claude.com](https://platform.claude.com). An OAuth token
+(`sk-ant-oat…`) is produced *only* by running `claude setup-token` in a
+terminal — there is no page to copy it from. Pasting an API key into the OAuth
+secret does not make it one.
+
+The workflow routes on the credential's **format**, not on which secret it
+landed in, so a key in the wrong slot still reaches the right input and the run
+logs a warning saying so. It does not, and cannot, convert one into the other.
+
 Set whichever suits you — this runs weekly forever, so it is a standing billing
 decision rather than a one-off. A Console API key is a separate product from a
 Claude subscription and is **not** funded by one: a brand-new key on an account
 with no credits shows as `Active` and still fails every request.
+
+**If you use an identity-linked API key** — one scoped to *All workspaces*
+rather than a single workspace — the API additionally requires a workspace ID
+and rejects the request without it:
+
+> `400 anthropic-workspace-id is required when authenticating with an
+> identity-linked API key`
+
+Set an `ANTHROPIC_WORKSPACE_ID` repository secret to supply it. A workspace-scoped
+key and an OAuth token both need nothing extra.
 
 **The OAuth token wins when both are set**, and the generate step passes only
 the chosen credential — the other is blanked. This is deliberate, and it is the
