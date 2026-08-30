@@ -21,18 +21,26 @@ name: scheduled-report
 # actually connected.
 #
 # ─── CREDENTIAL: EITHER ONE WORKS ────────────────────────────────────────────
-# Set exactly one repository secret:
+# Set one repository secret:
 #
+#   CLAUDEOUATH              — from `claude setup-token`, billed against a Pro,
+#   (or CLAUDE_CODE_OAUTH_TOKEN) Max, Team or Enterprise subscription. Either
+#                              name is read; this repo uses the former.
 #   ANTHROPIC_API_KEY        — a Claude Console API key, billed per token.
-#   CLAUDE_CODE_OAUTH_TOKEN  — from `claude setup-token`, billed against a Pro,
-#                              Max, Team or Enterprise subscription instead.
+#                              Requires credits: a Console key is separate from
+#                              a Claude subscription and is NOT funded by it.
 #
 # This workflow runs weekly forever, so the choice is a standing billing
-# decision, not a one-off. Both inputs are passed to the action below; the
-# action resolves each with `inputs.x || env.x`, so the unset one arrives empty
-# and is ignored. If both are set the API key wins — that is Claude Code's own
-# credential precedence (ANTHROPIC_API_KEY outranks CLAUDE_CODE_OAUTH_TOKEN),
-# not something this workflow decides.
+# decision, not a one-off.
+#
+# **The OAuth token wins when both are set**, and the generate step passes only
+# the chosen credential — the other is blanked. That matters: the action
+# forwards both to Claude Code, whose own precedence ranks ANTHROPIC_API_KEY
+# *above* the OAuth token, so a leftover API key would otherwise silently
+# hijack a run the subscription token was configured for. It did exactly that
+# in run 33322230662, which failed after three minutes of retries against a
+# credit-less key while a valid OAuth token sat unused. Nobody should have to
+# delete a secret to make the configured one take effect.
 #
 # ─── SAFE WHEN UNCONFIGURED ──────────────────────────────────────────────────
 # With neither secret set every step is skipped and the run succeeds with a
@@ -104,18 +112,30 @@ jobs:
         id: guard
         env:
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Either name works. CLAUDEOUATH is the name configured in this repo;
+          # CLAUDE_CODE_OAUTH_TOKEN is accepted too so a rename needs no code
+          # change. An unset secret is an empty string, so `||` picks the one
+          # that exists.
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
         run: |
-          if [ -n "$API_KEY" ]; then
+          # Subscription billing wins when both are present. This ordering is
+          # deliberate and is the opposite of Claude Code's own credential
+          # precedence, which ranks ANTHROPIC_API_KEY above the OAuth token —
+          # which is why the generate step below passes only the chosen one
+          # rather than both. A leftover API key must not be able to hijack a
+          # run that a subscription token was configured for (it did exactly
+          # that in run 33322230662, failing after 3 minutes of retries).
+          if [ -n "$OAUTH_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using OAuth token (subscription billing)."
+          elif [ -n "$API_KEY" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Using ANTHROPIC_API_KEY (per-token billing)."
-          elif [ -n "$OAUTH_TOKEN" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Using CLAUDE_CODE_OAUTH_TOKEN (subscription billing)."
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set \
-            — skipping report generation. Set either one to enable the weekly cadence \
+            echo "::notice::No model credential is set \
+            — skipping report generation. Set CLAUDEOUATH / CLAUDE_CODE_OAUTH_TOKEN \
+            or ANTHROPIC_API_KEY to enable the weekly cadence \
             (see docs/report-runbook.md)."
           fi
 
@@ -162,10 +182,14 @@ jobs:
         if: steps.guard.outputs.configured == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          # Whichever secret is unset arrives as an empty string, which the
-          # action treats as absent. See the credential note in the header.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Pass ONLY the credential the guard selected — never both. The action
+          # forwards each to Claude Code, whose own precedence ranks
+          # ANTHROPIC_API_KEY above the OAuth token, so passing both would let a
+          # leftover API key silently override the subscription token this repo
+          # is configured for. Blanking the unused one is what makes the guard's
+          # choice actually binding.
+          anthropic_api_key: ${{ (secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH) == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || secrets.CLAUDEOUATH }}
           claude_args: >-
             --mcp-config '{"mcpServers":{"threat-intel":{"command":"threat-intel-mcp"}}}'
             --allowedTools "Read,Write,Edit,Bash,mcp__threat-intel"
