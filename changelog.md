@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The OAuth token now wins over `ANTHROPIC_API_KEY`, and only the chosen credential is passed** (issue #104). Run `33322230662` failed after three minutes of retries against a credit-less Console key while a valid subscription token was configured — because the workflow passed *both* credentials to the action, and Claude Code's own precedence ranks `ANTHROPIC_API_KEY` above `CLAUDE_CODE_OAUTH_TOKEN`. The guard reported which credential it selected, but that selection was not binding on what actually got used.
+
+  Two changes make it binding. The guard checks the OAuth token first, and the generate step blanks the credential it did not choose rather than forwarding both. Verified across all four secret combinations, including the one that matters here: OAuth token present alongside a stale API key now yields `anthropic_api_key: ''`.
+
+  The operational point is that **no one should have to delete a secret to make the configured one take effect.** Requiring that was a defect in this workflow, not a step in a runbook.
+
+- **The OAuth secret is read under either name** — `CLAUDEOUATH` (configured in this repo) or `CLAUDE_CODE_OAUTH_TOKEN`. An unset secret is an empty string, so `||` picks whichever exists and a later rename needs no code change.
+
+- **Documented that a Console API key is not funded by a Claude subscription.** They are separate products, and a new key on an account with no credits shows as `Active` while failing every request — which is exactly how this surfaced, with `total_cost_usd: 0` and an empty `modelUsage`.
+
 - **`scheduled-report.yml` was missing `id-token: write`, so the report step failed before Claude was ever invoked** (issue #104). Found by the first real dispatch (run `33320791061`) rather than by reading: `claude-code-action` mints its GitHub token by exchanging an Actions OIDC token (`setupGitHubToken` -> `getOidcToken`), which needs that permission. Without it the action retried three times and died in about 15 seconds with `Could not fetch an OIDC token`.
 
   This is precisely the failure mode #104 exists to catch, and it is worth noting what static verification did and did not buy. Checking the action's `action.yml` confirmed every input name was real, and checking the permissions docs confirmed the `mcp__threat-intel` rule was correct — both held up. Neither could have surfaced a missing *workflow permission*, because nothing in the inputs refers to it. Authored-correctly and executed-correctly stayed different claims right up to the dispatch.

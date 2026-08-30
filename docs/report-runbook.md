@@ -35,12 +35,22 @@ Either works, and they bill differently:
 
 | Secret | Where it comes from | Billing |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | [Claude Console](https://platform.claude.com) | Per token |
-| `CLAUDE_CODE_OAUTH_TOKEN` | `claude setup-token` | Against a Pro / Max / Team / Enterprise subscription |
+| `CLAUDEOUATH` *(or `CLAUDE_CODE_OAUTH_TOKEN` — either name is read)* | `claude setup-token` | Against a Pro / Max / Team / Enterprise subscription |
+| `ANTHROPIC_API_KEY` | [Claude Console](https://platform.claude.com) | Per token, **and requires credits** |
 
 Set whichever suits you — this runs weekly forever, so it is a standing billing
-decision rather than a one-off. If both are set the API key wins, following
-Claude Code's own [credential precedence](https://code.claude.com/docs/en/iam#authentication-precedence).
+decision rather than a one-off. A Console API key is a separate product from a
+Claude subscription and is **not** funded by one: a brand-new key on an account
+with no credits shows as `Active` and still fails every request.
+
+**The OAuth token wins when both are set**, and the generate step passes only
+the chosen credential — the other is blanked. This is deliberate, and it is the
+opposite of Claude Code's own
+[credential precedence](https://code.claude.com/docs/en/iam#authentication-precedence),
+which ranks `ANTHROPIC_API_KEY` higher. Passing both would let a leftover API
+key silently override the token the repo is actually configured for, so nobody
+has to delete a secret to make the configured one take effect.
+
 With neither set every step skips and the run succeeds with a notice, so the
 workflow is inert until you opt in — it will not fail weekly in an
 unconfigured repo.
