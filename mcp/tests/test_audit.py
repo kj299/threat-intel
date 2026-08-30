@@ -150,3 +150,104 @@ class TestLogToolCall:
         with caplog.at_level(logging.INFO, logger="threat_intel_mcp.audit"):
             log_tool_call("demo", {}, record_count=1, latency_ms=1.0)
         assert "'error'" not in caplog.text
+
+
+class TestProtocolCredentialRedaction:
+    """Issue #1's second acceptance criterion, for the protocols it names.
+
+    `vault/protocols.py` ships typed credential bundles for gRPC, MQTT,
+    WebSocket and GraphQL, but the redactor only understood `name=value` and
+    `Bearer <token>` — REST shapes. Measured before the fix, a gRPC mTLS private
+    key, an MQTT `user:pass@host` connection string and a quoted
+    `'Authorization': 'token …'` header each passed through `redact_url`
+    unchanged. The credential *storage* for those protocols shipped; the
+    redaction did not follow it.
+    """
+
+    SECRETS = ("SEKRET123", "hunter2", "MIIEvQIBADANBg", "abc.def.ghi")
+
+    @pytest.mark.parametrize(
+        ("label", "line"),
+        [
+            ("rest query key", "GET https://api.shodan.io/search?key=SEKRET123"),
+            ("bearer header", "Authorization: Bearer abc.def.ghi"),
+            (
+                "grpc mtls private key",
+                "loading -----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBg\n-----END PRIVATE KEY-----",
+            ),
+            ("mqtt connection string", "connect mqtts://alice:hunter2@broker.example:8883"),
+            ("websocket access_token", "wss://feed.example/stream?access_token=SEKRET123"),
+            ("graphql single-quoted", "headers={'Authorization': 'token SEKRET123'}"),
+            ("graphql double-quoted", 'headers={"api_key": "SEKRET123"}'),
+            ("bare colon password", "password: hunter2"),
+            ("hyphenated api-key", "GET /v1/x?api-key=SEKRET123"),
+        ],
+    )
+    def test_no_credential_shape_survives_redaction(self, label: str, line: str):
+        redacted = redact_url(line)
+        leaked = [s for s in self.SECRETS if s in redacted]
+        assert not leaked, f"{label}: {leaked} still present in {redacted!r}"
+
+    @pytest.mark.parametrize(
+        "benign",
+        [
+            "monkey=banana",
+            "turkey=roast",
+            "latency_ms: 812",
+            "records=3541",
+            "GET https://api.cisa.gov/kev.json 200 OK",
+            "https://threatfox.abuse.ch/export/csv/recent/",
+        ],
+    )
+    def test_benign_lines_are_not_over_redacted(self, benign: str):
+        """Over-redaction is not free: a log that hides `monkey=banana` is a log
+        that lies about what happened. `monkey` matched before a boundary was
+        added — and `\\b` was the wrong boundary, because it also stopped
+        `access_token=` from matching and let a real token through."""
+        assert redact_url(benign) == benign
+
+    def test_every_protocol_transport_logger_is_filtered(self):
+        """Ties logger coverage to the protocols that have credential bundles.
+
+        The filter list was `("httpx", "httpcore")` while `protocols.py` held
+        bundles for four other transports, each of which logs through its own
+        logger. A credential bundle whose transport logs unfiltered is a
+        credential in the log.
+        """
+        from threat_intel_mcp.audit import REDACTED_LOGGERS
+
+        for name in ("websockets", "paho.mqtt", "grpc", "gql"):
+            assert name in REDACTED_LOGGERS, f"{name} has a credential bundle but no log filter"
+            installed = logging.getLogger(name).filters
+            assert any(type(f).__name__ == "_RedactingFilter" for f in installed), (
+                f"{name} is listed but the filter is not installed on it"
+            )
+
+    def test_protocol_bundles_and_filtered_loggers_stay_in_step(self):
+        """If a fifth protocol bundle is added, its logger must be covered too.
+
+        Asserted by name so the failure says which one, rather than a count
+        mismatch that leaves the reader guessing.
+        """
+        from threat_intel_mcp.audit import REDACTED_LOGGERS
+        from threat_intel_mcp.vault import protocols
+
+        bundle_to_logger = {
+            "GraphQLCredentials": "gql",
+            "WebSocketCredentials": "websockets",
+            "MQTTCredentials": "paho",
+            "GRPCCredentials": "grpc",
+        }
+        defined = {
+            name
+            for name in dir(protocols)
+            if name.endswith("Credentials") and not name.startswith("_")
+        }
+        unmapped = defined - set(bundle_to_logger)
+        assert not unmapped, (
+            f"new credential bundle(s) {sorted(unmapped)} have no logger mapping — "
+            "add the transport's logger to REDACTED_LOGGERS and map it here"
+        )
+        for bundle, log_name in bundle_to_logger.items():
+            if bundle in defined:
+                assert log_name in REDACTED_LOGGERS, f"{bundle} -> {log_name} not filtered"
