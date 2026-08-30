@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Feed credentials are now barred from `scheduled-report.yml`, enforced in CI.** The question that prompted this was whether wiring the twelve feed secrets into the report workflow would expose them. Referencing `${{ secrets.X }}` does not put a value in the repository, and GitHub masks known secrets in logs — so for an ordinary CI job the answer would be no. This is not an ordinary CI job.
+
+  `scheduled-report.yml` runs an LLM agent whose entire purpose is to ingest untrusted content — threat feeds, vendor blogs, leak-site aggregators, arbitrary web pages — while holding `Write` access and the ability to open a PR. The reports quote adversary-controlled text, so it is a prompt-injection surface by construction. A credential in that step's environment is reachable by the agent and can leave in a file it commits, and masking does not cover a committed file.
+
+  **Narrowing `--allowedTools` would not have mitigated this**, which is the part worth recording. Claude Code runs a built-in set of read-only Bash commands *without consulting the allowlist*, and that set includes `echo` and `cat`; the permissions documentation states it "is not configurable". `echo $VIRUSTOTAL_API_KEY` is therefore available under any Bash allow rule, and deny rules for every way a shell can read its own environment are whack-a-mole that would only look like protection. The control has to be architectural, not permissional.
+
+  The new **Agent credential isolation** check in `validate.yml` fails the build if any of the twelve feed credentials appears in that workflow. It derives the names from the adapters (`_credentials.get("x", "y")` -> `X_Y`, per `vault/env.py`) rather than hardcoding a list, so a new credentialed feed is covered the day it lands; if that call shape ever changes it fails loudly rather than passing forever. Model credentials are exempt by design — the agent authenticates with them, so isolating them from itself is not a coherent goal. Verified by injecting the exact `env:` block the check exists to prevent and confirming a non-zero exit.
+
+  No behavior changed: the report run needs only keyless feeds, so there was nothing to remove. This closes the door before someone opens it as an obvious-looking convenience.
+
 ### Added
 
 - **`scheduled-report.yml` now accepts either credential: `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`** (issue #104). The workflow previously demanded a Console API key, which is billed per token — and this runs weekly forever, so enabling it meant accepting a standing metered charge. `claude setup-token` produces an OAuth token that bills against an existing Pro/Max/Team/Enterprise subscription instead, and `claude-code-action` has taken a `claude_code_oauth_token` input all along. Requiring the key was an unnecessary condition on the one action that unblocks #76, #100's live confirmation, and the first live-data report.

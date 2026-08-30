@@ -38,6 +38,31 @@ name: scheduled-report
 # With neither secret set every step is skipped and the run succeeds with a
 # notice. It will not fail weekly in a repo that hasn't opted in.
 #
+# ─── DO NOT ADD FEED CREDENTIALS TO THIS WORKFLOW ────────────────────────────
+# Only the two model credentials above belong here. No QFEEDS_API_KEY, no
+# VIRUSTOTAL_API_KEY, none of the other ten. CI enforces this — see "Agent
+# credential isolation" in validate.yml.
+#
+# This is not an ordinary CI job. It runs an LLM agent whose entire purpose is
+# to ingest untrusted content — threat feeds, vendor blogs, leak-site
+# aggregators, arbitrary web pages — while holding Write access and the ability
+# to open a PR. Anything in this step's environment is reachable by that agent
+# and can leave in a file it commits. GitHub's log masking does not cover a
+# committed file, and would not catch a transformed value in a log either.
+#
+# Narrowing --allowedTools does not fix it. Claude Code runs a built-in set of
+# read-only Bash commands without consulting the allowlist, and that set
+# includes `echo` and `cat`; the docs state it "is not configurable". So
+# `echo $VIRUSTOTAL_API_KEY` is available under any Bash allow rule, and
+# enumerating deny rules for every way a shell can read its own environment is
+# whack-a-mole that would only look like protection.
+#
+# The keyless feeds this workflow actually needs (ThreatFox, CISA KEV, NVD) take
+# no credential, so there is nothing to isolate today. If paid feeds are wanted
+# later, fetch them in a separate step and hand the agent a data file — the
+# shape record-cassettes.yml already uses, where the credentials sit in a step
+# that runs a fixed script rather than an agent. See docs/report-runbook.md.
+#
 # ─── NOTE FOR #76 ────────────────────────────────────────────────────────────
 # GitHub-hosted runners have open outbound internet, so the keyless feeds
 # (ThreatFox, CISA KEV, NVD) are reachable here even though they are blocked by

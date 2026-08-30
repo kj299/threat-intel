@@ -564,6 +564,70 @@ jobs:
           print(f"OK: no excluded-origin domains in the {len(FILES)} source files")
           PY
 
+      - name: Agent credential isolation (scheduled-report.yml)
+        run: |
+          python <<'PY'
+          # scheduled-report.yml runs an LLM agent whose job is to ingest
+          # untrusted content -- threat feeds, vendor blogs, leak-site
+          # aggregators, arbitrary web pages -- with Write access and the ability
+          # to open a PR. Any feed credential placed in that step's environment
+          # is reachable by the agent and can leave in a file it commits, which
+          # log masking does not cover.
+          #
+          # Narrowing --allowedTools does NOT mitigate this. Claude Code runs a
+          # built-in set of read-only Bash commands without consulting the
+          # allowlist, and that set includes `echo` and `cat`; it "is not
+          # configurable" (docs/en/permissions). So `echo $VIRUSTOTAL_API_KEY`
+          # is available under any Bash allow rule, and enumerating deny rules
+          # for every way a shell can read its environment is whack-a-mole that
+          # would only look like protection.
+          #
+          # The invariant this check enforces: feed credentials never enter the
+          # agent's process environment. Paid feeds belong in a separate step
+          # that fetches first and hands the agent a data file -- the shape
+          # record-cassettes.yml already uses. See docs/report-runbook.md.
+          #
+          # Model credentials (ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN) are
+          # deliberately exempt: the agent authenticates with them by
+          # construction, so isolating them from itself is not a coherent goal.
+          import pathlib, re, sys, yaml
+
+          adapters = pathlib.Path("mcp/src/threat_intel_mcp/adapters")
+          # Derive the credential names from the adapters rather than hardcoding
+          # a list: EnvCredentialProvider maps (adapter, key) -> {ADAPTER}_{KEY}
+          # (vault/env.py), so a new credentialed feed is covered automatically.
+          pattern = re.compile(r'_credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"\s*\)')
+          expected = set()
+          for src in sorted(adapters.glob("*.py")):
+              for adapter_name, key in pattern.findall(src.read_text(encoding="utf-8")):
+                  expected.add(f"{adapter_name.upper()}_{key.upper()}")
+          if not expected:
+              print("FAIL: found no adapter credential lookups -- has the "
+                    "CredentialProvider call shape changed? This check would "
+                    "silently pass forever.")
+              sys.exit(1)
+
+          workflow = pathlib.Path(".github/workflows/scheduled-report.yml")
+          # Match against the PARSED workflow, not the raw text. Comments are the
+          # difference: the header explains this rule and names two credentials
+          # as examples of what not to add, which a substring scan of the file
+          # would flag. Round-tripping through the YAML parser drops comments and
+          # keeps everything that actually reaches the runner -- env: keys,
+          # secrets expressions, run scripts, action inputs.
+          text = yaml.dump(yaml.safe_load(workflow.read_text(encoding="utf-8")))
+          hits = sorted(name for name in expected if name in text)
+          if hits:
+              print(f"FAIL: {workflow} references feed credentials:")
+              for name in hits:
+                  print(f"  {name}")
+              print()
+              print("These would sit in the environment of an agent that reads "
+                    "untrusted web content and can commit files. Fetch the feeds "
+                    "in a separate step and pass the agent a data file instead.")
+              sys.exit(1)
+          print(f"OK: none of the {len(expected)} feed credentials appear in {workflow.name}")
+          PY
+
       - name: Plugin manifest (.claude-plugin/plugin.json)
         run: |
           python <<'PY'
