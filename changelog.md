@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`scheduled-report.yml` was missing `id-token: write`, so the report step failed before Claude was ever invoked** (issue #104). Found by the first real dispatch (run `33320791061`) rather than by reading: `claude-code-action` mints its GitHub token by exchanging an Actions OIDC token (`setupGitHubToken` -> `getOidcToken`), which needs that permission. Without it the action retried three times and died in about 15 seconds with `Could not fetch an OIDC token`.
+
+  This is precisely the failure mode #104 exists to catch, and it is worth noting what static verification did and did not buy. Checking the action's `action.yml` confirmed every input name was real, and checking the permissions docs confirmed the `mcp__threat-intel` rule was correct — both held up. Neither could have surfaced a missing *workflow permission*, because nothing in the inputs refers to it. Authored-correctly and executed-correctly stayed different claims right up to the dispatch.
+
+  **What the run did prove**, since the six steps before the failure all passed: the credential guard resolves a real secret and reports which one; the pinned install works on the runner; and the keyless pre-check reached **ThreatFox and CISA KEV over the wire and got a non-zero record count** — the first live confirmation of the #100 dialect fix, which until now had only ever been checked against the OpenCTI connector's implementation.
+
 ### Security
 
 - **Feed credentials are now barred from `scheduled-report.yml`, enforced in CI.** The question that prompted this was whether wiring the twelve feed secrets into the report workflow would expose them. Referencing `${{ secrets.X }}` does not put a value in the repository, and GitHub masks known secrets in logs — so for an ordinary CI job the answer would be no. This is not an ordinary CI job.
