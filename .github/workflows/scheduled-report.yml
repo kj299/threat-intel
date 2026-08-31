@@ -32,8 +32,9 @@ name: scheduled-report
 #                              Requires credits: a Console key is separate from
 #                              a Claude subscription and is NOT funded by it.
 #
-# This workflow runs weekly forever, so the choice is a standing billing
-# decision, not a one-off.
+# The schedule is off (see the `on:` block), so this is now a per-dispatch
+# cost rather than a standing one. If the weekly cron is restored, it becomes a
+# standing billing decision again.
 #
 # **The OAuth token wins when both are set**, and the generate step passes only
 # the chosen credential — the other is blanked. That matters: the action
@@ -46,7 +47,8 @@ name: scheduled-report
 #
 # ─── SAFE WHEN UNCONFIGURED ──────────────────────────────────────────────────
 # With neither secret set every step is skipped and the run succeeds with a
-# notice. It will not fail weekly in a repo that hasn't opted in.
+# notice, so a dispatch in a repo that hasn't opted in is a no-op rather than a
+# failure.
 #
 # ─── DO NOT ADD FEED CREDENTIALS TO THIS WORKFLOW ────────────────────────────
 # Only the two model credentials above belong here. No QFEEDS_API_KEY, no
@@ -80,10 +82,20 @@ name: scheduled-report
 # workflow would also satisfy #76's "first MCP-connected report".
 
 on:
-  schedule:
-    # Mondays 05:23 UTC — deliberately ahead of report-staleness.yml (06:17 Mon)
-    # so a successful generation clears the alarm in the same hour. Off :00.
-    - cron: "23 5 * * 1"
+  # ─── NO SCHEDULE — MANUAL ONLY ───────────────────────────────────────────────
+  # The weekly cron (Mondays 05:23 UTC) was removed deliberately: each run costs
+  # a full agent session — the first successful one took 50 turns — to report on
+  # three keyless feeds, two of which a plain HTTP request would fetch.
+  #
+  # The pipeline is proven: run 33326622088 produced
+  # reports/2026-08-30-threat-intel.md with live feeds connected. Re-running it
+  # weekly mostly re-proved that, at a standing cost.
+  #
+  # Re-enable the schedule when there is more to report on. Issue #169 tracks
+  # adding feeds and names the trigger: with three or more additional sources
+  # configured, the coverage badge can exceed MINIMAL and a weekly cadence earns
+  # its cost. Restore `- cron: "23 5 * * 1"` here and the matching alarm in
+  # report-staleness.yml at the same time — the two are a pair.
   workflow_dispatch:
     inputs:
       persona:

@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Scheduled report generation and its staleness alarm are now manual-only.** Both crons removed; `workflow_dispatch` kept on each, so a report can still be produced on demand.
+
+  Each scheduled run cost a full agent session — the first successful one took 50 turns — to report on three keyless feeds, two of which a plain HTTP request would fetch. The pipeline is proven (run `33326622088` produced `reports/2026-08-30-threat-intel.md` with live feeds connected); re-running it weekly mostly re-proved that, at a standing cost in model calls and Actions minutes.
+
+  `report-staleness.yml` had to go with it rather than after it. With no cadence, its "no new report in 10 days" condition is *permanently* true, so it would have refiled the same issue forever — noise that also trains people to ignore the alarm, which is the opposite of its purpose. It closed #141 to stop exactly that. The two are a pair and the workflow comments say so in both directions.
+
+  Two stale claims in the `scheduled-report.yml` header were corrected in the same change: it no longer says the workflow "runs weekly forever" or that it "will not fail weekly", neither of which is true now.
+
+  **Issue #169 records the trigger for turning both back on** — three or more additional feeds configured — along with the recommended cadence, the exact cron lines to restore, and why weekly rather than daily.
+
 - **MISP ZeroMQ adapter — the first concrete `ProtocolAdapter`** (`transports/misp_zmq.py`, issue #162). `ProtocolAdapter` shipped in Phase 3 with no live subclass, and a base class with no implementation is a design sketch. This is the first real one.
 
   **It deliberately proves the transport, not the credential path.** MISP's ZeroMQ interface has *no authentication* — the official docs state the channel "is available to localhost only," relying on network isolation — so this adapter loads no credential bundle and exercises none of `vault/protocols.py`. That distinction is why #162 was narrowed away from #1's scope, and it is stated in the module docstring, the README and `docs/architecture.md` so a merged ZeroMQ adapter is never mistaken for evidence that the protocol credential path works.
