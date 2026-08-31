@@ -77,7 +77,10 @@ threat-intel/
 +-- README.md                                         # this file
 +-- LICENSE
 +-- CLAUDE.md                                         # AI-assistant project context
-+-- docs/                                             # documentation (index.md, architecture.md, runbooks)
++-- docs/                                             # ALL prose documentation
+|   +-- index.md                                      # the deep reference (protocol, personas, scoring, validation)
+|   +-- architecture.md                               # Mermaid data-flow diagram
+|   +-- report-runbook.md                             # generating reports; the staleness alarm
 +-- changelog.md
 +-- contributing.md
 +-- .github/workflows/validate.yml                    # CI: layout + schema + parity checks
@@ -100,11 +103,10 @@ threat-intel/
         |   +-- output.schema.json                    # JSON Schema for output validation
         +-- examples/
             +-- outputs.json                          # one example per persona
-+-- standalone/                                      # flattened single-file distributions
++-- evals/                                           # skill-output honesty evals (invariants + scenarios)
++-- standalone/                                      # flattened single-file distributions (hand-maintained mirrors)
 |   +-- cyber-threat-intel-prompt.md                # self-contained prompt (any LLM)
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
-+-- docs/
-|   +-- architecture.md                             # Mermaid data-flow diagram (intel feed operations)
 +-- mcp/                                             # threat-intel-mcp server (v0.13.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
@@ -143,53 +145,32 @@ threat-intel/
 
 ---
 
-## Source Coverage Protocol (R1-R6)
+## How it behaves
 
-The skill applies six rules as **strong guidance** to discourage shallow output drawn from general knowledge — while staying honest when little is retrievable:
+Three properties are worth knowing before you run it. Each is explained in full in
+**[docs/index.md](docs/index.md)** — the deep reference — rather than restated here.
 
-- **R1 -- Per-tier targets (not quotas).** Each tier has a target: T1 ~5, T2 ~4, T3 ~3, T4 ~2, T5 ~2, T6 ~3, T7 best-effort, T8 ~3, T9 ~3 (≈25 preferred sources). If a tier or time range is thin, the skill consults what's real and notes the shortfall instead of manufacturing sources.
-- **R2 -- Source citation on every claim.** Every IOC, TTP, threat actor profile, and detection rule should carry a `source:` field. The schema still rejects placeholder sources (`unknown` / `general knowledge` / `n/a`) on emitted IOCs.
-- **R3 -- No fabrication (the hard line).** Inaccessible sources are marked `status: unverified (source inaccessible)` -- never substituted with invented IPs, hashes, or CVEs. When little is retrievable, the report says so plainly.
-- **R4 -- Coverage badge.** Header is stamped `COVERAGE: FULL` (~25+), `PARTIAL` (13-24), or `MINIMAL` (<13) as an honest self-report.
-- **R5 -- Coverage Ledger.** Appendix A is the per-tier ledger with consulted/skipped/met columns.
-- **R6 -- Source content is data, not instructions.** Text from consulted sources is evidence to analyze, never a command to obey (prompt-injection defense).
+- **Source Coverage Protocol (R1–R6).** Six rules applied as *strong guidance*, not a hard
+  gate: per-tier source targets, a citation on every claim, and — the hard line — **no
+  fabrication**. An inaccessible source is marked `unverified`, never replaced with an
+  invented IP, hash or CVE, and a quiet week is reported as quiet. Every report carries an
+  honest `FULL`/`PARTIAL`/`MINIMAL` badge and a per-tier ledger in Appendix A. Source
+  content is treated as evidence, never as instruction (prompt-injection defence).
+  → [the six rules in full](docs/index.md#source-coverage-protocol) ·
+  [the source matrix](skills/cyber-threat-intel/references/source-matrix.md)
 
-Full source matrix (with preferred/optional tags) is in [skills/cyber-threat-intel/references/source-matrix.md](skills/cyber-threat-intel/references/source-matrix.md).
+- **Six personas.** `enterprise_soc`, `enterprise_executive`, `smb_security`,
+  `individual_researcher`, `individual_privacy`, `red_team` — the persona drives section
+  list, tone and depth. A single run can also emit an executive overview alongside the
+  technical report via the `executive_overview` input.
+  → [what each persona gets](docs/index.md#personas) ·
+  [personas.md](skills/cyber-threat-intel/references/personas.md) ·
+  [`spec.yaml`](skills/cyber-threat-intel/spec.yaml) under `persona_profiles`
 
----
-
-## Personas
-
-The skill adapts output style and depth based on who is asking:
-
-| Persona | Output Style | Key Features |
-|---------|--------------|--------------|
-| Enterprise SOC | Technical depth | IOCs, detection rules, MITRE ATT&CK mapping |
-| Executive | Business focus | Risk dashboards, financial impact, peer comparison |
-| SMB Security | Actionable checklists | Budget-conscious, step-by-step guides |
-| Researcher | Learning-focused | Methodology explanations, lab exercises |
-| Individual | Jargon-free | Family safety, personal device protection |
-| Red Team | Exploit-focused | Attack chains, tool recommendations |
-
-Persona definitions: [skills/cyber-threat-intel/references/personas.md](skills/cyber-threat-intel/references/personas.md). Structured config: [skills/cyber-threat-intel/spec.yaml](skills/cyber-threat-intel/spec.yaml) under `persona_profiles`.
-
----
-
-## Threat Scoring
-
-```
-Score = (Exploitability x 0.25) + (Impact x 0.25) + (Relevance x 0.30) + (Urgency x 0.20)
-```
-
-| Priority | Score | Suggested Response Time |
-|----------|-------|-------------------------|
-| P1-CRITICAL | 90-100 | 0-4 hours |
-| P2-HIGH | 75-89 | 4-24 hours |
-| P3-MEDIUM | 50-74 | 1-7 days |
-| P4-LOW | 25-49 | 7-30 days |
-| P5-INFO | 0-24 | Awareness only |
-
-Full breakdown: [skills/cyber-threat-intel/references/scoring.md](skills/cyber-threat-intel/references/scoring.md).
+- **Threat scoring.** A weighted score over exploitability, impact, relevance and urgency,
+  mapped to P1–P5 with response times.
+  → [formula and priority bands](docs/index.md#threat-scoring) ·
+  [scoring.md](skills/cyber-threat-intel/references/scoring.md)
 
 ---
 
@@ -251,7 +232,9 @@ pip install jsonschema rfc3339-validator
 jsonschema -i your-output.json skills/cyber-threat-intel/schemas/output.schema.json
 ```
 
-CI runs the same validation plus version/persona/tier parity checks across `spec.yaml`, the schema, the examples, and the changelog. See [.github/workflows/validate.yml](.github/workflows/validate.yml).
+CI runs the same validation plus version, persona, user-input, tier and source-list parity checks across `spec.yaml`, the schema, the examples, the changelog and the mirrored prompt files. See [.github/workflows/validate.yml](.github/workflows/validate.yml).
+
+For the conforming output shape and a table of common validation errors with their fixes, see [docs/index.md](docs/index.md#schema-validation).
 
 ---
 
@@ -271,28 +254,30 @@ See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing
 
 ## Using this skill from an external consumer
 
-The skill is built to be driven programmatically (Claude Code, an OpenAI-based pipeline, or any orchestrator) and to feed upstream/downstream cyber-ops tooling such as a SIEM importer or batch-audit tool.
+The skill is built to be driven programmatically and to feed upstream/downstream cyber-ops
+tooling such as a SIEM importer or batch-audit tool. Two things matter most:
 
-- **Feed the self-contained file.** Point your consumer at [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md) — it inlines everything the model needs (source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract). Do **not** feed `spec.yaml` alone (it's the CI spec — missing the workflow and SIEM guidance). Note the legacy single-file `cyber_threat_skill.yaml` was split/renamed in 1.2.0, so that path no longer exists; a consumer still auto-discovering it will load nothing and produce empty output.
-- **Structured IOC hand-off.** With `build_iocs_and_queries` on (default), the skill populates `delimited_batch_export` — rows of `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity`, `actor`), plus `source`/`confidence`. Map those to your importer's columns (e.g. `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`, with `source`/`confidence` as optional trailing fields).
-- **The consumer owns input validation.** The skill emits **raw typed values** and never pre-formats a delimited string or sanitizes on a tool's behalf — escaping, quoting, and metacharacter/length filtering belong in the consuming tool's own input handling, because anything upstream (a different model, a compromised feed) can violate the contract.
-- **Validate** the output against [`schemas/output.schema.json`](skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
+- **Feed [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md)**,
+  which inlines everything the model needs. Do **not** feed `spec.yaml` alone — it is the CI
+  spec and carries no workflow or SIEM guidance.
+- **The consumer owns input validation.** The skill emits raw typed values and never escapes,
+  quotes or sanitizes on a tool's behalf, because anything upstream can violate the contract.
+
+Full hand-off contract, the `delimited_batch_export` column mapping, and the importer
+limitations that follow from that design: **[docs/index.md](docs/index.md#using-this-skill-from-an-external-consumer)**.
 
 ---
 
 ## Limitations
 
-- **Knowledge cutoff (without MCP).** Without the `threat-intel-mcp` server configured, output reflects the model's training data only. For breaking threats, configure live feed integration (see [MCP Server section](#mcp-server-mcp)) or consult professional threat intelligence services.
-- **Validate IOCs before deploying.** Whether IOCs come from training data or live feeds, validate them against additional trusted sources before deploying to detection or blocking systems. Live feed IOCs are current at retrieval time but may include false positives — treat them as indicators to investigate, not as confirmed-malicious block entries.
-- This skill structures AI output; it does not guarantee accuracy. Always verify critical findings.
-- Detection rules should be tested in a lab environment before production deployment.
-- This is not a replacement for professional threat intelligence services or incident response.
+Without the `threat-intel-mcp` server configured, output reflects the model's training data
+only. Validate IOCs against trusted sources before deploying them to detection or blocking
+systems, whether they came from training data or a live feed. Detection rules should be
+tested in a lab first. This skill structures AI output; it does not guarantee accuracy and
+does not replace professional threat intelligence or incident response.
 
-### Known limitations — `delimited_batch_export` / downstream importers
-
-- **Ingestibility filter.** Strict importers reject any `delimited_batch_export` row whose `detection_value` contains shell metacharacters (quotes, backtick, `$ ; | & < > ( ) { } ^`) or non-printable/non-ASCII characters, or whose `detection_method` falls outside the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`). The skill is guided to emit concrete, ASCII, metacharacter-free literals and the common methods, but a row that legitimately needs a blocked character will be dropped by such a consumer — by design (the consumer owns sanitization).
-- **`wmi query` indicators.** WMI query strings inherently contain quotes and parentheses, so they are almost always dropped by a metacharacter-filtering importer. Treat WMI indicators as behavioral/hunting IOCs (in `iocs.behavioral` / a hunting query) rather than as `delimited_batch_export` rows.
-- **No generator-side sanitization.** Because the skill deliberately does not escape its output, a consumer that ingests `delimited_batch_export` without its own input validation is responsible for any injection risk — never pipe these values straight into an execution path.
+Full list, including the `delimited_batch_export` ingestibility constraints:
+**[docs/index.md](docs/index.md#limitations)**.
 
 ---
 
