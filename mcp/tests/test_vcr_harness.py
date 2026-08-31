@@ -156,6 +156,95 @@ class TestPlayback:
                     client.get(f"{local_server}/a-path-never-recorded")
 
 
+class TestClockDerivedQueryParams:
+    """The defect that failed the first real recording run (run 33412893382).
+
+    NVD builds its request window from ``datetime.now()``, so the recorded
+    query string carries the recording moment and the replayed one carries the
+    replay moment. Matching on the raw query made the NVD cassette unplayable
+    **by construction** — the workflow's own playback gate failed 110 seconds
+    after recording, on nothing but a two-minute clock difference.
+
+    The gate was right to fail: a cassette that cannot drive its adapter is
+    worse than no cassette, because it looks like coverage. These tests pin the
+    fix in both directions — the clock must stop mattering, and everything else
+    must keep mattering.
+    """
+
+    def test_replays_when_the_clock_has_moved(self, local_server, tmp_path):
+        """Recorded at one instant, replayed at another. The actual regression."""
+        cassette = tmp_path / "nvd-window.yaml"
+        _record(
+            f"{local_server}/rest/json/cves/2.0"
+            "?lastModStartDate=2026-08-24T16:21:58.000"
+            "&lastModEndDate=2026-08-31T16:21:58.000"
+            "&resultsPerPage=2000&startIndex=0",
+            cassette,
+        )
+
+        player = build_vcr(record_mode="none")
+        with player.use_cassette(str(cassette)):
+            with httpx.Client() as client:
+                # Same request, 110 seconds later — the exact delta from the run.
+                response = client.get(
+                    f"{local_server}/rest/json/cves/2.0"
+                    "?lastModStartDate=2026-08-24T16:23:48.000"
+                    "&lastModEndDate=2026-08-31T16:23:48.000"
+                    "&resultsPerPage=2000&startIndex=0"
+                )
+        assert response.status_code == 200
+
+    def test_pages_are_still_told_apart_by_start_index(self, local_server, tmp_path):
+        """The loosened key must not collapse distinct requests onto each other.
+
+        NVD paginates with ``startIndex``; the failing run had recorded four
+        pages. If the matcher ignored too much, page 2 would replay page 1's
+        body and the adapter would silently see the same records four times.
+        """
+        cassette = tmp_path / "nvd-pages.yaml"
+        _record(
+            f"{local_server}/cves?lastModEndDate=2026-08-31T16:21:58.000"
+            "&resultsPerPage=2000&startIndex=0",
+            cassette,
+        )
+
+        player = build_vcr(record_mode="none")
+        with player.use_cassette(str(cassette)):
+            with httpx.Client() as client:
+                with pytest.raises(CannotOverwriteExistingCassetteException):
+                    client.get(
+                        f"{local_server}/cves"
+                        "?lastModEndDate=2026-08-31T16:23:48.000"
+                        "&resultsPerPage=2000&startIndex=2000"
+                    )
+
+    def test_a_non_clock_parameter_still_has_to_match(self, local_server, tmp_path):
+        """Only clock-derived names are exempt.
+
+        Widening the exemption to "anything that looks like a date" would let a
+        genuinely different request replay the wrong body.
+        """
+        cassette = tmp_path / "other-param.yaml"
+        _record(f"{local_server}/search?q=malware", cassette)
+
+        player = build_vcr(record_mode="none")
+        with player.use_cassette(str(cassette)):
+            with httpx.Client() as client:
+                with pytest.raises(CannotOverwriteExistingCassetteException):
+                    client.get(f"{local_server}/search?q=something-else")
+
+    def test_path_still_has_to_match(self, local_server, tmp_path):
+        """Guards against the matcher accidentally replacing the path check."""
+        cassette = tmp_path / "path.yaml"
+        _record(f"{local_server}/cves?startIndex=0", cassette)
+
+        player = build_vcr(record_mode="none")
+        with player.use_cassette(str(cassette)):
+            with httpx.Client() as client:
+                with pytest.raises(CannotOverwriteExistingCassetteException):
+                    client.get(f"{local_server}/other?startIndex=0")
+
+
 @pytest.mark.asyncio
 async def test_async_httpx_is_supported(local_server, tmp_path):
     """Every adapter uses ``httpx.AsyncClient``.

@@ -73,3 +73,25 @@ cannot quietly become a live test.
 
 Tests **skip** when a cassette is missing. Recording requires egress that CI does
 not have, so an absent cassette is a coverage gap, not a broken build.
+
+## Requests are matched with the clock excluded
+
+A request is matched on method, scheme, host, port, path, and query — but
+clock-derived query parameters are left out of the comparison
+(`_VOLATILE_QUERY_PARAMS` in `tests/vcr_config.py`).
+
+This is not a convenience. NVD's request window is computed from
+`datetime.now()`, so the recorded query carries the recording moment and the
+replayed one carries the replay moment. Comparing the raw query makes such a
+cassette unplayable **by construction**: the first real recording run failed its
+own playback gate 110 seconds after recording, on nothing but a clock
+difference.
+
+Everything else in the query is still compared, including NVD's `startIndex` —
+which is what tells its paginated requests apart. If that were also excluded,
+page two would replay page one's body and the adapter would see the same records
+several times while looking healthy.
+
+Add a name to that set only when a parameter is genuinely derived from the
+clock. A parameter that varies for any other reason is a real difference between
+two requests and must keep failing to match.
