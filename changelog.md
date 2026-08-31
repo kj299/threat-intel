@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Recorded cassettes were git-ignored, so a recording run could report success while committing nothing** (`mcp/.gitignore`, issue #105). With the clock-matching fix in place, run [33414811346](https://github.com/kj299/threat-intel/actions/runs/33414811346) recorded ThreatFox, CISA KEV and NVD, passed the credential scan, **passed the playback gate**, and then committed nothing. Every step was green.
+
+  `mcp/.gitignore` carried `tests/cassettes/*.yaml` — almost certainly added defensively before the scrubbing existed, and directly contradicting the premise of #105, which is that cassettes must be *committed* so the suite runs offline against real bytes.
+
+  This was the more dangerous of the two defects. The clock-matching bug failed loudly and stopped the run. This one produced a fully green workflow that did nothing, and the "No cassette changes to commit" notice is a legitimate outcome when a re-recording is byte-identical — so there was nothing to notice.
+
+  Fixed in three places, because one is where it came from and two are why it stays gone:
+
+  - The ignore rule is replaced by a comment saying why cassettes are tracked and where credential safety actually comes from (scrubbing plus the recorder's structural + literal scanner, both CI-asserted) — so the next person worried about committing secrets doesn't reach for the same tool.
+  - `record-cassettes.yml` fails loudly if any recorded cassette is ignored, before the "nothing to commit" path can swallow it.
+  - `TestCassettesAreCommittable` asserts on **every PR** that a cassette path is not ignored, naming the offending rule when it is. Verified by restoring the rule and watching all three parametrised cases fail.
+
 - **Cassette playback ignores clock-derived query parameters** (`tests/vcr_config.py`, issue #105). The first real `record-cassettes` run ([33412893382](https://github.com/kj299/threat-intel/actions/runs/33412893382)) recorded ThreatFox, CISA KEV and NVD successfully, passed the credential scan, and then **failed its own playback gate on NVD**.
 
   Nothing was wrong with the recording. NVD builds its request window from `datetime.now()`, so `lastModStartDate`/`lastModEndDate` carry the recording moment on the way in and the replay moment on the way out. With the raw query in the match key, an NVD cassette is unplayable **by construction** — this one failed on a 110-second clock difference, having been recorded at 16:21:58 and replayed at 16:23:48.

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import http.server
 import pathlib
+import subprocess
 import threading
 
 import httpx
@@ -154,6 +155,49 @@ class TestPlayback:
             with httpx.Client() as client:
                 with pytest.raises(CannotOverwriteExistingCassetteException):
                     client.get(f"{local_server}/a-path-never-recorded")
+
+
+class TestCassettesAreCommittable:
+    """A cassette git ignores is a cassette that can never do its job.
+
+    Run 33414811346 recorded ThreatFox, CISA KEV and NVD, passed the credential
+    scan, passed the playback gate — and committed nothing, because
+    ``mcp/.gitignore`` carried ``tests/cassettes/*.yaml``. Every step reported
+    success. The workflow's "No cassette changes to commit" notice is a normal
+    outcome when a re-recording is byte-identical, so nothing looked wrong.
+
+    That is the failure mode worth a permanent test: not a red step, but a green
+    one that did nothing. This runs on every PR, so the ignore rule cannot come
+    back quietly the next time someone worries about committing secrets —
+    credentials are handled by scrubbing and by the recorder's scanner, both
+    asserted above, not by hiding the files from git.
+    """
+
+    @staticmethod
+    def _check_ignore(path: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "check-ignore", "-v", path],
+            cwd=pathlib.Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+        )
+
+    @pytest.mark.parametrize("feed", ["threatfox", "cisa_kev", "nvd"])
+    def test_a_recorded_cassette_would_not_be_ignored(self, feed: str):
+        try:
+            result = self._check_ignore(f"mcp/tests/cassettes/{feed}.yaml")
+        except (OSError, FileNotFoundError):  # pragma: no cover - git absent
+            pytest.skip("git is not available")
+        if result.returncode not in (0, 1):  # pragma: no cover - not a repo
+            pytest.skip("not a git working tree")
+
+        # returncode 0 means git DOES ignore it; -v names the offending rule.
+        assert result.returncode == 1, (
+            f"mcp/tests/cassettes/{feed}.yaml is git-ignored, so a recording of "
+            f"it can never be committed and the cassette tests will skip "
+            f"forever while every workflow step reports success.\n"
+            f"Offending rule: {result.stdout.strip()}"
+        )
 
 
 class TestClockDerivedQueryParams:
