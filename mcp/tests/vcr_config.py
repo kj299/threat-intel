@@ -64,6 +64,46 @@ _SECRET_QUERY_PARAMS = [
 
 _REDACTED = "[REDACTED]"
 
+# ─── Wall-clock query parameters ─────────────────────────────────────────────
+#
+# NVD's request window is computed from `datetime.now()` at call time
+# (`adapters/nvd.py`), so `lastModStartDate`/`lastModEndDate` differ between the
+# moment a cassette is recorded and the moment it is replayed. Matching on the
+# raw query string therefore can NEVER match: the first recording run failed
+# its own playback gate 110 seconds after recording, on a two-minute clock
+# difference alone.
+#
+# These names are excluded from the match key. Everything else in the query is
+# still compared — critically `startIndex`, which is what tells NVD's four
+# recorded pages apart, so this loosens the key without collapsing distinct
+# requests onto one another.
+#
+# Add a name here only when a parameter is genuinely derived from the clock. A
+# parameter that varies for any other reason is a real difference between two
+# requests and must keep failing to match.
+_VOLATILE_QUERY_PARAMS = frozenset(
+    {
+        "lastmodstartdate",  # NVD — now() - window
+        "lastmodenddate",  # NVD — now()
+        "pubstartdate",  # NVD — same contract, unused today
+        "pubenddate",
+    }
+)
+
+
+def _stable_query(request) -> list[tuple[str, str]]:
+    """The request's query with clock-derived parameters removed."""
+    return sorted(
+        (name, value)
+        for name, value in request.query
+        if name.lower() not in _VOLATILE_QUERY_PARAMS
+    )
+
+
+def _match_query_ignoring_time(recorded, incoming) -> bool:
+    """vcrpy matcher: compare queries, ignoring clock-derived parameters."""
+    return _stable_query(recorded) == _stable_query(incoming)
+
 
 def _scrub_response(response: dict[str, Any]) -> dict[str, Any]:
     """Drop response headers that could carry session state.
@@ -87,7 +127,7 @@ def build_vcr(record_mode: str = "none") -> vcr.VCR:
             ``"all"`` when deliberately re-recording from an egress-capable
             environment.
     """
-    return vcr.VCR(
+    instance = vcr.VCR(
         cassette_library_dir=str(CASSETTE_DIR),
         record_mode=record_mode,
         filter_headers=[(h, _REDACTED) for h in _SECRET_HEADERS],
@@ -96,9 +136,15 @@ def build_vcr(record_mode: str = "none") -> vcr.VCR:
         # Match on method + URI only. Bodies are irrelevant (every feed call is
         # a GET) and matching on headers would make a cassette break the moment
         # a User-Agent version string changes.
-        match_on=["method", "scheme", "host", "port", "path", "query"],
+        #
+        # The query is compared with clock-derived parameters excluded — see
+        # _VOLATILE_QUERY_PARAMS. Comparing the raw query makes any adapter that
+        # builds a request window from now() unplayable by construction.
+        match_on=["method", "scheme", "host", "port", "path", "query_ignoring_time"],
         decode_compressed_response=True,
     )
+    instance.register_matcher("query_ignoring_time", _match_query_ignoring_time)
+    return instance
 
 
 def cassette_path(name: str) -> pathlib.Path:

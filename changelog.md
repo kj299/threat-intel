@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cassette playback ignores clock-derived query parameters** (`tests/vcr_config.py`, issue #105). The first real `record-cassettes` run ([33412893382](https://github.com/kj299/threat-intel/actions/runs/33412893382)) recorded ThreatFox, CISA KEV and NVD successfully, passed the credential scan, and then **failed its own playback gate on NVD**.
+
+  Nothing was wrong with the recording. NVD builds its request window from `datetime.now()`, so `lastModStartDate`/`lastModEndDate` carry the recording moment on the way in and the replay moment on the way out. With the raw query in the match key, an NVD cassette is unplayable **by construction** — this one failed on a 110-second clock difference, having been recorded at 16:21:58 and replayed at 16:23:48.
+
+  Those two names (plus `pubStartDate`/`pubEndDate`, the same NVD contract) are now excluded from the match key by a registered `query_ignoring_time` matcher. **Everything else in the query is still compared**, including `startIndex` — which is what tells NVD's four recorded pages apart. Excluding that too would have made page two replay page one's body, and the adapter would have seen the same records four times while looking perfectly healthy.
+
+  The gate was right to fail and is unchanged: a cassette that does not drive its adapter is worse than no cassette, because it looks like coverage. Four tests in `test_vcr_harness.py` now pin the behaviour in both directions — one reproduces the exact failure (and fails without the fix), three assert that a differing `startIndex`, a differing non-clock parameter, and a differing path all still refuse to match.
+
+  This is the same lesson as #100 and #162 in a third costume: the defect was invisible to reading the code and obvious the moment it ran against something real.
+
 ### Added
 
 - **Scheduled report generation and its staleness alarm are now manual-only.** Both crons removed; `workflow_dispatch` kept on each, so a report can still be produced on demand.
