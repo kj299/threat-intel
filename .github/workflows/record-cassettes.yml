@@ -149,7 +149,21 @@ jobs:
           git add mcp/tests/cassettes
           git commit -m "Record feed cassettes $(date -u +%Y-%m-%d)"
           git push -u origin "$branch"
-          gh pr create --draft \
+
+          # The push IS the deliverable — recorded, scanned and played-back
+          # cassettes are now on a branch. Opening the PR is convenience, and
+          # it fails when "Allow GitHub Actions to create and approve pull
+          # requests" is off (Settings → Actions → General → Workflow
+          # permissions), which is repository configuration, not a fault in
+          # this run.
+          #
+          # Run 33415771607 failed exactly this way, and reported the whole
+          # recording as a failure — the inverse of the #172 defect and just as
+          # misleading: there, everything was green and nothing was delivered;
+          # here, everything was delivered and the run went red. Warn loudly,
+          # name the setting, print the URL, and let the run reflect what
+          # actually happened.
+          if ! gh pr create --draft \
             --title "Record feed cassettes $(date -u +%Y-%m-%d)" \
             --body "Recorded by the \`record-cassettes\` workflow (#105).
 
@@ -160,3 +174,11 @@ jobs:
             makes the playback test assert against a quiet day forever.
           - A large diff on a feed nobody changed is a signal the upstream
             format moved, which is exactly what these are for."
+          then
+            echo "::warning::Branch '$branch' is pushed with the recorded \
+          cassettes, but this workflow could not open its PR. If the error above \
+          is 'GitHub Actions is not permitted to create or approve pull \
+          requests', enable it at Settings → Actions → General → Workflow \
+          permissions (tracked in #164). Open it by hand meanwhile:"
+            echo "https://github.com/${GITHUB_REPOSITORY}/pull/new/${branch}"
+          fi

@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **`record-cassettes` no longer fails a run whose recording succeeded** because it could not open its own PR. The push is the deliverable — recorded, credential-scanned, played-back cassettes land on a branch either way — and `gh pr create` fails when "Allow GitHub Actions to create and approve pull requests" is off, which is repository configuration rather than a fault in the run.
+
+  [Run 33415771607](https://github.com/kj299/threat-intel/actions/runs/33415771607) failed exactly this way and reported the whole recording as a failure. That is the inverse of the gitignore defect above and just as misleading: there, every step was green and nothing was delivered; here, everything was delivered and the run went red.
+
+  The step now warns loudly, names the setting and its location, references #164, and prints the compare URL so the PR can be opened by hand.
+
 ### Added
 
 - **Recorded cassettes for ThreatFox, CISA KEV and NVD — the last open half of issue #105.** Six tests that had skipped since the harness was built now run against bytes the services actually sent: **585 pass, 0 skipped** (previously 576 pass, 6 skipped).
