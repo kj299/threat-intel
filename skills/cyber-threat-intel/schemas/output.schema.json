@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/kj299/threat-intel/main/skills/cyber-threat-intel/schemas/output.schema.json",
   "title": "Cyber Threat Intelligence Prompt Toolkit Schema",
   "description": "JSON Schema for validating threat intelligence prompt output",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "type": "object",
   "definitions": {
     "ioc_network": {
@@ -977,6 +977,16 @@
           "type": "string"
         }
       }
+    },
+    "executive_overview": {
+      "type": "string",
+      "enum": [
+        "off",
+        "attached",
+        "separate"
+      ],
+      "default": "off",
+      "description": "Produce an executive overview alongside the primary deliverable named by output_format. 'off' (default) is prior behaviour, unchanged. 'attached' places the rendered dashboard at the head of the technical report. 'separate' writes it as a companion artifact (reports/<date>-threat-intel-executive.html). The overview is a projection of this same validated output object and may contain no finding the technical report does not; each artifact names the other."
     }
   },
   "properties": {
@@ -1069,6 +1079,9 @@
           "type": "boolean",
           "default": true,
           "description": "When true (default), the report includes generated IOCs and detection/hunting queries in the standard formats. When false, the report stays narrative without generated indicator/query artifacts."
+        },
+        "executive_overview": {
+          "$ref": "#/definitions/executive_overview"
         },
         "natural_language_query": {
           "type": "string"

@@ -303,3 +303,133 @@ def check_no_injection_obeyed(text: str, planted: str) -> Result:
 
 def check_report_file(path: pathlib.Path) -> Result:
     return check_report(path.read_text(encoding="utf-8"), name=path.name)
+
+
+# ─── Executive-overview consistency (issue #168) ─────────────────────────────
+#
+# When `executive_overview` is `attached` or `separate`, one run yields two
+# artifacts. The failure to guard against is not verbosity — it is **two
+# documents that disagree**: a dashboard reporting risk decreasing while the
+# technical report lists three new actively-exploited CVEs.
+#
+# The overview is a projection of the same validated output object, so these
+# five are properties of that projection, not stylistic preferences. They are
+# invariants 1-5 from the issue, in order.
+
+_REPORT_ID = re.compile(r"report[_\s-]?id[^\w]{0,4}([A-Za-z0-9._-]+)", re.IGNORECASE)
+_GENERATED = re.compile(r"generated(?:[_\s-]?at)?[^\w]{0,4}(\d{4}-\d{2}-\d{2}[T\s0-9:.+Z-]*)", re.IGNORECASE)
+# A number immediately qualified as a source/tier count, in either artifact.
+_SOURCE_COUNT = re.compile(
+    r"(\d{1,3})\s*(?:preferred\s+)?(?:sources?|tiers?)\s+consulted|consulted[^\d\n]{0,20}(\d{1,3})",
+    re.IGNORECASE,
+)
+
+
+def _first(pattern: re.Pattern[str], text: str) -> str | None:
+    match = pattern.search(text)
+    if match is None:
+        return None
+    return next((g for g in match.groups() if g), None)
+
+
+def check_paired_artifacts(
+    report: str, overview: str, name: str = "<pair>"
+) -> Result:
+    """Invariants 1-5 over a technical report and its executive overview.
+
+    `overview` is the rendered HTML; `report` the technical markdown. Both are
+    read as text — this asserts what a *reader* of each would see, which is the
+    level the disagreement would actually surface at.
+    """
+    result = Result(report=name)
+    add = result.findings.append
+
+    # 1. Identical report_id and generated_at.
+    r_id, o_id = _first(_REPORT_ID, report), _first(_REPORT_ID, overview)
+    add(
+        Finding(
+            "pair_same_report_id",
+            r_id is None or o_id is None or r_id == o_id,
+            f"report_id: report={r_id!r} overview={o_id!r}",
+        )
+    )
+    r_gen, o_gen = _first(_GENERATED, report), _first(_GENERATED, overview)
+    # Compare the date, not the full timestamp: the renderer formats it for
+    # display, and asserting byte-equality would fail on presentation alone.
+    add(
+        Finding(
+            "pair_same_generated_at",
+            r_gen is None or o_gen is None or r_gen[:10] == o_gen[:10],
+            f"generated_at: report={r_gen!r} overview={o_gen!r}",
+        )
+    )
+
+    # 2. Identical coverage badge and source count.
+    r_badge = header_badge(report) or appendix_badge(report)
+    o_badge = next((b for b in BADGES if b in overview.upper()), None)
+    add(
+        Finding(
+            "pair_same_badge",
+            r_badge is None or o_badge is None or r_badge == o_badge,
+            f"badge: report={r_badge!r} overview={o_badge!r}",
+        )
+    )
+    r_count, o_count = _first(_SOURCE_COUNT, report), _first(_SOURCE_COUNT, overview)
+    add(
+        Finding(
+            "pair_same_source_count",
+            r_count is None or o_count is None or r_count == o_count,
+            f"sources consulted: report={r_count!r} overview={o_count!r}",
+        )
+    )
+
+    # 3. Every CVE named in the overview appears in the technical report.
+    #
+    # The full "every claim resolves to a section" property is not mechanically
+    # decidable over prose, so this checks the part that is: identifiers. A CVE
+    # in the summary that the analysis does not contain is the concrete form of
+    # an overview asserting something the report does not support.
+    cve = re.compile(r"CVE-\d{4}-\d{4,7}")
+    in_report = set(cve.findall(report))
+    invented = sorted(set(cve.findall(overview)) - in_report)
+    add(
+        Finding(
+            "pair_no_cve_only_in_overview",
+            not invented,
+            f"CVEs in overview but not in the report: {invented}" if invented else "none",
+        )
+    )
+
+    # 4. Risk scores are carried over, not recomputed.
+    score = re.compile(r"\b(\d{1,3})\s*/\s*100\b")
+    o_scores = set(score.findall(overview))
+    r_scores = set(score.findall(report))
+    orphans = sorted(o_scores - r_scores)
+    add(
+        Finding(
+            "pair_scores_carried_over",
+            not (o_scores and r_scores) or not orphans,
+            f"scores in overview absent from the report: {orphans}" if orphans else "consistent",
+        )
+    )
+
+    # 5. Each artifact names the other. The one that matters most: an overview
+    # found alone, months later, must not read as the whole analysis.
+    add(
+        Finding(
+            "pair_overview_names_report",
+            bool(re.search(r"threat-intel\.md|technical report", overview, re.IGNORECASE)),
+            "overview points the reader at the technical report",
+        )
+    )
+    add(
+        Finding(
+            "pair_report_names_overview",
+            bool(re.search(r"-executive\.html|executive overview", report, re.IGNORECASE)),
+            "report names its executive companion",
+            # Style, not hard: `attached` puts them in one file, where a
+            # cross-reference is redundant rather than missing.
+            hard=False,
+        )
+    )
+    return result

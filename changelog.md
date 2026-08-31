@@ -6,7 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [1.22.0] - 2026-08-31
+
+### Added
+
+- **The `executive_overview` input (`off` | `attached` | `separate`)** — the input half of #110, whose renderer shipped in #157. One run can now produce both the technical report and the executive overview.
+
+  `output_format` stays a single-select naming the **primary** deliverable, because everything downstream depends on it. This is additive instead, so neither input has to mean two things:
+
+  | Want | Setting |
+  |---|---|
+  | Technical only | `technical_ioc_package` + `executive_overview: off` |
+  | Executive only | `executive_brief` |
+  | Both, one document | `technical_ioc_package` + `attached` |
+  | Both, split | `technical_ioc_package` + `separate` |
+
+  **Default `off` is byte-identical to previous behaviour**, so nothing changes for existing callers.
+
+  The rule that makes "both" safe is that **detail flows up as summary and summary flows down verbatim**: the overview is a *projection* of the same validated output object and may contain no finding the technical report does not. It is never written as a second document. The failure this targets is not verbosity — it is two documents that disagree, a dashboard reporting risk decreasing while the report lists three new actively-exploited CVEs.
+
+  Five consistency invariants are asserted in `evals/` via `check_paired_artifacts`: identical `report_id` and `generated_at`; identical badge and source count; no CVE in the overview the report lacks; risk scores carried over rather than recomputed; and each artifact naming the other. That last one matters most — an executive overview found alone, months later, must not read as the whole analysis. Ten tests cover them, eight asserting the corrupted case actually fails; a missing back-reference *from* the report is a style note only, since `attached` puts both in one file where the cross-reference is redundant.
+
+- **CI now enforces user-input parity across the four mirrored prompt files** (`SKILL.md`, `references/original-prompt.md`, and both `standalone/` files). It compares item numbering and bold titles rather than prose, since the files legitimately phrase the same input differently for their audience.
+
+  It was written because the mirrors had **already drifted**: `references/original-prompt.md` never received input #10 (`cwe_chaining`) when 1.21.0 landed, leaving the canonical long-form prompt an entire input behind for a full release with nothing to catch it. That gap is fixed here, and the check was verified against it — restoring the drift makes CI fail with the file and missing item named.
 
 ### Changed
 
