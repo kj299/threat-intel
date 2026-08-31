@@ -74,6 +74,30 @@ cannot quietly become a live test.
 Tests **skip** when a cassette is missing. Recording requires egress that CI does
 not have, so an absent cassette is a coverage gap, not a broken build.
 
+## NVD recordings are trimmed; the others are whole
+
+A 7-day NVD window is four pages of ~2000 verbose CVE records — the first
+successful recording produced a **40 MB** `nvd.yaml`. Committed cassettes are
+permanent, and every re-recording adds that again, so `shrink_nvd_cassette` in
+`scripts/record_cassettes.py` trims each page's `vulnerabilities` array to about
+28 entries (1.8% of the original). `TestCassetteSize` enforces a 4 MB ceiling.
+
+**`resultsPerPage` and `totalResults` are left exactly as NVD sent them.** That
+is load-bearing, not tidiness: the adapter advances with
+`start_index += resultsPerPage` and stops at `start_index >= totalResults`, so
+those two fields alone decide the request sequence. Untouched, the recorded
+four-page walk (0 → 2000 → 4000 → 6000, real `totalResults` of 7241) replays
+exactly — which matters because **no mock test covers NVD pagination**; this
+cassette is the only thing that does.
+
+Entry selection keeps the first 25 of each page plus, if not already present,
+one entry carrying each CVSS block (v3.1, v3.0, v4.0, v2) and one carrying none,
+so trimming cannot quietly drop the branch that parses a less common score.
+
+ThreatFox (~1.3 MB) and CISA KEV (~1.9 MB) are committed **whole**: single
+responses of a size git handles fine, and an untrimmed cassette is the stronger
+artefact wherever it is affordable.
+
 ## Requests are matched with the clock excluded
 
 A request is matched on method, scheme, host, port, path, and query — but

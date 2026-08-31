@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Recorded cassettes for ThreatFox, CISA KEV and NVD — the last open half of issue #105.** Six tests that had skipped since the harness was built now run against bytes the services actually sent: **585 pass, 0 skipped** (previously 576 pass, 6 skipped).
+
+  Recorded by [run 33415771607](https://github.com/kj299/threat-intel/actions/runs/33415771607) after the two defects above were fixed. Verified locally: all six playback tests pass, and the recorder's structural + literal credential scan passes over all three files.
+
+  **NVD recordings are trimmed; the other two are committed whole.** A 7-day NVD window is four pages of ~2000 verbose CVE records — the raw recording was **40 MB**, and cassettes are permanent once committed, with every re-recording adding that again. `shrink_nvd_cassette` trims each page's `vulnerabilities` array to ~28 entries: **40.6 MB → 0.74 MB**, 1.8% of the original. This is what #105 asked for ("truncate to a representative slice rather than committing megabytes per adapter, but keep enough rows to exercise every branch").
+
+  Two details make the trim safe rather than merely smaller:
+
+  - **`resultsPerPage` and `totalResults` are left exactly as NVD sent them.** The adapter advances with `start_index += resultsPerPage` and stops at `start_index >= totalResults`, so those two fields alone drive the request sequence. Untouched, the recorded four-page walk (0 → 2000 → 4000 → 6000, real `totalResults` of 7241, real final-page `resultsPerPage` of 1241) replays exactly. That matters more than it looks: **no mock test covers NVD pagination**, so this cassette is the only thing that does, and truncating to a single page would have silently deleted that coverage.
+  - **Entry selection is branch-aware, not just the first N.** It keeps the first 25 per page plus, if absent, one entry carrying each CVSS block and one carrying none. The committed result retains v3.1, v3.0, v4.0 and v2 blocks plus 28 metric-less entries, so trimming cannot quietly drop the parser branch for a less common score.
+
+  `TestCassetteSize` enforces a 4 MB ceiling per cassette, because that failure is silent and one-way — a fat cassette merges and git carries it forever.
+
 ### Fixed
 
 - **Recorded cassettes were git-ignored, so a recording run could report success while committing nothing** (`mcp/.gitignore`, issue #105). With the clock-matching fix in place, run [33414811346](https://github.com/kj299/threat-intel/actions/runs/33414811346) recorded ThreatFox, CISA KEV and NVD, passed the credential scan, **passed the playback gate**, and then committed nothing. Every step was green.

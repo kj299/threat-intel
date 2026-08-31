@@ -200,6 +200,35 @@ class TestCassettesAreCommittable:
         )
 
 
+class TestCassetteSize:
+    """Cassettes enter git history permanently, and re-recordings accumulate.
+
+    The first successful recording produced a **40 MB** nvd.yaml: a 7-day NVD
+    window is four pages of ~2000 verbose CVE records. Issue #105 anticipated
+    this ("truncate to a representative slice rather than committing megabytes
+    per adapter"), and `record_cassettes.shrink_nvd_cassette` now trims the
+    `vulnerabilities` arrays to ~28 entries per page — 1.8% of the original.
+
+    A ceiling is worth a test because the failure is silent and one-way: a fat
+    cassette merges, and git carries it forever whether or not anyone notices.
+    """
+
+    CEILING_MB = 4.0
+
+    @pytest.mark.parametrize("feed", ["threatfox", "cisa_kev", "nvd"])
+    def test_a_committed_cassette_stays_under_the_ceiling(self, feed: str):
+        path = pathlib.Path(__file__).parent / "cassettes" / f"{feed}.yaml"
+        if not path.is_file():
+            pytest.skip(f"no cassette recorded for {feed}")
+        size_mb = path.stat().st_size / 1e6
+        assert size_mb <= self.CEILING_MB, (
+            f"{path.name} is {size_mb:.1f} MB, over the {self.CEILING_MB} MB "
+            f"ceiling. Trim the recording (see shrink_nvd_cassette in "
+            f"scripts/record_cassettes.py) rather than raising this limit — "
+            f"cassettes are permanent once committed."
+        )
+
+
 class TestClockDerivedQueryParams:
     """The defect that failed the first real recording run (run 33412893382).
 
