@@ -122,6 +122,40 @@ SCENARIOS: tuple[Scenario, ...] = (
         invariants=["badge_present", "no_fabrication_claim"],
         notes="Page budget is checked on the rendered HTML (#110), not the markdown.",
     ),
+    Scenario(
+        key="overview_agrees_with_report",
+        title="Scenario 6 — the executive overview cannot contradict the report",
+        why=(
+            "The `executive_overview` input (#168) makes one run produce two "
+            "artifacts. The failure to guard against is not verbosity but two "
+            "documents that disagree — a dashboard reporting risk decreasing "
+            "while the technical report lists three new actively-exploited "
+            "CVEs. The overview is a projection of the same validated output, "
+            "so disagreement means it was written rather than derived."
+        ),
+        skill_input={
+            "persona": "enterprise_soc",
+            "output_format": "technical_ioc_package",
+            "executive_overview": "separate",
+            "time_range": "7d",
+        },
+        invariants=[
+            "pair_same_report_id",
+            "pair_same_generated_at",
+            "pair_same_badge",
+            "pair_same_source_count",
+            "pair_no_cve_only_in_overview",
+            "pair_scores_carried_over",
+            "pair_overview_names_report",
+        ],
+        notes=(
+            "Asserted with check_paired_artifacts over both artifacts, not "
+            "check_report over either alone — the property is a relation "
+            "between them and is invisible in each on its own. Worth also "
+            "running with time_range 24h: on a MINIMAL week the overview must "
+            "look thinner, which is where a confident layout would show up."
+        ),
+    ),
 )
 
 

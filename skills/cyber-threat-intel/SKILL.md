@@ -70,6 +70,7 @@ Answer the questions below to scope the analysis. If any field is blank, use the
 8. **Build IOCs and detection queries** — default: yes. When yes, the report includes generated IOCs and detection/hunting queries in the standard formats below (CSV, STIX 2.1, JSON, and YARA/Sigma/KQL/SPL/Snort rules). When no, the report stays narrative — findings, analysis, and recommendations without generated indicator or query artifacts.
 9. **Authenticated feeds** — default: none. List any threat intelligence feed services the operator has API access to (e.g. Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, Recorded Future). **When the `threat-intel-mcp` tools are connected, the skill retrieves these feeds itself** (Workflow step 2a) and cites the live indicators directly; otherwise the operator queries the feed API before invoking the skill and passes relevant data as context. Either way, declare the feed in `skill_input.feed_integrations` and treat its data as accessible (not `unverified`).
 10. **CWE chaining** — default: `osint`. Controls weakness-class chain analysis ([references/cwe-chaining.md](references/cwe-chaining.md)). `off` reports vulnerabilities individually; `catalog` models chains only from MITRE's own relationship data (CWE-709 named chains, CWE-1000 CanPrecede/CanFollow); `osint` additionally models chains evidenced in public reporting (vendor advisories, incident write-ups, CERT bulletins, exploit-chain research). The payoff is re-prioritising vulnerabilities CVSS scores low in isolation — three Mediums that compose into an unauthenticated path to an internal admin API are a Critical problem a CVSS-ordered patch queue will not reach for months.
+11. **Executive overview** — default: `off`. Produces an executive overview *alongside* the primary deliverable named by "Output format", so one run can yield both. `off` is technical-only. `attached` places the rendered dashboard at the head of the technical report. `separate` writes it as a companion artifact (`reports/<date>-threat-intel-executive.html`). The rule that makes "both" safe: **detail flows up as summary, summary flows down verbatim** — the overview is a projection of the same validated output object and may contain **no finding the technical report does not**. The failure to design against is not verbosity but two documents that disagree: a dashboard reporting risk decreasing while the technical report lists three new actively-exploited CVEs. Each artifact names the other, so an executive overview found alone months later is not mistakable for the whole analysis. On a sparse week the overview must *look* thinner, not merely say so.
 
 Full input options, persona profiles, scoring weights, and compliance mappings are defined in [spec.yaml](spec.yaml).
 
@@ -97,6 +98,7 @@ Full input options, persona profiles, scoring weights, and compliance mappings a
    CWE IDs and chain links obey R2/R3 — cite a source, never invent a link, and never invent the *reachability* between two weaknesses.
 6. **Compose output.** Follow the persona-appropriate template in [references/output-templates.md](references/output-templates.md). Stamp the coverage badge. Build Appendix A (Source Coverage Ledger).
 7. **Validate.** Output JSON sections must conform to [schemas/output.schema.json](schemas/output.schema.json). See [examples/outputs.json](examples/outputs.json) for one validated example per persona.
+8. **Executive overview** — skip entirely when `executive_overview: off` (the default). Otherwise derive it from the object validated in step 7, **never by writing a second document**: it is a projection, so it can contain no finding the report does not. Under `attached`, place it at the head of the technical report; under `separate`, render the companion (`python -m threat_intel_mcp.render`) to `reports/<date>-threat-intel-executive.html`. Both artifacts carry the same `report_id`, `generated_at`, coverage badge and source count, and each names the other — an overview found alone months later must not read as the whole analysis. Risk figures come from the [scoring.md](references/scoring.md) formula already applied, never recomputed for the overview. On a `MINIMAL` week the overview must *look* thinner, not merely say so.
 
 ## Output Header (mandatory)
 
@@ -125,6 +127,23 @@ Persona: <persona>
 ## Output Format Options
 
 Default: **Technical IOC Package**. Other formats (selected by persona or user override): Full Report (8–12 pages), Executive Brief (2 pages), Board Presentation (1 page + appendix), CISO Briefing (3–4 pages), Personal Security Guide (jargon-free), SMB Checklist.
+
+**`output_format` names one primary deliverable.** To produce a technical report *and* an executive overview from a single run, leave `output_format` at the technical value and set `executive_overview` (input 11):
+
+| Want | Setting |
+|---|---|
+| Technical only | `technical_ioc_package` + `executive_overview: off` |
+| Executive only | `executive_brief` |
+| Both, one document | `technical_ioc_package` + `attached` |
+| Both, split | `technical_ioc_package` + `separate` |
+
+Under `attached`, the executive overview opens the technical report — dashboard, then the full analysis beneath it. Under `separate`, emit the technical report as normal and render the companion from the same validated output object:
+
+```bash
+python -m threat_intel_mcp.render report.json -o reports/<date>-threat-intel-executive.html
+```
+
+**Never write the overview separately from the report.** It is computed from the same output object, so the two cannot disagree — that is the entire safety property. Both artifacts carry the same `report_id`, `generated_at`, coverage badge and source count, and each names the other.
 
 Exports supported: CSV, STIX 2.1, OpenIOC, JSON, MISP, MITRE ATT&CK Navigator layer. For any delimited/batch export, emit clean structured rows and rely on the consuming tool to validate and sanitize its own input.
 

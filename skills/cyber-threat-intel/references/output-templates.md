@@ -4,6 +4,21 @@ The persona-specific section lists. The Source Coverage Ledger (Appendix A, R5) 
 
 The `build_iocs_and_queries` input (default: on) applies to **all** templates below, not just the SOC IOC Package. When it is off, drop each template's generated-artifact sections — IOC packages/summaries, detection rules, and hunting queries — and keep that template's remaining narrative and advisory sections; always keep the Source Coverage Ledger (Appendix A). Concretely: the SOC IOC Package keeps Header, Deployment Priority, Response Playbooks, False-Positive Guidance, and the Ledger; the Technical Report drops IOC Summary and Detection Recommendations; the Executive Brief and Personal Security Guide have no generated-artifact sections, so they are unaffected.
 
+The `executive_overview` input (default: `off`) is **orthogonal** to the templates below.
+The template chosen by `output_format` still produces the primary deliverable; `attached`
+prepends the rendered executive overview to it, and `separate` writes that overview as a
+companion file instead. Neither mode changes which sections the chosen template emits.
+
+Under `attached`, the overview goes **above** the template's own Header — a reader who stops
+after page one has the summary, and the technical header follows immediately beneath it. Do
+not merge the two: the overview's dashboard and the template's own sections stay distinct,
+because the overview is a projection of the validated output and the template is the output.
+
+Under either mode the overview may contain **no finding the report does not**, both artifacts
+name each other, and both carry the same coverage badge. When that badge is `MINIMAL`, the
+overview must *look* thinner — muted treatment and an explicit statement of limited coverage
+— rather than presenting a sparse week in a confident layout.
+
 ## Executive Brief (max 2 pages)
 
 1. Threat Alert Banner

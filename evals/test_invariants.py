@@ -14,6 +14,7 @@ import pytest
 from invariants import (
     BADGES,
     check_no_injection_obeyed,
+    check_paired_artifacts,
     check_report,
     check_report_file,
     expected_badge,
@@ -223,6 +224,7 @@ def test_scenarios_reference_only_implemented_invariants():
     probe = check_report(_baseline(), "probe")
     implemented = {f.invariant for f in probe.findings}
     implemented |= {f.invariant for f in check_no_injection_obeyed("x", "y").findings}
+    implemented |= {f.invariant for f in check_paired_artifacts("x", "y").findings}
     # Scenario 0 is asserted by the invocation succeeding, not by report text.
     scenario_zero = set(by_key("loads_and_runs").invariants)
     for scenario in SCENARIOS:
@@ -243,3 +245,114 @@ def test_required_scenarios_exist():
 
 def test_every_badge_value_is_reachable():
     assert set(BADGES) == {expected_badge(0), expected_badge(13), expected_badge(25)}
+
+
+# ─── Executive-overview consistency (issue #168) ─────────────────────────────
+
+
+def _pair(report_extra: str = "", overview_extra: str = "") -> tuple[str, str]:
+    """A consistent report/overview pair, before any deliberate corruption."""
+    report = (
+        "THREAT INTELLIGENCE REPORT\n"
+        "report_id: ti-2026-08-31-001\n"
+        "Generated: 2026-08-31T06:00:00Z\n"
+        "Coverage: PARTIAL\n\n"
+        "Overall risk 62/100. Tracked: CVE-2026-8452 and CVE-2019-1068.\n"
+        "Total preferred sources consulted: 14\n"
+        "Companion: reports/2026-08-31-threat-intel-executive.html\n"
+        + report_extra
+    )
+    overview = (
+        "<h1>Executive Overview</h1>"
+        "<p>report_id: ti-2026-08-31-001</p>"
+        "<p>Generated at 2026-08-31</p>"
+        "<p>Coverage: PARTIAL</p>"
+        "<p>Overall risk 62/100</p>"
+        "<p>CVE-2026-8452 requires immediate action.</p>"
+        "<p>14 sources consulted</p>"
+        "<footer>Every finding here is drawn from "
+        "reports/2026-08-31-threat-intel.md</footer>"
+        + overview_extra
+    )
+    return report, overview
+
+
+def test_a_consistent_pair_passes():
+    report, overview = _pair()
+    result = check_paired_artifacts(report, overview, "consistent")
+    assert result.ok, [f"{f.invariant}: {f.detail}" for f in result.failures]
+
+
+def _fails(report: str, overview: str, invariant: str) -> None:
+    result = check_paired_artifacts(report, overview, "corrupted")
+    failed = {f.invariant for f in result.failures}
+    assert invariant in failed, (
+        f"{invariant} did not fail; failures were {sorted(failed) or 'none'}"
+    )
+
+
+def test_mismatched_report_id_fails():
+    report, overview = _pair()
+    _fails(report, overview.replace("ti-2026-08-31-001", "ti-2026-08-30-009"),
+           "pair_same_report_id")
+
+
+def test_mismatched_generated_date_fails():
+    report, overview = _pair()
+    _fails(report, overview.replace("2026-08-31</p>", "2026-08-24</p>"),
+           "pair_same_generated_at")
+
+
+def test_mismatched_badge_fails():
+    """The headline disagreement: leadership told FULL, analysis says PARTIAL."""
+    report, overview = _pair()
+    _fails(report, overview.replace("Coverage: PARTIAL", "Coverage: FULL"),
+           "pair_same_badge")
+
+
+def test_mismatched_source_count_fails():
+    report, overview = _pair()
+    _fails(report, overview.replace("14 sources consulted", "27 sources consulted"),
+           "pair_same_source_count")
+
+
+def test_cve_only_in_the_overview_fails():
+    """A CVE in the summary that the analysis does not contain."""
+    report, overview = _pair()
+    _fails(report, overview + "<p>Also CVE-2026-99999.</p>",
+           "pair_no_cve_only_in_overview")
+
+
+def test_a_cve_only_in_the_report_is_fine():
+    """Detail flows up as *summary* — the overview is allowed to carry less."""
+    report, overview = _pair()
+    result = check_paired_artifacts(report, overview, "subset")
+    assert result.ok
+    assert "CVE-2019-1068" not in overview
+
+
+def test_recomputed_risk_score_fails():
+    """A score the report does not contain means it was recomputed, not carried."""
+    report, overview = _pair()
+    _fails(report, overview.replace("62/100", "48/100"), "pair_scores_carried_over")
+
+
+def test_overview_not_naming_the_report_fails():
+    """The invariant that matters most: an overview found alone months later."""
+    report, overview = _pair()
+    stripped = overview.replace(
+        "Every finding here is drawn from reports/2026-08-31-threat-intel.md",
+        "Prepared for the board.",
+    )
+    _fails(report, stripped, "pair_overview_names_report")
+
+
+def test_report_not_naming_the_overview_is_a_style_note_only():
+    """`attached` puts both in one file, where a cross-reference is redundant."""
+    report, overview = _pair()
+    stripped = report.replace(
+        "Companion: reports/2026-08-31-threat-intel-executive.html\n", ""
+    )
+    result = check_paired_artifacts(stripped, overview, "attached-mode")
+    assert result.ok, "missing back-reference must not fail a build"
+    assert "pair_report_names_overview" in {f.invariant for f in result.style_notes}

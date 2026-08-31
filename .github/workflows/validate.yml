@@ -216,6 +216,79 @@ jobs:
           print(f"OK: version {truth!r} consistent across spec, schema, examples, and changelog")
           PY
 
+      - name: User-input parity (spec vs the four prompt files)
+        run: |
+          python <<'PY'
+          # Issue #168. The numbered "User Input" list is mirrored across four
+          # full-format files. Nothing checked them against each other, and they
+          # had already drifted: references/original-prompt.md never received
+          # input #10 (cwe_chaining) when 1.21.0 landed, so the canonical
+          # long-form prompt was an entire input behind for a full release.
+          #
+          # Compares the *count and bold titles* of the numbered items, not the
+          # prose — the files legitimately phrase the same input differently for
+          # their audience (SKILL.md links to references/, the standalone files
+          # cannot). A missing or renamed input fails; a reworded one does not.
+          import pathlib, re, sys
+          FILES = [
+              "skills/cyber-threat-intel/SKILL.md",
+              "skills/cyber-threat-intel/references/original-prompt.md",
+              "standalone/cyber-threat-intel-prompt.md",
+              "standalone/cyber-threat-intel-skill.md",
+          ]
+          # The input list is the numbered block under "## User Input", which
+          # ends at the next heading. Anchoring on the heading keeps this from
+          # matching the numbered Output Sections list further down.
+          def inputs(path):
+              text = pathlib.Path(path).read_text(encoding="utf-8")
+              m = re.search(r"^##+\s*User Input\s*$", text, re.MULTILINE)
+              if m is None:
+                  return None
+              rest = text[m.end():]
+              nxt = re.search(r"^##+\s", rest, re.MULTILINE)
+              block = rest[: nxt.start()] if nxt else rest
+              return [
+                  (int(num), title.strip())
+                  for num, title in re.findall(
+                      r"^(\d+)\.\s+\*\*(.+?)\*\*", block, re.MULTILINE
+                  )
+              ]
+
+          found = {f: inputs(f) for f in FILES}
+          errors = []
+          for f, items in found.items():
+              if items is None:
+                  errors.append(f"{f}: no '## User Input' section found")
+          if not errors:
+              baseline_file = FILES[0]
+              baseline = found[baseline_file]
+              expected_numbers = list(range(1, len(baseline) + 1))
+              for f, items in found.items():
+                  numbers = [n for n, _ in items]
+                  if numbers != expected_numbers:
+                      errors.append(
+                          f"{f}: numbering is {numbers}, expected {expected_numbers} "
+                          "(gap, duplicate, or an input missing from this mirror)"
+                      )
+                      continue
+                  titles = [t for _, t in items]
+                  base_titles = [t for _, t in baseline]
+                  if titles != base_titles:
+                      for i, (got, want) in enumerate(zip(titles, base_titles), 1):
+                          if got != want:
+                              errors.append(
+                                  f"{f}: input {i} is {got!r}, "
+                                  f"{baseline_file} has {want!r}"
+                              )
+          if errors:
+              print("FAIL: user-input parity across the mirrored prompt files:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          n = len(found[FILES[0]])
+          print(f"OK: {n} user inputs, identical titles and numbering across {len(FILES)} files")
+          PY
+
       - name: Persona parity (spec yaml vs examples)
         run: |
           python <<'PY'

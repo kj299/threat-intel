@@ -125,6 +125,18 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 - SOC IOC Package
 - Actionable Checklist
 
+`output_format` names **one** primary deliverable. To get a technical report *and* an
+executive overview from a single run, leave it at the technical value and set the
+`executive_overview` input: `off` (default, unchanged), `attached` (the rendered dashboard
+opens the technical report), or `separate` (a companion
+`reports/<date>-threat-intel-executive.html`, produced by
+[`python -m threat_intel_mcp.render`](../mcp/README.md)).
+
+The overview is a *projection* of the same validated output object, not a second document —
+so it can contain no finding the report does not, both artifacts carry the same coverage
+badge and source count, and each names the other. That last property is why an executive
+overview found on its own months later cannot be mistaken for the whole analysis.
+
 ### Export Formats
 - **IOCs**: CSV, STIX 2.1, OpenIOC, JSON, MISP. IOC/query generation is toggled by the `build_iocs_and_queries` input (default on). For programmatic consumers, the schema's optional `delimited_batch_export` array carries structured TTP rows (`mitre_id`, `name`, `fields`, `source`, `confidence`) for a downstream importer; the skill emits typed values and leaves delimiting, escaping, and validation to the consuming tool.
 - **Detection Rules**: YARA, Sigma, Snort/Suricata, KQL, SPL

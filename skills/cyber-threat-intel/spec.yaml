@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.20.0
+# Version: 1.22.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.21.0"
+  version: "1.22.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -43,6 +43,7 @@ skill:
     - "Six personas with adapted output depth and format"
     - "CWE-chain analysis (primary->resultant, composite, named, multi-branch) with mandatory defensive break-points"
     - "AI-assist factor + time-to-exploit velocity modeling for weakness chains"
+    - "Optional executive overview alongside the technical report (attached or separate), computed from the same validated output so the two cannot disagree"
 
 # =============================================================================
 # SOURCE COVERAGE PROTOCOL
@@ -211,6 +212,7 @@ user_inputs:
     output_format: technical_ioc_package
     build_iocs_and_queries: true   # default: build IOCs + detection/hunting queries in the standard formats
     cwe_chaining: osint            # default: model CWE chains, including those evidenced in public reporting
+    executive_overview: "off"      # default: technical report only, unchanged behaviour
     feed_integrations: []          # default: no authenticated feed integrations
 
   initial_questions:
@@ -289,6 +291,49 @@ user_inputs:
         R3 applies with full force: evidence_basis distinguishes a CWE-709
         catalog entry from a publicly reported composition from an inferred
         hypothesis, and an inferred chain must carry confidence: low.
+
+    - name: executive_overview
+      type: single_select
+      default: "off"
+      options:
+        - "off"
+        - attached
+        - separate
+      description: >
+        Produce an executive overview alongside the primary deliverable named
+        by output_format. "off" (default) is today's behaviour, unchanged.
+        "attached" places the rendered dashboard at the head of the technical
+        report. "separate" writes it as a companion artifact
+        (reports/<date>-threat-intel-executive.html) via
+        python -m threat_intel_mcp.render.
+
+        This is additive rather than a widening of output_format, which names
+        the primary deliverable and which everything downstream depends on.
+        A run can now yield both without either input having to mean two things.
+
+        The rule that makes "both" safe: detail flows up as summary, summary
+        flows down verbatim. The executive overview may contain NO finding the
+        technical report does not — it is a projection computed from the same
+        validated output object, never written separately. The technical report
+        does carry the executive summary and dashboard, so an analyst can see
+        exactly what leadership was told.
+
+        The failure to design against is not verbosity, it is two documents
+        that disagree: a dashboard reporting risk decreasing while the technical
+        report lists three new actively-exploited CVEs.
+
+        Five consistency invariants are asserted in evals/ — identical
+        report_id and generated_at; identical coverage badge and source count;
+        every executive claim resolving to a technical section; risk scores
+        from the same scoring.md formula rather than recomputed; and each
+        artifact naming the other. The last matters most: an executive overview
+        found alone, months later, must not be mistakable for the whole
+        analysis.
+
+        On a sparse week the overview must LOOK thinner — the renderer already
+        does this (muted treatment, explicit "limited source coverage this
+        period"), and the split path must preserve it rather than re-deriving
+        a confident layout.
 
     - name: feed_integrations
       type: list
@@ -563,10 +608,13 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-07-25"
+  last_updated: "2026-08-31"
   # (1.20.0 URLhaus removed from Tier 9 and the live-feed loop at operator request)
 
   version_history:
+    - version: "1.22.0"
+      date: "2026-08-31"
+      changes: "Add the executive_overview input (off | attached | separate) — the input half of #110, whose renderer shipped in #157. One run can now produce both the technical report and the executive overview without output_format having to mean two things: it still names the primary deliverable, and this is additive. Default \"off\" is byte-identical to previous behaviour. The governing rule is that detail flows up as summary and summary flows down verbatim — the overview is a projection of the same validated output object and may contain no finding the technical report does not, guarding against the real failure mode of two documents that disagree. Five consistency invariants asserted in evals/. Mirrored into SKILL.md, references/original-prompt.md and both standalone files; a new CI check enforces input-list parity across all four, which caught that original-prompt.md never received input #10 (cwe_chaining) when 1.21.0 landed."
     - version: "1.20.0"
       date: "2026-07-25"
       changes: "Remove URLhaus at operator request following a VirusTotal reputation flag on its CSV feed URL. Dropped from Tier 9 in all four source files, from input #9's feed examples, and from Workflow step 2a's tool list; the threat-intel-mcp urlhaus_fetch_iocs tool and URLhausAdapter are deleted (server now exposes 10 IOC feeds + 2 CVE feeds). ThreatFox remains the free abuse.ch IOC feed and MalwareBazaar remains a Tier 9 MUST, so the tier still has three MUST sources and the tier_9 target of 3 is unchanged. The enterprise_soc example ledger substitutes Any.Run for URLhaus to keep Tier 9 consulted-count at 3."

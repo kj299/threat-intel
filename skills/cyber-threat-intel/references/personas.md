@@ -19,6 +19,32 @@ If none specified: `enterprise_soc` with `output_format: technical_ioc_package`.
 
 See [output-templates.md](output-templates.md) for the section list per persona.
 
+## Pairing an executive overview with a technical report
+
+`output_format` names **one** primary deliverable, and everything downstream depends on it.
+The `executive_overview` input (default `off`) is additive, so a single run can produce both:
+
+| Mode | Effect |
+|---|---|
+| `off` | Technical report only — prior behaviour, unchanged |
+| `attached` | The rendered dashboard opens the technical report |
+| `separate` | Companion artifact at `reports/<date>-threat-intel-executive.html` |
+
+This matters most for `enterprise_soc` teams who have to brief leadership: previously that
+meant two runs and two chances to diverge.
+
+**Detail flows up as summary; summary flows down verbatim.** The overview is a *projection*
+of the same validated output object — it may contain no finding the technical report does
+not, and is never written as a second document. The technical report does carry the
+executive summary and dashboard, so an analyst can see exactly what leadership was told.
+
+The failure this design targets is not verbosity. It is **two documents that disagree**: a
+dashboard reporting risk decreasing while the technical report lists three new
+actively-exploited CVEs. Five invariants are asserted in `evals/` — same `report_id` and
+`generated_at`, same badge and source count, every executive claim resolving to a technical
+section, risk scores from the [scoring.md](scoring.md) formula rather than recomputed, and
+each artifact naming the other.
+
 ## Rendering the visual dashboard
 
 `enterprise_executive` declares `format: visual_dashboard`, and the skill emits

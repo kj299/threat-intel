@@ -19,16 +19,17 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `extraction-framework.md` -- IOC, TTP, actor, and forecast field schemas
   - `cwe-chaining.md` -- weakness-class (CWE) chaining for AI-assisted attacks, with defensive break-points
   - `scoring.md` -- threat scoring formula and priority mapping
-  - `personas.md` -- the 6 supported personas
-  - `output-templates.md` -- per-persona section lists and the mandatory Source Coverage Ledger template
+  - `personas.md` -- the 6 supported personas, and how `executive_overview` pairs one report with an executive overview
+  - `output-templates.md` -- per-persona section lists and the mandatory Source Coverage Ledger template. `executive_overview` is **orthogonal** to these: it prepends or splits off the overview without changing which sections the chosen template emits
   - `siem-queries.md` -- Splunk SPL / Sentinel KQL authoring (discovery-first, schema-driven, no invented datasets)
   - `compliance-frameworks.md` -- NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR mappings
   - `original-prompt.md` -- the original long-form prompt, kept for non-Claude assistants and as the canonical source for tier-name parity checks
+- `standalone/` -- self-contained copies for consumers that cannot install a plugin: `cyber-threat-intel-prompt.md` (long-form) and `cyber-threat-intel-skill.md` (condensed). **These are mirrors, not derivatives generated at build time**, so they drift silently unless CI compares them: the source-list check covers three files (matrix + original-prompt + standalone prompt) and the user-input check covers four (SKILL.md + original-prompt + both standalone files). The latter exists because `original-prompt.md` went a whole release missing input #10 (#168).
 - `skills/cyber-threat-intel/schemas/output.schema.json` -- JSON Schema for validating structured output
 - `skills/cyber-threat-intel/examples/outputs.json` -- one example output per persona
 - `tests/invalid/` -- negative schema fixtures (must be rejected)
 - `evals/` -- skill-output honesty evals (#83). `invariants.py` checks a generated report for the R1-R6 properties CI otherwise ignores (badge present and **not over-claimed**, ledger present, no-fabrication claim, no reserved-range indicators, sparse reports saying so in prose); `scenarios.py` defines six golden scenarios including R6 injection resistance; `run.py --corpus` checks every committed report offline (PR-gated), `run.py --scenario KEY` invokes the skill (model call, on demand). Assertions match **substance across several real phrasings, not exact labels** -- an exact-string draft false-alarmed on two honest reports -- and the badge check is **directional**: over-claiming fails, under-claiming is a style note, because a report consulting 14 training-data sources is right to badge MINIMAL
-- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, coverage-ledger consistency, tier parity, feed consistency, negative fixtures, source-list content parity (3 mirrored files), excluded-origin denylist; second job runs `mcp/` pytest suite (incl. skill-to-server tool parity) + ruff lint
+- `.github/workflows/validate.yml` -- CI: layout, JSON/YAML syntax, schema conformance, version parity, persona parity, **user-input parity across the four mirrored prompt files**, coverage-ledger consistency, tier parity, feed consistency, negative fixtures, source-list content parity (3 mirrored files), excluded-origin denylist; second job runs `mcp/` pytest suite (incl. skill-to-server tool parity) + ruff lint
 - `.github/workflows/report-staleness.yml` -- weekly alarm: opens/bumps an issue if `reports/` goes >10 days without a new report (see `docs/report-runbook.md`)
 - `.github/workflows/live-feed-check.yml` -- weekly live check of the keyless feeds (ThreatFox, CISA KEV, NVD) against their **real** endpoints; opens/bumps an issue on failure and closes it on recovery. Runs `pytest -m live`, which `pyproject.toml` deselects by default so PR CI stays mock-only (#78)
 - `mcp/` -- `threat-intel-mcp` MCP server (stdio transport); runtime counterpart to the prompt skill
