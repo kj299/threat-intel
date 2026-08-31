@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import pathlib
 import sys
@@ -107,6 +108,81 @@ _CREDENTIAL_ENV_VARS = (
 _REDACTED = "[REDACTED]"
 
 
+# ─── Size ────────────────────────────────────────────────────────────────────
+#
+# A 7-day NVD window is ~36 MB across four pages, and every re-recording adds
+# that again to git history forever. Issue #105 anticipated this: "Truncate to a
+# representative slice rather than committing megabytes per adapter, but keep
+# enough rows to exercise every branch."
+#
+# Only the `vulnerabilities` array is trimmed. `resultsPerPage` and
+# `totalResults` are left exactly as NVD sent them, and that is load-bearing
+# rather than tidiness: the adapter advances with `start_index += resultsPerPage`
+# and stops at `start_index >= totalResults`, so those two fields alone decide
+# the request sequence. Leaving them untouched means the recorded four-page walk
+# replays identically -- pagination stays covered, which matters because no mock
+# test covers it.
+_MAX_ENTRIES_PER_PAGE = 25
+
+# One entry carrying each CVSS block is kept even if it falls outside the first
+# N, so trimming cannot quietly drop the branch that parses v2 or v4.0 scores.
+_CVSS_BLOCKS = ("cvssMetricV31", "cvssMetricV30", "cvssMetricV40", "cvssMetricV2")
+
+
+def _representative(entries: list) -> list:
+    """The first N entries, plus one exercising each CVSS block and one with none."""
+    kept = list(entries[:_MAX_ENTRIES_PER_PAGE])
+    kept_ids = {id(e) for e in kept}
+
+    def _metrics(entry):
+        cve = entry.get("cve") if isinstance(entry, dict) else None
+        return (cve or {}).get("metrics") or {} if isinstance(cve, dict) else {}
+
+    for block in _CVSS_BLOCKS:
+        if any(_metrics(e).get(block) for e in kept):
+            continue
+        for entry in entries:
+            if _metrics(entry).get(block) and id(entry) not in kept_ids:
+                kept.append(entry)
+                kept_ids.add(id(entry))
+                break
+    if not any(not _metrics(e) for e in kept):
+        for entry in entries:
+            if not _metrics(entry) and id(entry) not in kept_ids:
+                kept.append(entry)
+                break
+    return kept
+
+
+def shrink_nvd_cassette(path: pathlib.Path) -> tuple[int, int]:
+    """Trim NVD response bodies in place. Returns (bytes_before, bytes_after)."""
+    before = path.stat().st_size
+    data = yaml.safe_load(path.read_text())
+    for interaction in data.get("interactions", []):
+        body = interaction.get("response", {}).get("body", {})
+        raw = body.get("string")
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            continue  # not JSON; leave it exactly as recorded
+        entries = parsed.get("vulnerabilities")
+        if not isinstance(entries, list):
+            continue
+        parsed["vulnerabilities"] = _representative(entries)
+        # resultsPerPage / totalResults deliberately untouched -- see above.
+        body["string"] = json.dumps(parsed)
+    path.write_text(yaml.safe_dump(data, default_flow_style=False, allow_unicode=True))
+    return before, path.stat().st_size
+
+
+# Feeds whose recordings are trimmed. ThreatFox (~1 MB) and CISA KEV (~1.6 MB)
+# are committed whole: they are single responses of a size git handles fine, and
+# an untrimmed cassette is the stronger artefact where it is affordable.
+_SHRINK = {"nvd": shrink_nvd_cassette}
+
+
 async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None, str]:
     factory, _ = FEEDS[name]
     cassette = CASSETTE_DIR / f"{name}.yaml"
@@ -115,6 +191,10 @@ async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None
         with recorder.use_cassette(str(cassette)):
             result = await factory(creds).fetch(time_range=time_range)
         count = result.record_count
+        if shrink := _SHRINK.get(name):
+            before, after = shrink(cassette)
+            logger_note = f" (trimmed {before / 1e6:.1f} MB -> {after / 1e6:.1f} MB)"
+            print(f"  {name}:{logger_note}")
         # A cassette of an empty response teaches nothing and would make the
         # cassette test assert against a quiet day forever.
         note = "" if count else "  (WARNING: recorded an empty response)"
