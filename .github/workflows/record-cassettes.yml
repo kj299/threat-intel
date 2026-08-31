@@ -122,6 +122,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A recorded cassette that git ignores can never be committed, and
+          # the "nothing to commit" path below cannot tell that apart from a
+          # byte-identical re-recording — so it reports success either way.
+          #
+          # That is exactly what run 33414811346 did: it recorded all three
+          # feeds, passed the credential scan, passed the playback gate, and
+          # committed nothing, because mcp/.gitignore held
+          # `tests/cassettes/*.yaml`. Every step was green. Check first.
+          ignored="$(git ls-files --others --ignored --exclude-standard -- mcp/tests/cassettes)"
+          if [ -n "$ignored" ]; then
+            echo "::error::Recorded cassettes are git-ignored and cannot be committed:"
+            echo "$ignored"
+            echo "Remove the ignore rule (see mcp/.gitignore) and re-run."
+            exit 1
+          fi
+
           if [ -z "$(git status --porcelain mcp/tests/cassettes)" ]; then
             echo "::notice::No cassette changes to commit."
             exit 0

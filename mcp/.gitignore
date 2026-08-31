@@ -9,4 +9,14 @@ dist/
 .coverage.*
 htmlcov/
 coverage.xml
-tests/cassettes/*.yaml
+# NOTE: tests/cassettes/*.yaml is deliberately NOT ignored.
+#
+# Cassettes are the point of #105: recorded upstream bytes, committed so the
+# suite runs against what a service actually sent rather than a fixture
+# someone wrote. An ignore rule here silently defeats the whole feature --
+# run 33414811346 recorded all three feeds, scanned them for credentials,
+# played them back, and then committed nothing, every step green.
+#
+# Credentials are handled by scrubbing (tests/vcr_config.py) and by the
+# recorder's structural + literal scanner, which CI asserts. Not by hiding
+# the files from git.
