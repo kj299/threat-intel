@@ -38,7 +38,7 @@ jobs:
         # part of that resolved set, so both jobs agree on versions.
         run: pip install jsonschema pyyaml rfc3339-validator pytest -c mcp/constraints-dev.txt
 
-      - name: Relative markdown links resolve (issue #86)
+      - name: "Relative markdown links resolve (issue #86)"
         run: |
           python <<'PY'
           # Issue #86 consolidated docs.md into docs/index.md. Moving a file
@@ -80,7 +80,7 @@ jobs:
           print(f"OK: {checked} relative links resolve (excluding {', '.join(EXCLUDED)})")
           PY
 
-      - name: Skill-output honesty evals (issue #83)
+      - name: "Skill-output honesty evals (issue #83)"
         # Structure is validated exhaustively above; this checks what the R1-R6
         # protocol exists to produce — honest badges, no fabrication, cited
         # indicators, graceful sparsity — over every committed report.
@@ -214,6 +214,112 @@ jobs:
                   print(f"  {line}")
               sys.exit(1)
           print(f"OK: version {truth!r} consistent across spec, schema, examples, and changelog")
+          PY
+
+      - name: "docs/index.md stays in step with spec.yaml (issue #166)"
+        run: |
+          python <<'PY'
+          # Issue #166. docs/index.md is the deep reference; README.md orients.
+          # Before #166 the two maintained ~8 sections in parallel and had
+          # already drifted -- the version header sat 14 releases behind (1.7.0
+          # while the skill was 1.21.0), and it went stale again within hours of
+          # the 1.22.0 bump, because nothing checked it.
+          #
+          # Prose can't be diffed usefully, so this pins the three facts that
+          # drift silently and are checkable: the version stamp, the persona
+          # list, and the tier count. Everything else is protected by there
+          # being only one copy of it.
+          import pathlib, re, sys, yaml
+          spec = yaml.safe_load(
+              pathlib.Path("skills/cyber-threat-intel/spec.yaml").read_text(encoding="utf-8")
+          )
+          doc = pathlib.Path("docs/index.md").read_text(encoding="utf-8")
+          errors = []
+
+          truth = spec["skill"]["version"]
+          m = re.search(r"\*\*Version:\*\*\s*([0-9]+\.[0-9]+\.[0-9]+)", doc)
+          if m is None:
+              errors.append("no '**Version:** X.Y.Z' stamp found in docs/index.md")
+          elif m.group(1) != truth:
+              errors.append(
+                  f"version stamp is {m.group(1)!r}, spec.yaml says {truth!r}"
+              )
+
+          personas = {k for k in spec["persona_profiles"] if k != "description"}
+          listed = m2.group(1) if (m2 := re.search(r"\*\*Personas:\*\*\s*(.+)", doc)) else ""
+          named = {p.strip() for p in listed.split(",") if p.strip()}
+          if missing := personas - named:
+              errors.append(f"personas in spec.yaml but not listed in docs/index.md: {sorted(missing)}")
+          if extra := named - personas:
+              errors.append(f"personas listed in docs/index.md but not in spec.yaml: {sorted(extra)}")
+
+          # The tier table is orientation, but a tier count that disagrees with
+          # the protocol is the kind of quiet wrongness this issue is about.
+          spec_tiers = len(spec["source_coverage_protocol"]["tier_minimums"])
+          doc_tiers = len(re.findall(r"^\|\s*(\d)\s*\|", doc, re.MULTILINE))
+          if doc_tiers != spec_tiers:
+              errors.append(
+                  f"tier table lists {doc_tiers} tiers, spec.yaml defines {spec_tiers}"
+              )
+
+          if errors:
+              print("FAIL: docs/index.md has drifted from spec.yaml:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          print(
+              f"OK: docs/index.md matches spec.yaml -- v{truth}, "
+              f"{len(personas)} personas, {spec_tiers} tiers"
+          )
+          PY
+
+      - name: "README does not restate the deep reference (issue #166)"
+        run: |
+          python <<'PY'
+          # The duplication #166 removed was not a one-off: README.md and
+          # docs/index.md independently explained the coverage protocol,
+          # personas, scoring, output formats, validation and limitations, and
+          # the copies had already diverged.
+          #
+          # A second copy re-appears by someone helpfully "documenting" a thing
+          # in the README rather than by anyone deciding to fork it, so the
+          # guard is a size ceiling on the sections that were merged, not a text
+          # comparison. README may summarise and link; it may not re-explain.
+          import pathlib, re, sys
+          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+          sections = {}
+          parts = re.split(r"^##\s+(.+)$", readme, flags=re.MULTILINE)
+          for i in range(1, len(parts), 2):
+              sections[parts[i].strip()] = parts[i + 1]
+
+          # Heading -> max lines. Each is a summary-plus-link, not an exposition.
+          CEILINGS = {
+              "How it behaves": 40,
+              "Using this skill from an external consumer": 25,
+              "Limitations": 20,
+              "Output Validation": 20,
+          }
+          errors = []
+          for heading, limit in CEILINGS.items():
+              if heading not in sections:
+                  errors.append(f"README.md no longer has a '## {heading}' section")
+                  continue
+              n = len([line for line in sections[heading].splitlines() if line.strip()])
+              if n > limit:
+                  errors.append(
+                      f"'## {heading}' is {n} non-blank lines, ceiling {limit} -- "
+                      "this section summarises and links; explain it in docs/index.md"
+                  )
+          # Each merged section must actually point at the deep reference.
+          for heading in CEILINGS:
+              if heading in sections and "docs/index.md" not in sections[heading]:
+                  errors.append(f"'## {heading}' does not link to docs/index.md")
+          if errors:
+              print("FAIL: README.md is re-explaining what docs/index.md owns:")
+              for e in errors:
+                  print(f"  {e}")
+              sys.exit(1)
+          print(f"OK: {len(CEILINGS)} README sections summarise and link rather than restate")
           PY
 
       - name: User-input parity (spec vs the four prompt files)

@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **`README.md` now orients; `docs/index.md` is the deep reference** (issue #166). The two independently maintained roughly eight of the same sections — coverage protocol, personas, scoring, output formats, validation, limitations, external-consumer contract — and the copies had already diverged.
+
+  The drift was not hypothetical or historical. `docs/index.md`'s version stamp sat **14 releases behind** (1.7.0 while the skill was 1.21.0) until #160, and it **went stale again within hours** of the 1.22.0 bump in #175, because nothing checked it. That is the argument for the change, in the file's own history.
+
+  Option 1 from the issue: the protocol, personas, scoring, output formats, schema validation, limitations and the external-consumer contract are now explained in `docs/index.md` **only**. README keeps install, orientation, layout, the MCP server, reports, architecture and links, and summarises the rest in a few lines with a link onward. Nothing was dropped — content unique to README's copies (the "validate IOCs before deploying" guidance, the `wmi query` importer caveat, the no-generator-side-sanitization note) was folded into `docs/index.md` first.
+
+  Two CI checks keep it from recurring, since the repository's pattern is to make claims enforceable rather than trusted:
+
+  - `docs/index.md` must match `spec.yaml` on version stamp, persona list and tier count.
+  - The merged README sections have a **line ceiling** and must each link to `docs/index.md`. A size ceiling rather than a text comparison, because a second copy re-appears by someone helpfully documenting a thing in the README, not by anyone deciding to fork it.
+
+  Both were verified against real violations: a stale version stamp, a dropped persona, a re-expanded Limitations section, and a removed link each fail with the specific cause named.
+
+- **CI step names containing `#` are now quoted.** YAML was reading `(issue #86)` as a comment, so two existing steps displayed truncated as `Relative markdown links resolve (issue` in the Actions UI. Cosmetic, but it made the step list harder to scan than it needed to be.
+
+- README's repository layout listed `docs/` twice — once as a summary line and again with only `architecture.md` under it — and omitted `evals/`. Corrected, with `standalone/` labelled as the hand-maintained mirrors they are.
+
 ## [1.22.0] - 2026-08-31
 
 ### Added

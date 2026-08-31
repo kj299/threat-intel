@@ -1,6 +1,10 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.21.0 | **License:** MIT | **Author:** kj299 | **Skill spec:** [spec.yaml](../skills/cyber-threat-intel/spec.yaml)
+**Version:** 1.22.0 | **License:** MIT | **Author:** kj299 | **Skill spec:** [spec.yaml](../skills/cyber-threat-intel/spec.yaml)
+
+> This is the **deep reference**. [`README.md`](../README.md) orients and installs; anything
+> explained at length — the coverage protocol, personas, scoring, output formats, validation,
+> limitations — is maintained *here only*, so the two cannot disagree. See issue #166.
 
 **Skill location:** [skills/cyber-threat-intel/](../skills/cyber-threat-intel/)
 
@@ -176,11 +180,17 @@ The skill can map findings to:
 
 ## Limitations
 
-- Without the optional `threat-intel-mcp` server connected, the AI draws from training data only and results reflect knowledge up to the model's cutoff date. With it connected (skill v1.12.0+), the skill retrieves live IOCs from configured feeds (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan) and cites them as live.
-- Generated IOCs are illustrative examples based on known patterns, not real-time indicators.
+- **Knowledge cutoff (without MCP).** Without the optional `threat-intel-mcp` server connected, the AI draws from training data only and results reflect knowledge up to the model's cutoff date. With it connected (skill v1.12.0+), the skill retrieves live IOCs from configured feeds and cites them as live.
+- **Validate IOCs before deploying.** Whether they come from training data or a live feed, validate indicators against additional trusted sources first. Live feed IOCs are current at retrieval time but may include false positives — treat them as indicators to investigate, not as confirmed-malicious block entries.
+- Generated IOCs drawn from training-data patterns are illustrative examples, not real-time indicators.
 - Detection rules should be tested in a lab environment before production deployment.
-- This skill does not replace professional threat intelligence services or incident response capabilities.
-- **`delimited_batch_export` ingestibility:** strict downstream importers drop rows whose `detection_value` contains shell metacharacters (quotes, backtick, `$ ; | & < > ( ) { } ^`) or non-ASCII, or whose `detection_method` is outside the common six. This is by design — the consumer owns sanitization — but means some legitimate indicators (notably `wmi query` strings, which contain quotes/parentheses) won't merge via batch export; surface those as behavioral/hunting IOCs instead.
+- This skill structures AI output; it does not guarantee accuracy. It does not replace professional threat intelligence services or incident response capabilities.
+
+### Known limitations — `delimited_batch_export` / downstream importers
+
+- **Ingestibility filter.** Strict importers reject any row whose `detection_value` contains shell metacharacters (quotes, backtick, `$ ; | & < > ( ) { } ^`) or non-printable/non-ASCII characters, or whose `detection_method` falls outside the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`). The skill is guided to emit concrete, ASCII, metacharacter-free literals and the common methods, but a row that legitimately needs a blocked character will be dropped — by design, since the consumer owns sanitization.
+- **`wmi query` indicators.** WMI query strings inherently contain quotes and parentheses, so a metacharacter-filtering importer almost always drops them. Surface WMI indicators as behavioral/hunting IOCs (in `iocs.behavioral` or a hunting query) rather than as `delimited_batch_export` rows.
+- **No generator-side sanitization.** Because the skill deliberately does not escape its output, a consumer that ingests `delimited_batch_export` without its own input validation owns any injection risk — never pipe these values straight into an execution path.
 
 ## Schema Validation
 

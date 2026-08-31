@@ -47,6 +47,8 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
 
 Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `contributing.md` stay at the root. **All prose documentation lives in `docs/`** -- `docs.md` was folded to `docs/index.md` (#86) because a root file and a root directory with near-identical names is navigation friction, and CI now fails on any broken relative markdown link outside the historical `docs/releases/` snapshots.
 
+**`README.md` orients; `docs/index.md` is the deep reference** (#166). The two previously maintained ~8 sections in parallel and had already drifted -- the version stamp sat 14 releases behind, and went stale again within hours of the next bump. The protocol, personas, scoring, output formats, validation and limitations are now explained in `docs/index.md` **only**; README summarises and links. Two CI checks hold the line: one pins `docs/index.md`'s version stamp, persona list and tier count to `spec.yaml`, and one caps the length of the merged README sections and requires each to link onward -- a size ceiling rather than a text diff, because a second copy re-appears by someone helpfully documenting a thing in the README, not by anyone deciding to fork it.
+
 ## Conventions
 
 - Skill follows Anthropic Agent Skills spec: `SKILL.md` with YAML frontmatter (`name`, `description`), `name` is lowercase-hyphen and matches directory name, body under 500 lines, supporting files in `references/` / `schemas/` / `examples/` referenced from `SKILL.md`.
