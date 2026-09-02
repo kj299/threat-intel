@@ -269,6 +269,13 @@ async def abuseipdb_fetch_blocklist(
     """
     try:
         result = await _abuseipdb.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        # Caller error: surface verbatim, never degrade (adapters/base.py
+        # taxonomy). The adapter ignores time_range/feed_types today so this
+        # cannot fire yet; it is here so the tool matches the other nine and a
+        # future validation in the adapter does not get swallowed into a
+        # misleading `unverified`.
+        raise
     except (CredentialError, KeyError) as exc:
         logger.warning("AbuseIPDB credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
