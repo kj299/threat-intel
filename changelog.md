@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`server.py` covered from 82% to 99%, closing #82.** The uncovered code turned out to be the *success* path of every single-feed tool — the `finalize → status → return` block a report actually takes when a feed works. `test_server_smoke.py` proves each tool degrades correctly on a malformed body, a missing credential, a tripped breaker; nothing had ever driven a tool through a fetch that *succeeds*, so the layer that emits `consulted`/`partial`/`unverified` — what Appendix A's Coverage Ledger is built from — was asserted nowhere.
+
+  `test_server_success_paths.py` patches each adapter's `fetch` and drives all twelve tools through clean, partial, and empty-with-failures results, asserting the ledger status each yields, plus the `ValueError`-surfaces-verbatim contract and NVD's provider-failure degrade. 43 tests; two skipped with the reason stated (below).
+
+### Fixed
+
+- **`abuseipdb_fetch_blocklist` did not re-raise `ValueError`.** The other nine IOC tools do, per the error taxonomy in `adapters/base.py`: a caller error surfaces verbatim rather than degrading into an honest-looking `unverified`. Harmless today only because the AbuseIPDB adapter ignores `time_range` and `feed_types` and so cannot raise one — added so the tool matches its siblings and a future validation in the adapter is not silently swallowed. Found by the new parametrised test, not by reading.
+
+  AbuseIPDB is also the one tool that hardcodes `consulted` instead of computing a partial status. That is **correct**: it is a single endpoint returning a single list, so `partial_failure` is empty by construction. The partial/unverified tests exempt it with that reason rather than force a status block onto a feed that can never be partial.
+
+
 ### Fixed
 
 - **Five documents still described a weekly report cadence that #170 removed.** `docs/report-runbook.md` said the skill "runs weekly (Mondays 05:23 UTC)" and "runs weekly forever", and that the staleness alarm "runs weekly"; `README.md` said reports are "produced by running the skill on a schedule" and referred to "the weekly staleness alarm"; `CLAUDE.md` called `report-staleness.yml` a "weekly alarm". All corrected to say both workflows are manual-only, why (each run is a full agent session; the alarm's condition is permanently true without a cadence), and that #169 records the re-enable condition.
