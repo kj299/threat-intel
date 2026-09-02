@@ -25,6 +25,7 @@ from typing import Any
 # a compatible .tool() decorator and .run() (stdio remains the default).
 from mcp.server import MCPServer
 
+from . import __version__
 from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.cisa_kev import CISAKEVAdapter, FEED_TYPES as CISA_KEV_FEED_TYPES
 from .adapters.nvd import NVDAdapter, FEED_TYPES as NVD_FEED_TYPES
@@ -54,6 +55,9 @@ logger = logging.getLogger(__name__)
 
 mcp = MCPServer(
     "threat-intel-mcp",
+    # Without this the server advertises version "" in its initialize
+    # response, so a client has no way to tell which build it is talking to.
+    version=__version__,
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "

@@ -107,7 +107,7 @@ threat-intel/
 +-- standalone/                                      # flattened single-file distributions (hand-maintained mirrors)
 |   +-- cyber-threat-intel-prompt.md                # self-contained prompt (any LLM)
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
-+-- mcp/                                             # threat-intel-mcp server (v0.13.0)
++-- mcp/                                             # threat-intel-mcp server (v0.15.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # FastMCP stdio server entry point
@@ -178,7 +178,9 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.13.0, Phase 5):** IOC feeds — Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feed ThreatFox; government CVE feeds — CISA KEV and NVD (Tier 1) via a CVE-keyed vulnerability-output path; concurrent fan-out (`fetch_all_iocs` / `fetch_all_cves`) with per-source circuit breakers; feed-data sanitization and egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles + bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL.
+**Current (v0.15.0):** 10 IOC feed adapters — Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feed ThreatFox; 2 government CVE feeds — CISA KEV and NVD (Tier 1) via a CVE-keyed vulnerability-output path. 15 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 12 single-feed tools, and `list_available_feeds`.
+
+Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
 ```bash
 cd mcp

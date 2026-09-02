@@ -66,6 +66,10 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Feed-data sanitization (control/zero-width/bidi, length caps) | ✅ Phase 4 |
 | Per-adapter egress allowlist | ✅ Phase 4 |
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
+| MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
+| Empty-parse guard (`guard_parsed` / `UpstreamFormatError`) on every adapter | ✅ #106 |
+| Recorded feed cassettes (ThreatFox, CISA KEV, NVD) replayed offline | ✅ #105 |
+| Cassettes for the nine credentialed adapters | blocked on feed credentials (#169) |
 | Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start
@@ -336,7 +340,13 @@ The seven numbered points are the whole recipe; the rest (pagination, caching, r
 6. **Set honest confidence and `action`.** Map the vendor's own score/verdict to `High`/`Medium`/`Low`; use `action: block` only for high-confidence blocklists, `action: alert` for heuristic/crawler detections (as `shodan.py` does). Never invent a confidence the source doesn't support (R3).
 7. **Normalize to `ioc_network`** with at least `type`, `value`, `confidence`, `source`. Parse IPs with `ipaddress` (rejects malformed octets), and normalise any naive timestamps to RFC 3339 so runtime date-time validation passes (see `shodan.py::_normalize_timestamp`). Return `None` to skip a record rather than emitting a half-populated one.
 8. **Register it.** Add a `{name}_fetch_iocs` tool in `server.py` (copy an existing one — they're identical except for names/tiers), append a `FeedSource(..., CircuitBreaker("Name"), _CONFIG_ERRORS)` to `_FEED_SOURCES` so `fetch_all_iocs` picks it up, and add a `list_available_feeds` entry.
-9. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is automatically covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` (add it to the tool list there) — that guard is what catches the "raised `ValueError` on a bad body" mistake.
+9. **Record a cassette if the feed is keyless.** `pytest-httpx` fixtures encode what you *believe* the
+   feed returns; a cassette is bytes it actually sent. ThreatFox shipped a parser that returned 0 IOCs
+   from a live 1 MB response while every mock test passed (#100), which is why `mcp/tests/cassettes/`
+   exists. Record with the `record-cassettes` workflow (runners have egress the dev sandbox lacks) and
+   keep the recording under the 4 MB ceiling `tests/test_vcr_harness.py` enforces. A credentialed feed
+   cannot be recorded until its key is configured (#169) — that is a known gap, not an exemption.
+10. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is automatically covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` (add it to the tool list there) — that guard is what catches the "raised `ValueError` on a bad body" mistake.
 
 ### API contract for each paid subscription source
 
