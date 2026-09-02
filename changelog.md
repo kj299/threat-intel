@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Re-recording a cassette appended instead of replacing.** vcrpy's `record_mode="all"` stacks new interactions behind any that already exist; `record_cassettes.py` only ever unlinked a *zero-byte* file (the failed-record cleanup), never a prior successful recording. Every re-record would have doubled the file, and playback's first-match would keep hitting the **old** bytes — a green run delivering stale data, the #172 failure shape again.
+
+  Surfaced by the first re-record this project ever performed: NVD, authenticated for the first time after the `NVD_API_KEY` secret was added. The result carried eight interactions — August's four in front, today's four behind — and passed every step. Nothing was red.
+
+  `fresh_recording()` in `vcr_config.py` now removes the prior cassette immediately before `use_cassette`; the recorder calls it. Three tests: one asserts the premise (vcrpy appends without help), one that the helper makes the second take replace the first, one that a first take with no prior file is fine. Kept as a separate function rather than a `build_vcr` flag so the playback path can never reach it.
+
+  Two things that run also proved, for the record: the authenticated request carries the `apikey` header **redacted** — first real credentialed recording, live key scrubbed — and the Record step took 89 s against 279 s unauthenticated.
+
+
 ### Added
 
 - **`server.py` covered from 82% to 99%, closing #82.** The uncovered code turned out to be the *success* path of every single-feed tool — the `finalize → status → return` block a report actually takes when a feed works. `test_server_smoke.py` proves each tool degrades correctly on a malformed body, a missing credential, a tripped breaker; nothing had ever driven a tool through a fetch that *succeeds*, so the layer that emits `consulted`/`partial`/`unverified` — what Appendix A's Coverage Ledger is built from — was asserted nowhere.
