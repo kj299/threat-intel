@@ -242,9 +242,9 @@ For the conforming output shape and a table of common validation errors with the
 
 ## Generated Reports (`reports/`)
 
-Dated threat-intelligence reports produced by running the skill on a schedule (default: `enterprise_soc` persona, 7-day lookback). Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
+Dated threat-intelligence reports produced by dispatching the skill (default: `enterprise_soc` persona, 7-day lookback). Generation is **manual-only** at present — the weekly cron was removed in #170 and the conditions for restoring it are recorded in #169. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
 
-How they're generated, how to run one manually (including wiring the MCP server for live-data reports), and the weekly staleness alarm that fires if the cadence dies: see [docs/report-runbook.md](docs/report-runbook.md).
+How they're generated, how to run one (including wiring the MCP server for live-data reports), and the staleness alarm that pairs with the cadence: see [docs/report-runbook.md](docs/report-runbook.md).
 
 ---
 
