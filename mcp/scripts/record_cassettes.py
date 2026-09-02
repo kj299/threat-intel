@@ -34,7 +34,7 @@ import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from tests.vcr_config import CASSETTE_DIR, build_vcr  # noqa: E402
+from tests.vcr_config import CASSETTE_DIR, build_vcr, fresh_recording  # noqa: E402
 
 from threat_intel_mcp.adapters.abuseipdb import AbuseIPDBAdapter  # noqa: E402
 from threat_intel_mcp.adapters.anyrun import AnyRunAdapter  # noqa: E402
@@ -188,6 +188,9 @@ async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None
     cassette = CASSETTE_DIR / f"{name}.yaml"
     recorder = build_vcr(record_mode="all")
     try:
+        # Replace, don't append: record_mode="all" stacks new interactions
+        # behind any that already exist, and playback then never reaches them.
+        fresh_recording(cassette)
         with recorder.use_cassette(str(cassette)):
             result = await factory(creds).fetch(time_range=time_range)
         count = result.record_count

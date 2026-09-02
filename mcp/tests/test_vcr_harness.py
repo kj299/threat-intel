@@ -229,6 +229,47 @@ class TestCassetteSize:
         )
 
 
+class TestReRecording:
+    """Re-recording must replace a cassette, not grow it.
+
+    Surfaced by the first re-record this project ever ran (NVD, authenticated
+    for the first time): the result held eight interactions — August's four
+    still in front, the new four behind. Playback stayed green because
+    first-match hit the old four, so the new recording was never exercised and
+    the file had silently doubled. A green run that delivers stale bytes is the
+    #172 failure shape again.
+    """
+
+    def _count(self, cassette: pathlib.Path) -> int:
+        import yaml
+
+        return len(yaml.safe_load(cassette.read_text())["interactions"])
+
+    def test_vcrpy_appends_without_help(self, local_server, tmp_path):
+        """The premise, asserted rather than assumed: record_mode="all" appends."""
+        cassette = tmp_path / "append.yaml"
+        _record(local_server, cassette)
+        _record(local_server, cassette)
+        assert self._count(cassette) == 2
+
+    def test_fresh_recording_makes_the_second_take_replace_the_first(
+        self, local_server, tmp_path
+    ):
+        from tests.vcr_config import fresh_recording
+
+        cassette = tmp_path / "replace.yaml"
+        _record(local_server, cassette)
+        fresh_recording(cassette)
+        _record(local_server, cassette)
+        assert self._count(cassette) == 1
+
+    def test_fresh_recording_tolerates_a_first_take(self, tmp_path):
+        """No prior cassette is the common case and must not raise."""
+        from tests.vcr_config import fresh_recording
+
+        fresh_recording(tmp_path / "never-existed.yaml")
+
+
 class TestClockDerivedQueryParams:
     """The defect that failed the first real recording run (run 33412893382).
 

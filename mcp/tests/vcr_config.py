@@ -147,6 +147,24 @@ def build_vcr(record_mode: str = "none") -> vcr.VCR:
     return instance
 
 
+def fresh_recording(cassette: pathlib.Path) -> None:
+    """Remove an existing cassette so the next recording *replaces* it.
+
+    vcrpy's ``record_mode="all"`` records every request but **appends** to a
+    cassette that already exists — it never truncates. The first re-recording
+    this project ever performed (NVD, authenticated for the first time) landed
+    as eight interactions: the four from August still in front, today's four
+    stacked behind them. Playback passed, because first-match found the *old*
+    four; the new bytes were dead weight, and every re-record would have
+    doubled the file again. Nothing in the run was red.
+
+    Call this immediately before ``use_cassette`` when recording. It is a
+    separate function rather than a flag on ``build_vcr`` so the playback path
+    can never reach it.
+    """
+    cassette.unlink(missing_ok=True)
+
+
 def cassette_path(name: str) -> pathlib.Path:
     return CASSETTE_DIR / f"{name}.yaml"
 
