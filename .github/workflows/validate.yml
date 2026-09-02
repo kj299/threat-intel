@@ -946,7 +946,18 @@ jobs:
         run: pip install -e ".[dev]" -c constraints-dev.txt
 
       - name: Run tests
-        run: python -m pytest tests/ -v --tb=short
+        # `coverage run` rather than `pytest --cov`: `coverage` is already in the
+        # dev extra and pinned in constraints-dev.txt; pytest-cov would be a new
+        # dependency for the same numbers.
+        run: python -m coverage run --source=threat_intel_mcp -m pytest tests/ -v --tb=short
+
+      - name: Coverage report (non-gating, issue #82)
+        # Visible, not enforced. #82 closed with server.py at 82% against a 90%
+        # target and no CI report at all, so the shortfall was invisible for a
+        # month. This makes it visible on every run without blocking merges on
+        # a number nobody has agreed to gate on.
+        if: always()
+        run: python -m coverage report --show-missing --skip-covered | tail -25
 
       - name: Lint (ruff)
         run: ruff check src/ tests/ scripts/

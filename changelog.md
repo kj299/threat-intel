@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Five documents still described a weekly report cadence that #170 removed.** `docs/report-runbook.md` said the skill "runs weekly (Mondays 05:23 UTC)" and "runs weekly forever", and that the staleness alarm "runs weekly"; `README.md` said reports are "produced by running the skill on a schedule" and referred to "the weekly staleness alarm"; `CLAUDE.md` called `report-staleness.yml` a "weekly alarm". All corrected to say both workflows are manual-only, why (each run is a full agent session; the alarm's condition is permanently true without a cadence), and that #169 records the re-enable condition.
+
+  This was a retrospective finding, and the cause is worth stating: #170 corrected the workflow *header comments* and left the operator-facing runbook untouched. The check that pins `docs/index.md` to `spec.yaml` (#166) does not reach the runbook, and nothing does.
+
+- `CLAUDE.md` said `scenarios.py` defines **six** golden scenarios; #175 added a seventh. Corrected, with the fact that none of the seven has ever been executed stated alongside rather than left for the reader to discover.
+
+### Changed
+
+- **CI now prints a coverage report on every MCP test run** (non-gating). Issue #82 was closed with `server.py` at 82% against a 90% target and no coverage visible in CI — its third acceptance criterion — so the shortfall went unnoticed for a month. `coverage run -m pytest` replaces the bare pytest invocation, using the `coverage` package already pinned in the dev extra rather than adding `pytest-cov`. #82 is reopened for the `server.py` gap.
+
+
+### Fixed
+
 - **`threat_intel_mcp.__version__` was `"0.1.0"` while the package was `0.15.0`** — fourteen minor releases stale. Nothing caught it because nothing read it: `MCPServer` was constructed without a version, so the server advertised `"version": ""` in its initialize response and no client could tell which build it was talking to. `__version__` now derives from installed package metadata, the server passes it through, and two tests pin both.
 
   Found by probing the running server rather than by reading the code — it starts, exposes 15 tools, and now reports `{'name': 'threat-intel-mcp', 'version': '0.15.0'}`.

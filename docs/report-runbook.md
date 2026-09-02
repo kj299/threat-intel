@@ -25,10 +25,18 @@ live feed access says so and contains no literal IOC values.
 ## How reports are generated
 
 [`scheduled-report.yml`](../.github/workflows/scheduled-report.yml) runs the
-skill weekly (Mondays 05:23 UTC) with the `threat-intel-mcp` server connected,
-and opens a PR adding the dated report (commit convention:
+skill with the `threat-intel-mcp` server connected and opens a PR adding the
+dated report (commit convention:
 `Add scheduled threat-intel report: YYYY-MM-DD (<persona>, <range>)`).
-`workflow_dispatch` runs it on demand with a chosen persona and time range.
+It is **manual-only**: trigger it from Actions → scheduled-report → *Run
+workflow* with a chosen persona and time range.
+
+> **The weekly cron was removed (#170).** Each run costs a full agent session
+> — the first successful one took 50 turns — to report on three keyless feeds,
+> which was not worth a standing weekly charge. The trigger for re-enabling it,
+> the exact cron lines to restore, and why weekly rather than daily are all
+> recorded in [#169](https://github.com/kj299/threat-intel/issues/169): three
+> or more additional feed credentials configured.
 
 **Enabling it:** the workflow needs one credential, as a repository secret.
 Either works, and they bill differently:
@@ -49,8 +57,9 @@ The workflow routes on the credential's **format**, not on which secret it
 landed in, so a key in the wrong slot still reaches the right input and the run
 logs a warning saying so. It does not, and cannot, convert one into the other.
 
-Set whichever suits you — this runs weekly forever, so it is a standing billing
-decision rather than a one-off. A Console API key is a separate product from a
+Set whichever suits you. While the workflow is manual-only each dispatch is a
+one-off charge; if the weekly cron is restored (#169) it becomes a standing
+billing decision. A Console API key is a separate product from a
 Claude subscription and is **not** funded by one: a brand-new key on an account
 with no credits shows as `Active` and still fails every request.
 
@@ -73,7 +82,7 @@ key silently override the token the repo is actually configured for, so nobody
 has to delete a secret to make the configured one take effect.
 
 With neither set every step skips and the run succeeds with a notice, so the
-workflow is inert until you opt in — it will not fail weekly in an
+workflow is inert until you opt in — it will not fail on dispatch in an
 unconfigured repo.
 
 > **Verified end to end** by run `33326622088` on 2026-08-30, which produced
@@ -188,7 +197,13 @@ described or ran it.
 
 ## Staleness guard
 
-[`report-staleness.yml`](../.github/workflows/report-staleness.yml) runs
-weekly: if nothing has touched `reports/` in **10 days**, it opens (or bumps)
-a `Report pipeline stale` issue. Close the issue by landing a fresh report —
-or by consciously deciding to pause the cadence and saying so there.
+[`report-staleness.yml`](../.github/workflows/report-staleness.yml) checks
+whether anything has touched `reports/` in the last **10 days** and opens (or
+bumps) a `Report pipeline stale` issue if not.
+
+It is **manual-only, and deliberately so** (#170): with no cadence its condition
+is permanently true, so on a schedule it would refile the same issue forever —
+noise that trains people to ignore the alarm. It and `scheduled-report.yml`
+are a pair; restore both crons together when #169's threshold is met, with the
+staleness check offset 54 minutes after generation so a successful run clears
+the alarm in the same hour.
