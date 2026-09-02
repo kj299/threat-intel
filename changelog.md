@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **A "Setting up credentials" section in `README.md`**, for anyone forking this and running it themselves. Everything a forker needs already existed — `mcp/.env.example` has every key and signup URL, `mcp/README.md` covers local and Vault setup, `docs/report-runbook.md` covers the model credential and the isolation rule — but it was spread across three files with no entry point, and the rule CI actually enforces was findable only in the runbook.
+
+  The section orients rather than restates, per #166: nothing needs a key to start and three feeds are keyless; there are **two kinds of credential** (feed keys vs the model credential) that go in different places; a feed key must never enter `scheduled-report.yml`, because that workflow runs an agent reading untrusted content with write access — CI fails the PR; fork secrets are not inherited from upstream. It links onward for the detail, and names the three gotchas worth knowing before debugging one (ANY.RUN's `API-Key ` prefix, Censys/Intel 471 being two secrets each that fail resolution when half-set, NVD's key being genuinely optional). Each claim was checked against the adapters, not carried over from an issue.
+
+### Fixed
+
+- **The #166 README ceiling check was half vacuous.** It required each summarised section to point at its deep doc, but tested `target not in body` — a bare substring. The new credentials section names `mcp/.env.example` inside a `cp` command, which satisfied that test even with the real markdown link deleted; the guarantee was weaker than the check claimed. It now matches a markdown destination (`](target)` or `](target#anchor)`), verified by deleting the link and watching it fail while the incidental mention remained.
+
+  The check also now takes a **per-section target** rather than assuming `docs/index.md`, because credentials are owned by `mcp/.env.example` — which a CI test already pins to the adapter code, so the list it points at cannot drift.
+
+
 ### Fixed
 
 - **Re-recording a cassette appended instead of replacing.** vcrpy's `record_mode="all"` stacks new interactions behind any that already exist; `record_cassettes.py` only ever unlinked a *zero-byte* file (the failed-record cleanup), never a prior successful recording. Every re-record would have doubled the file, and playback's first-match would keep hitting the **old** bytes — a green run delivering stale data, the #172 failure shape again.
