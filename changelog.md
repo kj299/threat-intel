@@ -8,6 +8,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`threat_intel_mcp.__version__` was `"0.1.0"` while the package was `0.15.0`** — fourteen minor releases stale. Nothing caught it because nothing read it: `MCPServer` was constructed without a version, so the server advertised `"version": ""` in its initialize response and no client could tell which build it was talking to. `__version__` now derives from installed package metadata, the server passes it through, and two tests pin both.
+
+  Found by probing the running server rather than by reading the code — it starts, exposes 15 tools, and now reports `{'name': 'threat-intel-mcp', 'version': '0.15.0'}`.
+
+- **Documentation carried three claims that were no longer true**, each now corrected and, where checkable, enforced:
+
+  | Claim | Was | Is |
+  |---|---|---|
+  | `README.md` server version (2 places) | v0.13.0 | v0.15.0 |
+  | `CLAUDE.md` single-feed IOC tools | 11 | 10 (15 tools total) |
+  | `CLAUDE.md` cassette coverage | "at least one test per adapter" | 3 of 12 adapters; the nine credentialed ones are blocked on #169 |
+
+  The version drift is now a test (`test_docs_name_the_current_server_version`), verified by reverting the fix and watching it fail. The tool count was already covered for the skill files by `test_skill_docs_name_exactly_the_registered_tools`; `CLAUDE.md` prose was not, and now says the number the server actually exposes.
+
+### Changed
+
+- `mcp/README.md`'s current-state table gained the three shipped features it was missing — the MISP ZeroMQ subscriber (#162), the empty-parse guard (#106), and recorded cassettes (#105) — plus an explicit row for the cassette gap on credentialed adapters. Its adapter-authoring checklist now tells contributors to record a cassette for a keyless feed, which is where the "fixtures written from belief" habit came from in the first place.
+- `docs/architecture.md`'s renderer row now names the `executive_overview` input (#168) that drives it, and the projection property that keeps the two artifacts from disagreeing.
+- `CLAUDE.md` records that under `claude --plugin-dir .` the skill is listed as `threat-intel:cyber-threat-intel`, verified live — the bare `/cyber-threat-intel` is what a personal or project install exposes. `docs/report-runbook.md` already said this; it was not repeated there.
+
+
 ### Changed
 
 - **`README.md` now orients; `docs/index.md` is the deep reference** (issue #166). The two independently maintained roughly eight of the same sections — coverage protocol, personas, scoring, output formats, validation, limitations, external-consumer contract — and the copies had already diverged.

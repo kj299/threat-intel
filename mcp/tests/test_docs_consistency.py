@@ -13,6 +13,7 @@ import pathlib
 import re
 
 _MCP_DIR = pathlib.Path(__file__).resolve().parents[1]
+_REPO_ROOT = _MCP_DIR.parent
 _ADAPTERS_DIR = _MCP_DIR / "src" / "threat_intel_mcp" / "adapters"
 _ENV_EXAMPLE = _MCP_DIR / ".env.example"
 _README = _MCP_DIR / "README.md"
@@ -110,3 +111,59 @@ def test_skill_docs_name_exactly_the_registered_tools():
             f"{skill_file.name}: documents tools that do not exist in server.py: "
             f"{sorted(phantom)}"
         )
+
+
+def test_docs_name_the_current_server_version():
+    """The `mcp/` version in prose must match `pyproject.toml`.
+
+    It drifted **two releases** unnoticed: the root README advertised v0.13.0
+    while the package was 0.15.0, in two places. Nothing checked it, because the
+    version-parity CI step covers the *skill* version cascade (spec, schema,
+    examples, changelog, plugin manifest) and the server version is a separate
+    number that happens to appear in the same documents.
+
+    Matching is on `v<version>` rather than any bare version-looking string, so
+    changelog history and pinned dependency versions in these files do not trip
+    it.
+    """
+    pyproject = (_MCP_DIR / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE)
+    assert match, "no version found in mcp/pyproject.toml"
+    current = match.group(1)
+
+    stale: list[str] = []
+    for doc in (_REPO_ROOT / "README.md", _README, _REPO_ROOT / "CLAUDE.md"):
+        for found in re.findall(r"threat-intel-mcp server \(v([\d.]+)\)|\(v([\d.]+)\)", doc.read_text(encoding="utf-8")):
+            version = next((g for g in found if g), None)
+            if version and version != current and re.fullmatch(r"0\.\d+\.\d+", version):
+                stale.append(f"{doc.name}: says v{version}, pyproject.toml says v{current}")
+    assert not stale, "stale threat-intel-mcp version in prose:\n  " + "\n  ".join(stale)
+
+
+def test_package_version_matches_pyproject():
+    """`__version__` must not be a second, hand-maintained copy of the version.
+
+    It sat at ``"0.1.0"`` while `pyproject.toml` said ``0.15.0`` — fourteen minor
+    releases stale. Nothing caught it because nothing read it: the server was
+    constructed without a version and advertised ``"version": ""`` in its
+    initialize response, so a client could not tell which build it was talking
+    to. Both are fixed; this keeps them fixed.
+    """
+    from threat_intel_mcp import __version__
+
+    pyproject = (_MCP_DIR / "pyproject.toml").read_text(encoding="utf-8")
+    expected = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE).group(1)
+    assert __version__ == expected, (
+        f"__version__ is {__version__!r}, pyproject.toml says {expected!r}"
+    )
+
+
+def test_server_advertises_its_version():
+    """The initialize response must carry a real version, not an empty string."""
+    from threat_intel_mcp import __version__
+    from threat_intel_mcp.server import mcp
+
+    advertised = getattr(mcp, "version", None)
+    assert advertised == __version__, (
+        f"MCP server advertises {advertised!r}, package version is {__version__!r}"
+    )
