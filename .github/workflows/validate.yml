@@ -292,30 +292,39 @@ jobs:
           for i in range(1, len(parts), 2):
               sections[parts[i].strip()] = parts[i + 1]
 
-          # Heading -> max lines. Each is a summary-plus-link, not an exposition.
+          # Heading -> (max lines, the deep doc it must point at). Each is a
+          # summary-plus-link, not an exposition. The target is per-section
+          # because the deep doc is not always docs/index.md: credentials are
+          # owned by mcp/.env.example, which a CI test pins to the adapter code.
           CEILINGS = {
-              "How it behaves": 40,
-              "Using this skill from an external consumer": 25,
-              "Limitations": 20,
-              "Output Validation": 20,
+              "How it behaves": (40, "docs/index.md"),
+              "Using this skill from an external consumer": (25, "docs/index.md"),
+              "Limitations": (20, "docs/index.md"),
+              "Output Validation": (20, "docs/index.md"),
+              "Setting up credentials": (30, "mcp/.env.example"),
           }
           errors = []
-          for heading, limit in CEILINGS.items():
+          for heading, (limit, target) in CEILINGS.items():
               if heading not in sections:
                   errors.append(f"README.md no longer has a '## {heading}' section")
                   continue
-              n = len([line for line in sections[heading].splitlines() if line.strip()])
+              body = sections[heading]
+              n = len([line for line in body.splitlines() if line.strip()])
               if n > limit:
                   errors.append(
                       f"'## {heading}' is {n} non-blank lines, ceiling {limit} -- "
-                      "this section summarises and links; explain it in docs/index.md"
+                      f"this section summarises and links; explain it in {target}"
                   )
-          # Each merged section must actually point at the deep reference.
-          for heading in CEILINGS:
-              if heading in sections and "docs/index.md" not in sections[heading]:
-                  errors.append(f"'## {heading}' does not link to docs/index.md")
+              # It must actually *link* to the deep doc that owns the detail —
+              # matched as a markdown destination, `](target)` or
+              # `](target#anchor)`, not as a bare substring. A substring test
+              # passes on any incidental mention: this section names
+              # mcp/.env.example inside a `cp` command, which satisfied the
+              # weaker check even with the real link deleted.
+              if not re.search(r"\]\(" + re.escape(target) + r"[#)]", body):
+                  errors.append(f"'## {heading}' does not link to {target}")
           if errors:
-              print("FAIL: README.md is re-explaining what docs/index.md owns:")
+              print("FAIL: README.md is re-explaining what a deep doc owns:")
               for e in errors:
                   print(f"  {e}")
               sys.exit(1)

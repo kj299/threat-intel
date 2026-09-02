@@ -227,6 +227,29 @@ See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed
 
 ---
 
+## Setting up credentials
+
+**Nothing here needs a key to start.** The skill itself takes none, and three feeds work unauthenticated: ThreatFox (IOCs), CISA KEV and NVD (CVEs). Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
+
+There are **two kinds of credential**, and they do not go in the same place:
+
+| | What | Where it goes |
+|---|---|---|
+| **Feed keys** | The 12 adapter credentials (`NVD_API_KEY`, `VIRUSTOTAL_API_KEY`, …) | Local `mcp/.env`, or your fork's secrets for `record-cassettes` |
+| **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
+
+**Never put a feed key in `scheduled-report.yml`** — CI fails the PR if you do. That workflow runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. `record-cassettes.yml` runs a fixed script: same secrets, categorically different blast radius.
+
+**Locally:** `cp mcp/.env.example mcp/.env` and fill in what you have. [`mcp/.env.example`](mcp/.env.example) lists every key with its signup URL and is pinned to the adapter code by a CI test, so the list cannot drift.
+
+**In a fork:** *Settings → Secrets and variables → Actions → New repository secret*. Fork secrets are not inherited from upstream — you create your own, and only the ones you want.
+
+Best first three, all free: **AbuseIPDB**, **AlienVault OTX**, and an **NVD key** (which lifts NVD from 5 to 50 requests/30s). Three gotchas worth knowing before you debug one: ANY.RUN's value includes its `API-Key ` prefix, Censys and Intel 471 are *two* secrets each and fail credential resolution if only half is set, and NVD's key is genuinely optional.
+
+Deeper: [local setup and Vault](mcp/README.md#2-set-your-api-keys) · [why feed keys are isolated](docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow) · [the model credential](docs/report-runbook.md#how-reports-are-generated)
+
+---
+
 ## Output Validation
 
 ```bash
