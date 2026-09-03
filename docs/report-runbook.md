@@ -25,9 +25,14 @@ live feed access says so and contains no literal IOC values.
 ## How reports are generated
 
 [`scheduled-report.yml`](../.github/workflows/scheduled-report.yml) runs the
-skill with the `threat-intel-mcp` server connected and opens a PR adding the
-dated report (commit convention:
-`Add scheduled threat-intel report: YYYY-MM-DD (<persona>, <range>)`).
+skill with the `threat-intel-mcp` server connected and **publishes the report
+to the run's summary page** — it is not committed.
+
+> **`reports/` is frozen at 11 (2026-09-03).** It is the eval corpus that
+> `evals/run.py --corpus` checks on every PR, not an archive of runs, and CI
+> pins the count. A run writes to gitignored `report-output/` and the summary
+> step publishes it; nothing is added to `reports/`. A run is useful, a
+> permanent history of runs is not — read it in the Actions run, or copy it out.
 It is **manual-only**: trigger it from Actions → scheduled-report → *Run
 workflow* with a chosen persona and time range.
 

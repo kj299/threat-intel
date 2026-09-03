@@ -265,7 +265,9 @@ For the conforming output shape and a table of common validation errors with the
 
 ## Generated Reports (`reports/`)
 
-Dated threat-intelligence reports produced by dispatching the skill (default: `enterprise_soc` persona, 7-day lookback). Generation is **manual-only** at present — the weekly cron was removed in #170 and the conditions for restoring it are recorded in #169. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
+**A frozen corpus of 11 dated reports, kept as the honesty eval's fixtures — not a growing archive.** `evals/run.py --corpus` walks every one on each PR and checks all 8 hard invariants, which is the entire offline half of #83. CI fails if the count changes, so adding one is a decision rather than a side effect.
+
+A dispatched run still produces a full report; it is **published to the run's summary page** instead of committed, because a run is useful while its permanent history is not. Generation is **manual-only** — the weekly cron was removed in #170, and #169 records the conditions for restoring it. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
 
 How they're generated, how to run one (including wiring the MCP server for live-data reports), and the staleness alarm that pairs with the cadence: see [docs/report-runbook.md](docs/report-runbook.md).
 

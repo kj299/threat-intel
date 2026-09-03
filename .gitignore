@@ -41,3 +41,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+
+# Threat-intel runs. reports/ is a FROZEN eval corpus (see CLAUDE.md); a
+# dispatched run writes here instead and is published to the run summary,
+# so a helpful run leaves no permanent history.
+report-output/
