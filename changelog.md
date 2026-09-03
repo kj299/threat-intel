@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **`record-cassettes` now pushes to one reused branch, not one per run.** `chore/record-cassettes-<timestamp>` only earned its keep if each run became its own reviewable PR, and it does not here: Actions cannot open PRs in this repository (#164, proven off), so the branch is a staging area a human opens a PR from. A staging area needs no unique name, and a unique name guaranteed litter — three runs left three branches, two of them garbage (one superseded, one holding the defective eight-interaction recording from #180), and none deletable from the session that created them.
+
+  Now `chore/record-cassettes`, force-pushed. Litter is bounded at one branch forever. `--force` rather than `--force-with-lease` because the runner creates the branch locally from `main` and has no knowledge of the remote ref, so a lease would always fail; safe because nothing develops on a bot-owned artifact branch. If a PR is already open against it the force-push updates that PR, which is correct — a newer recording supersedes an older unmerged one — and the step now says so rather than reporting the permissions warning, which would be the wrong diagnosis.
+
+- **`reports/` is frozen at 11, and a dispatched run publishes to its run summary instead of committing.** A threat-intel run is useful; a permanent history of runs is not.
+
+  `reports/` was never just an archive — it is the eval corpus that `evals/run.py --corpus` walks on every PR, checking all 8 hard honesty invariants. That is the entire offline half of #83 and the only thing asserting R1-R6 against real skill output rather than prose, which is why the corpus is frozen rather than deleted. Emptying it would not have degraded gracefully: `run_corpus` exits 1 on an empty directory.
+
+  The agent now writes to gitignored `report-output/`, and a new step publishes the file to `$GITHUB_STEP_SUMMARY` — readable in the Actions UI, retained with the run, gone when the run ages out. Written with the shell rather than `upload-artifact` because the job summary is built into the runner: no action version to pin, and this repository is on `actions/checkout@v7`, far enough ahead that guessing a version would have been a fabrication.
+
+  Two guards, both verified against real violations: CI pins the corpus at exactly 11 and fails in either direction (a 12th appearing, or one removed), so changing it means changing `FROZEN_AT` deliberately; and the publish step fails the run if it finds `reports/` modified, so a report cannot silently extend the corpus.
+
+  `report-staleness.yml` is now **dormant by design** rather than merely disabled: with the corpus frozen, nothing will touch `reports/`, so its condition is permanently true. It becomes meaningful again only if #169's cadence is restored *and* a home for new reports is chosen — recorded in `CLAUDE.md` so the next person does not read its existence as a live guard.
+
+
 ### Added
 
 - **A "Setting up credentials" section in `README.md`**, for anyone forking this and running it themselves. Everything a forker needs already existed — `mcp/.env.example` has every key and signup URL, `mcp/README.md` covers local and Vault setup, `docs/report-runbook.md` covers the model credential and the isolation rule — but it was spread across three files with no entry point, and the rule CI actually enforces was findable only in the runbook.

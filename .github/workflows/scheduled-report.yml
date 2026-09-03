@@ -268,7 +268,46 @@ jobs:
               - State plainly in the methodology notice that live threat-intel-mcp
                 feeds WERE connected for this run, and which ones.
 
-            Save it as reports/<YYYY-MM-DD>-threat-intel.md using today's date,
-            on a new branch, and open a pull request titled
-            "Add scheduled threat-intel report: <YYYY-MM-DD> (<persona>, <range>)".
-            Do not modify any file outside reports/.
+            Save it as report-output/<YYYY-MM-DD>-threat-intel.md using today's
+            date. Do NOT commit it, do NOT create a branch, and do NOT open a
+            pull request. Do not modify any file outside report-output/.
+
+            report-output/ is gitignored and the next step publishes the file to
+            this run's summary page. reports/ is a FROZEN eval corpus — see the
+            step below — so nothing may be added to it.
+
+      # The report is the deliverable; a permanent commit of it is not.
+      #
+      # reports/ is a frozen corpus of 11 reports that evals/run.py --corpus
+      # walks on every PR — the whole offline half of #83. Adding a 12th grows
+      # a fixture set nobody reads for its own sake, so a run now publishes to
+      # this run's summary page instead: readable in the Actions UI, retained
+      # with the run, gone when the run ages out. That is what "a run is
+      # helpful, its history is not" means in practice.
+      #
+      # Written with the shell rather than upload-artifact: the job summary is
+      # built into the runner, so there is no action version to pin or to get
+      # wrong. If a downloadable file is wanted later, upload-artifact is the
+      # addition.
+      - name: Publish the report to the run summary
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(report-output/*.md)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::warning::The agent produced no report in report-output/."
+            echo "No report was produced by this run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for f in "${files[@]}"; do
+            echo "::notice::Report ready: $f ($(wc -c < "$f") bytes)"
+            cat "$f" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          # A report committed into reports/ would silently extend the frozen
+          # eval corpus, so fail loudly rather than let it through unnoticed.
+          if [ -n "$(git status --porcelain reports/)" ]; then
+            echo "::error::This run modified reports/, which is a frozen eval corpus."
+            git status --porcelain reports/
+            exit 1
+          fi

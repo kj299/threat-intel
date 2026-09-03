@@ -142,13 +142,38 @@ jobs:
             echo "::notice::No cassette changes to commit."
             exit 0
           fi
-          branch="chore/record-cassettes-$(date -u +%Y%m%d-%H%M%S)"
+          # ONE branch, reused and replaced — not one per run.
+          #
+          # A timestamped branch only earns its keep if each run becomes its own
+          # reviewable PR, and it does not here: Actions cannot open PRs in this
+          # repository (#164, proven off), so the branch is a staging area a
+          # human opens a PR from. A staging area does not need a unique name,
+          # and a unique name guarantees litter — three runs left three
+          # branches, two of them garbage (one superseded, one holding the
+          # defective eight-interaction recording from #180), none deletable
+          # from the session that made them. Litter is now bounded at one.
+          #
+          # --force rather than --force-with-lease: the runner checks out main
+          # and creates this branch locally, so it has no knowledge of the
+          # remote ref and a lease would always fail. Safe because nothing
+          # develops on this branch — it is a bot-owned artifact. If a PR is
+          # already open against it, the force-push updates that PR, which is
+          # correct: a newer recording supersedes an older unmerged one.
+          branch="chore/record-cassettes"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
+          git checkout -B "$branch"
           git add mcp/tests/cassettes
           git commit -m "Record feed cassettes $(date -u +%Y-%m-%d)"
-          git push -u origin "$branch"
+          git push --force -u origin "$branch"
+
+          # With a reused branch, a PR may already exist — that is the normal
+          # steady state, not a failure. Say so instead of reporting the
+          # permissions warning below, which would be the wrong diagnosis.
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number' 2>/dev/null)" ]; then
+            echo "::notice::Updated the existing cassette PR on '$branch'."
+            exit 0
+          fi
 
           # The push IS the deliverable — recorded, scanned and played-back
           # cassettes are now on a branch. Opening the PR is convenience, and

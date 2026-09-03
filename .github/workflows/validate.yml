@@ -273,6 +273,35 @@ jobs:
           )
           PY
 
+      - name: reports/ stays a frozen eval corpus
+        run: |
+          python <<'PY'
+          # reports/ is not an archive: evals/run.py --corpus walks every file
+          # in it on each PR and checks all 8 hard honesty invariants. It is the
+          # entire offline half of #83, and the only thing asserting the R1-R6
+          # rules against real skill output rather than prose.
+          #
+          # It is frozen at the 11 reports that existed on 2026-09-03. A run is
+          # useful; a growing fixture set nobody reads for its own sake is not,
+          # so scheduled-report.yml now publishes to its run summary instead of
+          # committing here.
+          #
+          # Deliberately a hard count, not a ceiling: adding a 12th should be a
+          # decision someone makes and records, not something that happens.
+          # If you are adding one on purpose, change FROZEN_AT and say why.
+          import pathlib, sys
+          FROZEN_AT = 11
+          reports = sorted(pathlib.Path("reports").glob("*.md"))
+          if len(reports) != FROZEN_AT:
+              verb = "grown to" if len(reports) > FROZEN_AT else "shrunk to"
+              print(f"FAIL: reports/ has {verb} {len(reports)} files; frozen at {FROZEN_AT}.")
+              print("  reports/ is the PR-gated eval corpus for #83, not an archive.")
+              print("  A dispatched run publishes to its run summary instead of committing.")
+              print("  Changing the corpus on purpose means updating FROZEN_AT here.")
+              sys.exit(1)
+          print(f"OK: reports/ frozen at {FROZEN_AT} reports (the #83 eval corpus)")
+          PY
+
       - name: "README does not restate the deep reference (issue #166)"
         run: |
           python <<'PY'
