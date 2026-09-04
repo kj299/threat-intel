@@ -9,6 +9,13 @@ flowchart TD
         User["User\n/cyber-threat-intel"]
         Skill["Skill\nskills/cyber-threat-intel/SKILL.md"]
         Output["Output\nValidated against\noutput.schema.json"]
+        Render["render/executive.py\npython -m threat_intel_mcp.render\nexecutive_overview: attached | separate\nself-contained HTML — NOT an MCP tool"]
+        Sched["scheduled-report.yml\nmanual dispatch · no cron\nreport → report-output/ (gitignored)\n→ run summary — never reports/"]
+    end
+    subgraph Verify["Offline verification (no live network in CI)"]
+        Reports["reports/\nFROZEN corpus of 11\n(count pinned by CI)"]
+        Evals["evals/\ninvariants.py — R1-R6 over real output\nrun.py --corpus (PR-gated)\nrun.py --scenario (model call)"]
+        Cassettes["tests/cassettes/ (vcrpy)\nbytes the feeds actually sent\nreplayed offline, record_mode=none\n3 of 12 adapters recorded"]
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
@@ -19,7 +26,7 @@ flowchart TD
         Resilience["resilience.py\nguarded_fetch per source\nCircuitBreaker + backoff retry"]
 
         subgraph Cred["CredentialProvider"]
-            EnvCred["Phase 1: EnvCredentialProvider\nreads QFEEDS_API_KEY\nreads ABUSEIPDB_API_KEY\nreads VIRUSTOTAL_API_KEY\nreads OTX_API_KEY\nreads SHODAN_API_KEY\nreads GREYNOISE_API_KEY\nreads ANYRUN_API_KEY\nreads INTEL471_* / CENSYS_*"]
+            EnvCred["Phase 1: EnvCredentialProvider\nreads QFEEDS_API_KEY\nreads ABUSEIPDB_API_KEY\nreads VIRUSTOTAL_API_KEY\nreads OTX_API_KEY\nreads SHODAN_API_KEY\nreads GREYNOISE_API_KEY\nreads ANYRUN_API_KEY\nreads INTEL471_* / CENSYS_*\nreads NVD_API_KEY (optional)"]
             VaultCred["Phase 2: VaultCredentialProvider\nreads from HashiCorp Vault"]
         end
 
@@ -34,7 +41,9 @@ flowchart TD
             AnyRun["AnyRunAdapter\nadapters/anyrun.py\nTAXII2 STIX\n60-min cache"]
             Intel471["Intel471Adapter\nadapters/intel471.py\nHTTP Basic\nindicators/stream\n60-min cache"]
             Censys["CensysAdapter\nadapters/censys.py\nHTTP Basic\nhosts/search labels:malware\n60-min cache"]
+            MISPZMQ["MISPZMQAdapter\ntransports/misp_zmq.py\nfirst concrete ProtocolAdapter\nzmq.SUB · NO credential\nbounded collection window"]
         end
+        GuardParsed["adapters/base.py\nguard_parsed\nitems present, none understood\n→ UpstreamFormatError (degrade + retry)\nnothing present → honest 0"]
 
         subgraph VulnAdapters["CVE Adapters (Tier 1 gov)"]
             CISAKEV["CISAKEVAdapter\nadapters/cisa_kev.py\npublic JSON (no key)\nexploit_status=known_exploited\n6-hr cache"]
@@ -60,6 +69,7 @@ flowchart TD
         Censys_API["Censys API v2\nhttps://search.censys.io/api/v2\nGET /hosts/search · labels:malware"]
         CISAKEV_API["CISA KEV catalog\nhttps://www.cisa.gov/sites/default/files/feeds/\nknown_exploited_vulnerabilities.json\npublic JSON"]
         NVD_API["NIST NVD API 2.0\nhttps://services.nvd.nist.gov/rest/json/cves/2.0\nlastModStartDate/EndDate · paginated"]
+        MISP_EP["MISP ZeroMQ pub-sub\noperator-supplied tcp:// endpoint\nmisp_json · misp_json_attribute\nmisp_json_self keep-alive (1/min)"]
     end
 
     User -->|"invokes skill"| Skill
@@ -147,6 +157,18 @@ flowchart TD
     Server -->|"FetchResult / VulnFetchResult dict"| Skill
     Skill -->|"cites sources: Q-Feeds / AbuseIPDB / VirusTotal / OTX / Shodan / GreyNoise / ANY.RUN / Intel 471 / Censys / ThreatFox (IOCs) · CISA KEV / NVD (CVEs) (live)\nincorporates IOCs + vulnerabilities into report"| Output
     Output -->|"validated JSON"| User
+    Resilience -->|"guarded_fetch"| MISPZMQ
+    MISPZMQ -->|"SUBSCRIBE b'' · single frame\ntopic SPACE json"| MISP_EP
+    Adapters -.->|"every parse routes through"| GuardParsed
+    VulnAdapters -.->|"every parse routes through"| GuardParsed
+    GuardParsed -->|"understood records"| Normalize
+    GuardParsed -->|"understood records"| VulnNormalize
+    Output -->|"same validated object,\nnever a second document"| Render
+    Sched -.->|"invokes with MCP connected"| Skill
+    Ext -.->|"recorded once (record-cassettes workflow)"| Cassettes
+    Cassettes -.->|"replayed in mcp/tests"| Adapters
+    Output -.->|"11 committed, then frozen"| Reports
+    Reports -->|"8 hard invariants, every PR"| Evals
 ```
 
 ## Component Notes
@@ -163,7 +185,7 @@ flowchart TD
 | Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest. Whether a failure retries / trips the breaker follows the adapter **error taxonomy** in `adapters/base.py`: `ValueError` = caller error (surfaced), `CredentialError`/`KeyError` = config (degrade, no retry), anything else incl. a malformed body = upstream (degrade, retry) |
 | Protocol credentials | `mcp/src/threat_intel_mcp/vault/protocols.py` | Typed, validated credential bundles for gRPC / MQTT / WebSocket / GraphQL feeds, loaded via the same `CredentialProvider` |
 | Protocol adapter base | `mcp/src/threat_intel_mcp/transports/base.py` | `ProtocolAdapter`: abstract bring-your-own-endpoint `SourceAdapter` (impl `_collect` + `_normalize`); ships **no live feed / no hardcoded endpoint**. See [protocol-adapters.md](protocol-adapters.md) |
-| MISP ZeroMQ adapter | `mcp/src/threat_intel_mcp/transports/misp_zmq.py` | Issue #162, the first concrete `ProtocolAdapter`. Subscribes `zmq.SUB` for a bounded window and parses MISP's single-frame `topic<space>json` framing (verified against `MISP/tools/misp-zmq/sub.py`, not assumed — a multipart reader gets nothing). Honours MISP's own `to_ids` flag, which is a **string** `"1"`/`"0"`: a truthiness check would treat `"0"` as True and emit every non-actionable attribute. **Uses no credentials** — MISP ZMQ has no auth — so it proves the transport, not the credential path. Endpoint is operator-supplied; no hostname is committed |
+| MISP ZeroMQ adapter | `mcp/src/threat_intel_mcp/transports/misp_zmq.py` | Issue #162, the first concrete `ProtocolAdapter`. Subscribes `zmq.SUB` for a bounded window and parses MISP's single-frame `topic SPACE json` framing (verified against `MISP/tools/misp-zmq/sub.py`, not assumed — a multipart reader gets nothing). Honours MISP's own `to_ids` flag, which is a **string** `"1"`/`"0"`: a truthiness check would treat `"0"` as True and emit every non-actionable attribute. **Uses no credentials** — MISP ZMQ has no auth — so it proves the transport, not the credential path. Endpoint is operator-supplied; no hostname is committed |
 | Executive renderer | `mcp/src/threat_intel_mcp/render/executive.py` | Issues #110 and #168: renders an `enterprise_executive` output as a self-contained landscape HTML page. Driven by the `executive_overview` skill input (`off` | `attached` | `separate`) — `output_format` still names the *primary* deliverable, and this is additive, so one run yields both. The overview is a **projection of the same validated output object**, never a second document, which is what stops the two artifacts disagreeing; five consistency invariants are asserted in `evals/` (`check_paired_artifacts`). Page (no external stylesheet, script, font or image). CLI: `python -m threat_intel_mcp.render in.json -o out.html`. **Deliberately not an MCP tool** — the tool surface is the *feed* contract, mirrored in both skill files and asserted by the skill↔server parity test (#79); rendering is a local transform of data the caller already holds. Risk bands use a sequential single-hue ramp, not red/amber/green: status hues are non-monotonic in lightness (moderate is *lighter* than low and high) and collapse in greyscale. Nothing is encoded by colour alone; modelled figures carry a `MODELLED` chip in the tile; an absent coverage badge renders as `COVERAGE NOT REPORTED` rather than defaulting |
 | Skill-output evals | `evals/` | Issue #83: the honesty half of CI. `invariants.py` asserts R1-R6 properties over a generated report — badge present and not over-claimed, Appendix A present, an explicit no-fabrication claim, no reserved-range/filler indicators, sparse reports stating sparsity in prose. `run.py --corpus` runs offline over every committed report and is PR-gated; `run.py --scenario KEY` invokes the skill (model call, on demand). Badge checking is **directional** — over-claiming fails, under-claiming is a style note — and matching is on substance across real phrasings rather than exact labels |
 | Pipeline duplication guard | `mcp/tests/test_pipeline_duplication.py` | Issue #84's acceptance criteria, made mechanical. The IOC (`fanout.py`) and CVE (`vulns.py`) pipelines are a **sanctioned pair**; a third copy of the `_SUMMARY_KEYS`/`_degraded`/`_run_source` signature fails the build with the refactor plan. Also guards the risk #84 does not name — the two copies **diverging**, since a fix landing in one and not the other is invisible while both keep passing their own tests. Compared as control-flow shape (identifiers and constants stripped), because text similarity has no usable threshold: the copies sit at 96% and a real four-line drift only reached 91.5% |

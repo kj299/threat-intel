@@ -23,14 +23,29 @@ shipped REST feeds work.
 
 **Does not ship (by design):**
 
-- **No live protocol feed, no hardcoded endpoint.** A concrete adapter is
-  configured entirely from operator-supplied credentials. Building an adapter
-  against an invented endpoint or a made-up response schema would violate this
-  repo's no-fabrication rule, so the live wiring (and the protocol client
-  library it needs) lands with the **first real, named feed** — not before.
-- **No protocol client dependencies.** `gql`, `websockets`, `paho-mqtt`, and
-  `grpcio` are *not* dependencies of `threat-intel-mcp`. A concrete adapter adds
-  the single library it needs.
+- **No hardcoded endpoint.** A concrete adapter is configured entirely from
+  operator-supplied values. Building against an invented endpoint or a made-up
+  response schema would violate this repo's no-fabrication rule.
+
+**Ships as of #162 — one concrete adapter, and what it does and does not prove:**
+
+- **`MISPZMQAdapter`** (`mcp/src/threat_intel_mcp/transports/misp_zmq.py`) is the
+  first real subclass. It subscribes to MISP's ZeroMQ pub-sub for a bounded window
+  and parses the single-frame `topic<space>json` framing, verified against MISP's
+  own `tools/misp-zmq/sub.py` rather than assumed. The endpoint is
+  operator-supplied; MISP's default is localhost-only and is deliberately not
+  committed.
+- **It proves the transport abstraction, not the credential path.** MISP ZMQ has
+  no authentication — it relies on network isolation — so the adapter loads no
+  bundle from `vault/protocols.py`. The gRPC / MQTT / WebSocket / GraphQL
+  credential bundles remain tested in isolation and **unexercised by any live
+  feed**. A merged ZeroMQ adapter is not evidence that the credential path works.
+- Whether a bounded window is the right collection model for a bursty publisher
+  is an open, evidence-gated question: #167.
+- **No protocol client dependencies by default.** `gql`, `websockets`,
+  `paho-mqtt`, and `grpcio` are *not* dependencies of `threat-intel-mcp`. A
+  concrete adapter adds the single library it needs as an optional extra —
+  `pyzmq` arrived this way with the MISP adapter.
 
 ## Where credentials live
 
