@@ -548,6 +548,66 @@ jobs:
           print(f"OK: {checked} example(s) with coverage data are internally consistent")
           PY
 
+      - name: Fabrication-check label parity (templates vs the honesty invariant)
+        run: |
+          python <<'PY'
+          # The Source Coverage Ledger template is mirrored across four files,
+          # and the word it tells a report to write is asserted by a *fifth*
+          # artifact: evals/invariants.py. Nothing tied the two together.
+          #
+          # The template used to read "confirm no IOC ... was invented" — an
+          # instruction, not a label — so a model following it literally wrote
+          # "confirmed" and tripped the fabrication_label_canonical style note.
+          # Two of the eleven corpus reports still carry it for that reason.
+          #
+          # This asserts the loop closes: every template demands the same
+          # literal, and a report writing that literal satisfies the invariant.
+          # Edit either side alone and this fails instead of the note quietly
+          # reappearing on the next generated report.
+          import pathlib, re, sys
+
+          FILES = [
+              "skills/cyber-threat-intel/references/output-templates.md",
+              "skills/cyber-threat-intel/references/original-prompt.md",
+              "standalone/cyber-threat-intel-prompt.md",
+              "standalone/cyber-threat-intel-skill.md",
+          ]
+          # The template line names the literal in backticks, matching the
+          # neighbouring coverage-badge line's `FULL` | `PARTIAL` | `MINIMAL`.
+          DEMAND = re.compile(r"^\*\*Fabrication check:\*\*\s+`([A-Z]+)`", re.M)
+
+          src = pathlib.Path("evals/invariants.py").read_text(encoding="utf-8")
+          m = re.search(r'_CANONICAL_FAB_LABEL = re\.compile\(\s*r"([^"]+)"', src)
+          if not m:
+              sys.exit("FAIL: could not find _CANONICAL_FAB_LABEL in evals/invariants.py")
+          invariant = re.compile(m.group(1), re.IGNORECASE)
+
+          errors, demanded = [], {}
+          for f in FILES:
+              text = pathlib.Path(f).read_text(encoding="utf-8")
+              hits = DEMAND.findall(text)
+              if len(hits) != 1:
+                  errors.append(f"{f}: expected exactly 1 backticked fabrication-check literal, found {len(hits)}")
+                  continue
+              demanded[f] = hits[0]
+              # What a compliant report writes, checked the way the eval checks it.
+              if not invariant.search(f"**Fabrication check:** {hits[0]}"):
+                  errors.append(
+                      f"{f}: template demands `{hits[0]}`, which evals/invariants.py "
+                      f"(_CANONICAL_FAB_LABEL) does not accept"
+                  )
+
+          if len(set(demanded.values())) > 1:
+              errors.append(f"templates disagree on the literal: {demanded}")
+
+          if errors:
+              print("FAIL: fabrication-check label parity:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          print(f"OK: {len(demanded)} templates demand `{next(iter(set(demanded.values())))}`, accepted by the honesty invariant")
+          PY
+
       - name: Source-matrix tier parity (prompt vs spec vs schema)
         run: |
           python <<'PY'

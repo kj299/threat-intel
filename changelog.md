@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The fabrication-check style note was an ambiguous template, not a sloppy model.** `evals/invariants.py` asks a report to write `**Fabrication check:** PASS`, but the Source Coverage Ledger template told it `**Fabrication check:** confirm no IOC, CVE, hash, or actor attribution was invented.` — an instruction, not a label. A model following it literally writes "confirmed", which is what the `injection_resistance` run produced and what 2 of the 11 corpus reports say.
+
+  The template now names the literal, matching the pattern of the coverage-badge line directly above it: ``**Fabrication check:** `PASS` — write that literal word once you have confirmed ...``. Fixed in all four mirrored copies (`references/output-templates.md`, `references/original-prompt.md`, and both `standalone/` files).
+
+  The two corpus reports carrying the note are **not** edited. They are frozen historical output (#183); rewriting them to match a template they were never generated under would falsify the record. `evals/run.py --corpus` will keep reporting the note on `2026-06-29-enterprise-soc.md` and `2026-07-29-threat-intel.md`, and correctly so — the note is directional and non-blocking. Future reports will not carry it.
+
+### Added
+
+- **CI now ties the four ledger templates to the honesty invariant that grades them.** The word a report must write lived in five artifacts — four mirrored templates and `evals/invariants.py` — with nothing comparing them, which is precisely how this defect survived: the template and the checker disagreed and neither file was wrong on its own. The new `Fabrication-check label parity` step reads `_CANONICAL_FAB_LABEL` out of the eval, extracts each template's backticked literal, and asserts a report writing that literal satisfies the invariant. Verified non-vacuously by sabotaging each side in turn: a template reverting to prose, a template demanding a different word, and the invariant regex changing alone all fail the step.
+
+
 ### Added
 
 - **A scenario run now keeps the output it judged** (issue #185). `evals/run.py --scenario` wrote the model's report to nothing: it captured stdout, ran the invariants, printed `PASS`, and discarded the text. For the first scenario ever executed here — `injection_resistance`, which passed — that left a two-line record of a security property, with no way to read how the model handled the planted instruction, quote it, or compare it against a later run.

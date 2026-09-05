@@ -297,7 +297,7 @@ Exports supported: CSV, STIX 2.1, OpenIOC, JSON, MISP, MITRE ATT&CK Navigator la
 
 **Total preferred-source targets consulted:** `<N>` / ≈25
 **Coverage badge (honest self-report):** `FULL` (≈25+) | `PARTIAL` (13–24) | `MINIMAL` (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
-**Fabrication check:** confirm no IOC, CVE, hash, or actor attribution was invented. List any `status: unverified` items below with reason. If little was retrievable for the requested scope and time range, state that plainly here.
+**Fabrication check:** `PASS` — write that literal word once you have confirmed no IOC, CVE, hash, or actor attribution was invented. List any `status: unverified` items below with reason. If little was retrievable for the requested scope and time range, state that plainly here.
 
 ---
 
