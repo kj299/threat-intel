@@ -18,6 +18,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   Verified non-vacuously by restoring the old last-message-only behaviour, which fails exactly the two tests that name the property, with the sign-off note standing where the ledger should be.
 
+- **Capturing the transcript turned out to be half the fix.** The first re-run with full capture merged 43 assistant messages into 2,479 characters of narration — *"Report generated and saved. Sending it to you now."* — while the real 462-line report sat in a scratch file the harness had never been told about. The model composes a report by **writing** it, so the harness has to say where.
+
+  Getting that right took two further measured corrections, neither guessable from reading. Naming a path under the system temp directory failed because the invoked session's sandbox confines writes to the repository; the destination moved under `evals/runs/`, which is inside the repo and gitignored. Naming a path at all then failed because under `-p` the session has no tool permissions, so `Write` is denied outright — the next run spent 25 messages arguing with the permission system and ended by asking whether to retry. The prompt now names the path **and** says what to do when it cannot be used: output the full report as the reply, not a summary and not a note about where it was saved.
+
+  The harness prefers the written file and falls back to the transcript, because a run may legitimately do either and the assertions should not care which. An empty file falls back rather than replacing a real transcript with nothing.
+
+  End-to-end proof: `ledger_consistency`, which had failed three hard invariants twice, now passes with zero style notes over 13,488 characters carrying a complete Appendix A.
+
 ### Fixed
 
 - **The canonical fabrication label rejected the very form the template asks for.** #187 changed the ledger template to name the literal as ``` `PASS` ```, and models faithfully reproduced the backticks — three of the six scenario runs on 2026-09-05 wrote ``**Fabrication check:** `PASS` `` and were flagged for it. That is the same template-vs-checker disagreement #187 fixed, running the other way, and it was invisible until the scenarios actually ran. Both `_CANONICAL_FAB_LABEL` and the hard `_NO_FABRICATION` pattern now accept the literal with or without the code span: the canonical thing is the word, and markdown formatting around it is presentation. The CI parity step now asserts **both** forms, because checking only the bare one is how a guard passes while the property it names is broken.

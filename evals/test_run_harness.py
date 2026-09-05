@@ -12,6 +12,8 @@ is the harness's own bookkeeping rather than the skill.
 from __future__ import annotations
 
 import json
+import pathlib
+import re
 import subprocess
 import types
 
@@ -44,6 +46,13 @@ def _fake_completed(stdout: str = "", stderr: str = "", returncode: int = 0):
     return types.SimpleNamespace(
         stdout=_stream(stdout) if stdout else "", stderr=stderr, returncode=returncode
     )
+
+
+def _out_path_from(prompt: str) -> str:
+    """Recover the destination the harness named, the way the model would."""
+    m = re.search(r"exact path: (\S+)", prompt)
+    assert m, f"prompt names no output path:\n{prompt}"
+    return m.group(1)
 
 
 def _fake_raw(stdout: str, stderr: str = "", returncode: int = 0):
@@ -232,3 +241,73 @@ def test_the_artifact_records_what_was_asserted(runs_dir, monkeypatch):
     section = body.split("## Model output\n\n", 1)[1]
     assert section.startswith("COVERAGE: MINIMAL")
     assert '"type": "assistant"' not in section, "raw transcript leaked into the artifact"
+
+
+# ─── The report is written, not spoken (2026-09-05, second finding) ──────────
+
+
+def test_the_prompt_names_an_output_path():
+    """Capturing the transcript was necessary and not sufficient.
+
+    The re-run of `ledger_consistency` with full transcript capture merged 43
+    assistant messages into 2,479 characters of narration -- "Report generated
+    and saved. Sending it to you now." -- while the real 462-line report went to
+    a scratch file the harness had never been told about. The model composes a
+    report by writing it, so the harness has to say where.
+    """
+    prompt = harness._build_prompt(
+        harness.by_key("sparse_honesty"), pathlib.Path("/tmp/x/report.md")
+    )
+    assert "/tmp/x/report.md" in prompt
+    assert "reports/" in prompt, "must warn off the frozen corpus"
+    # Load-bearing: under `-p` the invoked session has no tool permissions, so
+    # Write is denied. The 19:02 run spent 25 messages arguing with the
+    # permission system and ended by asking whether to retry, because the
+    # prompt named a path and never said what to do when it was refused.
+    assert "output the complete report as your reply" in prompt
+
+
+def test_the_written_file_wins_over_the_narration(runs_dir, monkeypatch, tmp_path):
+    """The exact shape of the real failure: narration in the transcript, report
+    on disk. Asserting over the transcript would judge the sign-off."""
+    report = "## Appendix A: Source Coverage Ledger\n\nCOVERAGE: MINIMAL\n"
+
+    def fake_run(cmd, **kwargs):
+        # The model writes the file it was told to write.
+        out = pathlib.Path(_out_path_from(cmd[-1]))
+        out.write_text(report, encoding="utf-8")
+        return _fake_raw(_stream("Report generated and saved. Sending it to you now."))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    harness.run_scenario("sparse_honesty")
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "Source Coverage Ledger" in body, "the written report was not read back"
+    assert "asserted over**: the report file" in body
+
+
+def test_the_transcript_is_the_fallback_when_no_file_is_written(runs_dir, monkeypatch):
+    """A run that narrates its report instead of writing one still works."""
+    _run(monkeypatch, "sparse_honesty", _fake_completed(stdout="COVERAGE: MINIMAL"))
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "COVERAGE: MINIMAL" in body
+    assert "asserted over**: 1 assistant message(s)" in body
+
+
+def test_an_empty_written_file_falls_back_rather_than_asserting_over_nothing(
+    runs_dir, monkeypatch
+):
+    """A touched-but-empty file must not silently replace a real transcript."""
+
+    def fake_run(cmd, **kwargs):
+        out = pathlib.Path(_out_path_from(cmd[-1]))
+        out.write_text("   \n", encoding="utf-8")
+        return _fake_raw(_stream("COVERAGE: MINIMAL"))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    harness.run_scenario("sparse_honesty")
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "COVERAGE: MINIMAL" in body
+    assert "asserted over**: 1 assistant message(s)" in body
