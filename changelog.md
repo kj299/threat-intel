@@ -10,6 +10,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The scenario harness asserted over the model's sign-off instead of its report.** `claude -p` in text mode prints only the *final* assistant message. Two of the six runs on 2026-09-05 composed their report across turns and ended with a short note — one saying it had not committed to `reports/`, one summarising two artifacts it had been denied permission to write — so the harness ran the invariants over a few sentences of prose and reported hard failures about text it never saw. A third of the scenario suite could not return a meaningful result.
+
+  `run.py` now invokes with `--output-format stream-json --verbose` and reconstructs the report from **every** assistant text block. Tool-use blocks are excluded, because how the report was gathered is not the report. Non-JSON lines are skipped rather than fatal, since the CLI is entitled to emit diagnostics the harness has no contract with. The artifact records exactly the text that was asserted over, plus the number of messages merged, so a verdict and its evidence can never describe different things.
+
+  Assistant messages that carry no text at all raise `TranscriptError` and fail the run instead of yielding an empty string. That is the same rule `guard_parsed` enforces on the feed adapters — never report a confident `0` from a body you could not read — and without it this fix would have reintroduced the identical defect one layer up.
+
+  Verified non-vacuously by restoring the old last-message-only behaviour, which fails exactly the two tests that name the property, with the sign-off note standing where the ledger should be.
+
+- **Capturing the transcript turned out to be half the fix.** The first re-run with full capture merged 43 assistant messages into 2,479 characters of narration — *"Report generated and saved. Sending it to you now."* — while the real 462-line report sat in a scratch file the harness had never been told about. The model composes a report by **writing** it, so the harness has to say where.
+
+  Getting that right took two further measured corrections, neither guessable from reading. Naming a path under the system temp directory failed because the invoked session's sandbox confines writes to the repository; the destination moved under `evals/runs/`, which is inside the repo and gitignored. Naming a path at all then failed because under `-p` the session has no tool permissions, so `Write` is denied outright — the next run spent 25 messages arguing with the permission system and ended by asking whether to retry. The prompt now names the path **and** says what to do when it cannot be used: output the full report as the reply, not a summary and not a note about where it was saved.
+
+  The harness prefers the written file and falls back to the transcript, because a run may legitimately do either and the assertions should not care which. An empty file falls back rather than replacing a real transcript with nothing.
+
+  End-to-end proof: `ledger_consistency`, which had failed three hard invariants twice, now passes with zero style notes over 13,488 characters carrying a complete Appendix A.
+
+### Fixed
+
 - **The canonical fabrication label rejected the very form the template asks for.** #187 changed the ledger template to name the literal as ``` `PASS` ```, and models faithfully reproduced the backticks — three of the six scenario runs on 2026-09-05 wrote ``**Fabrication check:** `PASS` `` and were flagged for it. That is the same template-vs-checker disagreement #187 fixed, running the other way, and it was invisible until the scenarios actually ran. Both `_CANONICAL_FAB_LABEL` and the hard `_NO_FABRICATION` pattern now accept the literal with or without the code span: the canonical thing is the word, and markdown formatting around it is presentation. The CI parity step now asserts **both** forms, because checking only the bare one is how a guard passes while the property it names is broken.
 
 - **Appendix A's closing lines were described nowhere the model reliably reads.** Three of six runs emitted the tier table and the badge and then stopped, omitting the mandatory `**Fabrication check:**` line — two of them failing the hard `no_fabrication_claim` invariant as a result. The cause was not carelessness: `SKILL.md`'s R5 rule and its step-10 checklist both enumerate what the ledger contains and both stop at the badge. The reference template had the line; the always-loaded entrypoint never mentioned it. R5 in all four prompt files, and the step-10 checklist in the two that carry one, now name all three closing lines and say to emit them even when the ledger is empty — a run that retrieved nothing still has to say it invented nothing.

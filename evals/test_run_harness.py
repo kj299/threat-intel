@@ -11,6 +11,9 @@ is the harness's own bookkeeping rather than the skill.
 
 from __future__ import annotations
 
+import json
+import pathlib
+import re
 import subprocess
 import types
 
@@ -20,7 +23,40 @@ import run as harness
 from scenarios import INJECTION_PAYLOAD
 
 
+def _stream(*messages: str) -> str:
+    """A `stream-json` transcript carrying one assistant message per argument.
+
+    The harness now invokes the CLI with `--output-format stream-json`, so the
+    fake has to speak that shape or it would be testing a code path that no
+    longer exists.
+    """
+    lines = [json.dumps({"type": "system", "subtype": "init"})]
+    for text in messages:
+        lines.append(
+            json.dumps(
+                {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}}
+            )
+        )
+    lines.append(json.dumps({"type": "result", "subtype": "success"}))
+    return "\n".join(lines) + "\n"
+
+
 def _fake_completed(stdout: str = "", stderr: str = "", returncode: int = 0):
+    """`stdout` is the report text; it is wrapped as a one-message transcript."""
+    return types.SimpleNamespace(
+        stdout=_stream(stdout) if stdout else "", stderr=stderr, returncode=returncode
+    )
+
+
+def _out_path_from(prompt: str) -> str:
+    """Recover the destination the harness named, the way the model would."""
+    m = re.search(r"exact path: (\S+)", prompt)
+    assert m, f"prompt names no output path:\n{prompt}"
+    return m.group(1)
+
+
+def _fake_raw(stdout: str, stderr: str = "", returncode: int = 0):
+    """For tests that need to control the transcript bytes exactly."""
     return types.SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
@@ -93,3 +129,185 @@ def test_a_scenario_run_never_writes_into_the_frozen_corpus(runs_dir, monkeypatc
     before = sorted(p.name for p in harness._REPORTS.glob("*.md"))
     _run(monkeypatch, "sparse_honesty", _fake_completed(stdout="COVERAGE: MINIMAL"))
     assert sorted(p.name for p in harness._REPORTS.glob("*.md")) == before
+
+
+# ─── The capture defect (2026-09-05) ─────────────────────────────────────────
+
+
+def test_a_report_split_across_messages_is_captured_whole(runs_dir, monkeypatch):
+    """The defect itself.
+
+    `claude -p` in text mode prints only the FINAL assistant message. Two of the
+    six scenario runs on 2026-09-05 composed their report across turns and
+    signed off with a short note, so the harness asserted over the sign-off and
+    reported hard failures against a few sentences of prose.
+    """
+    completed = _fake_raw(
+        _stream(
+            "## Appendix A: Source Coverage Ledger\n\nCOVERAGE: MINIMAL",
+            "**Fabrication check:** `PASS` — nothing was invented.",
+            "Note: I didn't commit this to reports/ — that corpus is frozen.",
+        )
+    )
+    _run(monkeypatch, "sparse_honesty", completed)
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    section = body.split("## Model output\n\n", 1)[1]
+    for fragment in ("Source Coverage Ledger", "Fabrication check", "didn't commit"):
+        assert fragment in section, f"lost {fragment!r} from the transcript"
+    assert "assistant messages merged**: 3" in body
+
+
+def test_only_the_last_message_would_have_lost_the_report(runs_dir, monkeypatch):
+    """Non-vacuity for the test above.
+
+    Asserting that the whole transcript survives proves nothing unless the old
+    behaviour would actually have failed it. Reduce the same transcript the way
+    text mode did — final message only — and the ledger is gone.
+    """
+    messages = (
+        "## Appendix A: Source Coverage Ledger\n\nCOVERAGE: MINIMAL",
+        "Note: I didn't commit this to reports/.",
+    )
+    whole, count = harness.collect_report_text(_stream(*messages))
+    assert count == 2
+    assert "Source Coverage Ledger" in whole
+    assert "Source Coverage Ledger" not in messages[-1], (
+        "the fixture must reproduce the real shape: report early, sign-off last"
+    )
+
+
+def test_tool_use_blocks_are_not_part_of_the_report(runs_dir, monkeypatch):
+    """How the report was gathered is not the report."""
+    stream = "\n".join(
+        [
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {"type": "tool_use", "name": "fetch_all_iocs", "input": {}},
+                            {"type": "text", "text": "COVERAGE: MINIMAL"},
+                        ]
+                    },
+                }
+            )
+        ]
+    )
+    text, count = harness.collect_report_text(stream)
+    assert text == "COVERAGE: MINIMAL"
+    assert "fetch_all_iocs" not in text
+    assert count == 1
+
+
+def test_non_json_lines_are_skipped_not_fatal():
+    """The CLI may emit diagnostics the harness has no contract with."""
+    stream = "warning: something\n" + _stream("COVERAGE: MINIMAL")
+    text, count = harness.collect_report_text(stream)
+    assert text == "COVERAGE: MINIMAL"
+    assert count == 1
+
+
+def test_assistant_messages_with_no_text_refuse_to_assert(runs_dir, monkeypatch):
+    """An empty reconstruction must be loud, never a silent pass-through.
+
+    The adapters forbid a confident `0 records` from a body that could not be
+    read (`guard_parsed`); handing the invariants an empty string would
+    reintroduce that exact shape one layer up, as honest-looking hard failures
+    about text nobody ever saw.
+    """
+    stream = json.dumps(
+        {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "X"}]}}
+    )
+    with pytest.raises(harness.TranscriptError):
+        harness.collect_report_text(stream)
+
+    rc = _run(monkeypatch, "sparse_honesty", _fake_raw(stream))
+    assert rc == 1, "an unreadable transcript must fail the run"
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "tool_use" in body, "the raw stream must survive for debugging"
+
+
+def test_an_empty_transcript_is_not_an_error():
+    """No assistant messages at all is a different thing from unreadable ones —
+    a crashed invocation, which scenario 0 reports through the exit code."""
+    assert harness.collect_report_text("") == ("", 0)
+
+
+def test_the_artifact_records_what_was_asserted(runs_dir, monkeypatch):
+    """The artifact and the verdict must never describe different text."""
+    _run(monkeypatch, "sparse_honesty", _fake_completed(stdout="COVERAGE: MINIMAL"))
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    section = body.split("## Model output\n\n", 1)[1]
+    assert section.startswith("COVERAGE: MINIMAL")
+    assert '"type": "assistant"' not in section, "raw transcript leaked into the artifact"
+
+
+# ─── The report is written, not spoken (2026-09-05, second finding) ──────────
+
+
+def test_the_prompt_names_an_output_path():
+    """Capturing the transcript was necessary and not sufficient.
+
+    The re-run of `ledger_consistency` with full transcript capture merged 43
+    assistant messages into 2,479 characters of narration -- "Report generated
+    and saved. Sending it to you now." -- while the real 462-line report went to
+    a scratch file the harness had never been told about. The model composes a
+    report by writing it, so the harness has to say where.
+    """
+    prompt = harness._build_prompt(
+        harness.by_key("sparse_honesty"), pathlib.Path("/tmp/x/report.md")
+    )
+    assert "/tmp/x/report.md" in prompt
+    assert "reports/" in prompt, "must warn off the frozen corpus"
+    # Load-bearing: under `-p` the invoked session has no tool permissions, so
+    # Write is denied. The 19:02 run spent 25 messages arguing with the
+    # permission system and ended by asking whether to retry, because the
+    # prompt named a path and never said what to do when it was refused.
+    assert "output the complete report as your reply" in prompt
+
+
+def test_the_written_file_wins_over_the_narration(runs_dir, monkeypatch, tmp_path):
+    """The exact shape of the real failure: narration in the transcript, report
+    on disk. Asserting over the transcript would judge the sign-off."""
+    report = "## Appendix A: Source Coverage Ledger\n\nCOVERAGE: MINIMAL\n"
+
+    def fake_run(cmd, **kwargs):
+        # The model writes the file it was told to write.
+        out = pathlib.Path(_out_path_from(cmd[-1]))
+        out.write_text(report, encoding="utf-8")
+        return _fake_raw(_stream("Report generated and saved. Sending it to you now."))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    harness.run_scenario("sparse_honesty")
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "Source Coverage Ledger" in body, "the written report was not read back"
+    assert "asserted over**: the report file" in body
+
+
+def test_the_transcript_is_the_fallback_when_no_file_is_written(runs_dir, monkeypatch):
+    """A run that narrates its report instead of writing one still works."""
+    _run(monkeypatch, "sparse_honesty", _fake_completed(stdout="COVERAGE: MINIMAL"))
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "COVERAGE: MINIMAL" in body
+    assert "asserted over**: 1 assistant message(s)" in body
+
+
+def test_an_empty_written_file_falls_back_rather_than_asserting_over_nothing(
+    runs_dir, monkeypatch
+):
+    """A touched-but-empty file must not silently replace a real transcript."""
+
+    def fake_run(cmd, **kwargs):
+        out = pathlib.Path(_out_path_from(cmd[-1]))
+        out.write_text("   \n", encoding="utf-8")
+        return _fake_raw(_stream("COVERAGE: MINIMAL"))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    harness.run_scenario("sparse_honesty")
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "COVERAGE: MINIMAL" in body
+    assert "asserted over**: 1 assistant message(s)" in body
