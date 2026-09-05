@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import pathlib
 import subprocess
 import sys
@@ -70,7 +71,67 @@ def _display(path: pathlib.Path) -> str:
         return str(path)
 
 
-def _write_run_artifact(scenario, prompt: str, completed) -> pathlib.Path:
+class TranscriptError(RuntimeError):
+    """The run produced assistant messages the harness could not read.
+
+    Deliberately not a silent empty string. `mcp/.../adapters/base.py` forbids
+    an adapter reporting a confident `0 records` from a body it could not parse
+    (`guard_parsed`), for the same reason this refuses to hand the invariants an
+    empty report: a checker asserting over nothing reports honest-looking hard
+    failures about text it never saw. That is exactly the shape of the defect
+    this function exists to fix, so it must not reintroduce it one layer up.
+    """
+
+
+def collect_report_text(stream: str) -> tuple[str, int]:
+    """Concatenate every assistant text block from a `stream-json` run.
+
+    Returns the reconstructed text and the number of assistant messages it came
+    from.
+
+    `claude -p` in its default text mode prints only the FINAL assistant
+    message. That silently loses the report whenever the model composes it
+    across turns and signs off with a short note -- which is not a rare shape:
+    2 of the 6 scenario runs on 2026-09-05 ended that way, one saying it had not
+    committed to `reports/` and one summarising two artifacts it had been denied
+    permission to write. Both times the harness asserted over the sign-off and
+    reported hard failures against a few sentences of prose. The verdicts were
+    not wrong about what they saw; the harness was wrong about what it captured.
+
+    Tool-use blocks are skipped: they are how the report was gathered, not the
+    report. Non-JSON lines are skipped rather than fatal, because the CLI is
+    entitled to emit diagnostics the harness has no contract with.
+    """
+    texts: list[str] = []
+    seen_assistant = 0
+    for line in stream.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "assistant":
+            continue
+        seen_assistant += 1
+        content = event.get("message", {}).get("content") or []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text") or ""
+                if text.strip():
+                    texts.append(text)
+    if seen_assistant and not texts:
+        raise TranscriptError(
+            f"{seen_assistant} assistant message(s) carried no text block; "
+            "refusing to assert over an empty report"
+        )
+    return "\n\n".join(texts), seen_assistant
+
+
+def _write_run_artifact(
+    scenario, prompt: str, completed, report: str, messages: int | None = None
+) -> pathlib.Path:
     """Persist what the model produced, before any invariant is evaluated.
 
     Written *first*, deliberately. The output is the evidence; making the file
@@ -83,6 +144,9 @@ def _write_run_artifact(scenario, prompt: str, completed) -> pathlib.Path:
 
     The model's output is NOT fenced: it is a markdown report that may contain
     fenced blocks of its own, and wrapping it would break at the first one.
+
+    `report` is the text the invariants will actually be run over, so the
+    artifact and the verdict can never describe different things.
     """
     _RUNS.mkdir(parents=True, exist_ok=True)
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -94,6 +158,10 @@ def _write_run_artifact(scenario, prompt: str, completed) -> pathlib.Path:
         f"- **scenario**: `{scenario.key}`",
         f"- **run at**: {now.isoformat()}",
         f"- **exit code**: {completed.returncode}",
+    ]
+    if messages is not None:
+        parts.append(f"- **assistant messages merged**: {messages}")
+    parts += [
         "",
         "## Why this scenario exists",
         "",
@@ -107,7 +175,7 @@ def _write_run_artifact(scenario, prompt: str, completed) -> pathlib.Path:
         "",
         "## Model output",
         "",
-        completed.stdout or "_(empty)_",
+        report or "_(empty)_",
     ]
     if completed.stderr:
         parts += ["", "## stderr", "", "````", completed.stderr, "````"]
@@ -150,13 +218,37 @@ def run_scenario(key: str) -> int:
 
     prompt = _build_prompt(scenario)
     completed = subprocess.run(  # the skill invocation itself is scenario 0
-        ["claude", "--plugin-dir", str(_REPO_ROOT), "-p", prompt],
+        [
+            "claude",
+            "--plugin-dir",
+            str(_REPO_ROOT),
+            "-p",
+            # Every assistant message, not just the last. See
+            # collect_report_text: the default text mode prints only the final
+            # message and drops the report whenever the model signs off with a
+            # note, which happened in 2 of 6 runs on 2026-09-05.
+            "--output-format",
+            "stream-json",
+            "--verbose",  # required alongside stream-json under --print
+            prompt,
+        ],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,  # a non-zero exit IS the scenario-0 result, not an exception
     )
-    artifact = _write_run_artifact(scenario, prompt, completed)
+
+    try:
+        report, messages = collect_report_text(completed.stdout)
+    except TranscriptError as exc:
+        # Write the raw stream so the failure is debuggable, then stop. Handing
+        # the invariants an empty string would produce a verdict about nothing.
+        artifact = _write_run_artifact(scenario, prompt, completed, completed.stdout)
+        print(f"run artifact: {_display(artifact)}\n")
+        print(f"could not read the run transcript: {exc}")
+        return 1
+
+    artifact = _write_run_artifact(scenario, prompt, completed, report, messages)
     print(f"run artifact: {_display(artifact)}\n")
 
     if completed.returncode != 0:
@@ -164,15 +256,19 @@ def run_scenario(key: str) -> int:
         print(completed.stderr[-2000:])
         return 1
 
-    # Asserting over stdout is the only path, not a fallback. Under `-p` with no
-    # tool permissions the skill returns the report as text rather than writing
-    # a file, and it must not write one anyway: reports/ is a frozen corpus of
-    # 11 whose count CI pins (#183). The harness used to diff reports/ before
-    # and after to pick up a new file — a branch that could only ever fire by
-    # violating that freeze, so it is gone rather than left to disagree with the
-    # check that now forbids it.
-    text = completed.stdout
-    print("asserting over the model's stdout\n")
+    # Asserting over the transcript is the only path, not a fallback. Under `-p`
+    # the skill returns the report as text rather than writing a file, and it
+    # must not write one anyway: reports/ is a frozen corpus of 11 whose count
+    # CI pins (#183). The harness used to diff reports/ before and after to pick
+    # up a new file — a branch that could only ever fire by violating that
+    # freeze, so it is gone rather than left to disagree with the check that now
+    # forbids it.
+    #
+    # What changed is WHICH text: `completed.stdout` used to be the final
+    # assistant message alone, and now it is the whole `stream-json` transcript
+    # reduced to its assistant text.
+    text = report
+    print(f"asserting over {messages} assistant message(s), {len(text)} chars\n")
 
     ok = _print(check_report(text, "stdout"))
     if scenario.key == "injection_resistance":
