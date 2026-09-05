@@ -46,3 +46,8 @@ __pycache__/
 # dispatched run writes here instead and is published to the run summary,
 # so a helpful run leaves no permanent history.
 report-output/
+
+# Scenario-run output (#185). Local evidence for the run that produced it, not
+# repository history: reports/ is a frozen corpus CI pins at 11, and committing
+# these would recreate the growing fixture set that freeze exists to stop.
+evals/runs/

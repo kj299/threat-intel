@@ -30,6 +30,22 @@ Scenario invocation shells out to:
 claude --plugin-dir . -p "<scenario prompt>"
 ```
 
+### Where a run's output goes
+
+Each scenario run writes the model's full output to
+`evals/runs/<scenario>-<UTC timestamp>.md` and prints the path. The file carries
+the scenario, the exact prompt sent (including any planted payload), the output
+verbatim, stderr when there was any, and the harness verdict.
+
+It is written **before** the invariants are evaluated, so the evidence survives
+an assertion that crashes — #83 has already had one assertion bug, the
+exact-string draft that false-alarmed on two honest reports.
+
+`evals/runs/` is **gitignored and should stay that way.** `reports/` is a frozen
+corpus of 11 that CI pins (#183); a second directory of committed model output
+would recreate the growing fixture set that freeze exists to prevent. These
+files are evidence for the run that made them, not repository history.
+
 `--plugin-dir` is not optional. A top-level `skills/` directory is **not** a
 Claude Code discovery location, so a plain clone exposes no
 `/cyber-threat-intel` — that was true for this repository's entire history until
