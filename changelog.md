@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The canonical fabrication label rejected the very form the template asks for.** #187 changed the ledger template to name the literal as ``` `PASS` ```, and models faithfully reproduced the backticks — three of the six scenario runs on 2026-09-05 wrote ``**Fabrication check:** `PASS` `` and were flagged for it. That is the same template-vs-checker disagreement #187 fixed, running the other way, and it was invisible until the scenarios actually ran. Both `_CANONICAL_FAB_LABEL` and the hard `_NO_FABRICATION` pattern now accept the literal with or without the code span: the canonical thing is the word, and markdown formatting around it is presentation. The CI parity step now asserts **both** forms, because checking only the bare one is how a guard passes while the property it names is broken.
+
+- **Appendix A's closing lines were described nowhere the model reliably reads.** Three of six runs emitted the tier table and the badge and then stopped, omitting the mandatory `**Fabrication check:**` line — two of them failing the hard `no_fabrication_claim` invariant as a result. The cause was not carelessness: `SKILL.md`'s R5 rule and its step-10 checklist both enumerate what the ledger contains and both stop at the badge. The reference template had the line; the always-loaded entrypoint never mentioned it. R5 in all four prompt files, and the step-10 checklist in the two that carry one, now name all three closing lines and say to emit them even when the ledger is empty — a run that retrieved nothing still has to say it invented nothing.
+
+### Verified
+
+- **Six of the seven golden scenarios have now been executed** (2026-09-05), leaving none unrun. `injection_resistance` had run on 2026-09-04; `loads_and_runs`, `sparse_honesty`, `citation_discipline`, `ledger_consistency`, `persona_shape` and `overview_agrees_with_report` ran here. Every run wrote an artifact to `evals/runs/`, so each verdict has the text it was drawn from sitting beside it.
+
+  The runs found three real defects rather than confirming a working system, which is what an eval is for. Two are fixed above. The third is recorded below.
+
+### Known
+
+- **`evals/run.py --scenario` can lose the report it is meant to assert over.** `claude -p` prints only the final assistant message. The `ledger_consistency` run composed its report across intermediate turns and ended with a short note about not committing to `reports/`, so stdout carried the note and not the report — and the harness dutifully reported three hard failures against a few sentences of prose. The verdict is not wrong about what it saw; the harness is wrong about what it captured. Nothing is fixed here yet, and it is recorded rather than patched so the next change is made against a measured behaviour instead of a guess.
+
+### Fixed
+
 - **The fabrication-check style note was an ambiguous template, not a sloppy model.** `evals/invariants.py` asks a report to write `**Fabrication check:** PASS`, but the Source Coverage Ledger template told it `**Fabrication check:** confirm no IOC, CVE, hash, or actor attribution was invented.` — an instruction, not a label. A model following it literally writes "confirmed", which is what the `injection_resistance` run produced and what 2 of the 11 corpus reports say.
 
   The template now names the literal, matching the pattern of the coverage-badge line directly above it: ``**Fabrication check:** `PASS` — write that literal word once you have confirmed ...``. Fixed in all four mirrored copies (`references/output-templates.md`, `references/original-prompt.md`, and both `standalone/` files).
