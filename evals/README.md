@@ -73,6 +73,15 @@ were brittle. A brittle eval cries wolf on prose variation, gets muted, and then
 misses the real regression. Every invariant now matches several real phrasings,
 and label drift is a **style note that never fails a build**.
 
+That said, the drift had a cause worth removing. The ledger template used to
+say *"**Fabrication check:** confirm no IOC ... was invented"* — an instruction
+containing the word "confirm", so a model following it literally wrote
+"confirmed". The template now names the literal (`` `PASS` ``) the way the
+coverage-badge line beside it always has, and a CI step asserts the four
+mirrored templates and `_CANONICAL_FAB_LABEL` still agree. The two corpus
+reports keep the note: they are frozen output (#183), and editing them to match
+a template they were never generated under would falsify the record.
+
 **Over-claiming fails; under-claiming does not.** The badge check is
 directional, not equality. `2026-06-30` consulted ~14 sources, which the
 arithmetic would badge `PARTIAL`, but every one was training-data recall with
