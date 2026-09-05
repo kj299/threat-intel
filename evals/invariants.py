@@ -116,6 +116,11 @@ _NO_FABRICATION = (
     re.compile(r"are\s+fabricated\s+below\s*\(R3\)", re.IGNORECASE),
 )
 
+# The literal this expects is not a house style the model has to guess: the
+# ledger template in all four prompt files demands it by name. CI's
+# "Fabrication-check label parity" step reads this regex and asserts the
+# templates still demand something it accepts, so changing one side alone
+# fails the build rather than silently re-introducing the style note.
 _CANONICAL_FAB_LABEL = re.compile(r"\*\*Fabrication check:\*\*\s*PASS", re.IGNORECASE)
 
 # Language a sparse report must carry rather than padding.
