@@ -110,7 +110,7 @@ _TOTAL_CONSULTED = re.compile(
 
 # A no-fabrication claim, however phrased. Substance, not label.
 _NO_FABRICATION = (
-    re.compile(r"\*\*Fabrication check:?\*{0,2}[:\s]*(PASS|Confirmed)", re.IGNORECASE),
+    re.compile(r"\*\*Fabrication check:?\*{0,2}[:\s]*`?(PASS|Confirmed)", re.IGNORECASE),
     re.compile(r"no\s+IOC\s+values?\s+(below\s+)?(are|were)\s+fabricated", re.IGNORECASE),
     re.compile(r"(was|were)\s+invented", re.IGNORECASE),
     re.compile(r"are\s+fabricated\s+below\s*\(R3\)", re.IGNORECASE),
@@ -121,7 +121,13 @@ _NO_FABRICATION = (
 # "Fabrication-check label parity" step reads this regex and asserts the
 # templates still demand something it accepts, so changing one side alone
 # fails the build rather than silently re-introducing the style note.
-_CANONICAL_FAB_LABEL = re.compile(r"\*\*Fabrication check:\*\*\s*PASS", re.IGNORECASE)
+# The optional backticks are not cosmetic tolerance. The ledger template
+# writes the literal as `PASS`, and a model following it reproduces the
+# backticks verbatim -- three of the six scenario runs on 2026-09-05 did.
+# Requiring the bare word made the template and the checker disagree again,
+# in the opposite direction from the one #187 fixed. The canonical thing is
+# the WORD; code formatting around it is presentation.
+_CANONICAL_FAB_LABEL = re.compile(r"\*\*Fabrication check:\*\*\s*`?PASS`?", re.IGNORECASE)
 
 # Language a sparse report must carry rather than padding.
 _SPARSITY_LANGUAGE = (

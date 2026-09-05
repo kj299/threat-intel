@@ -166,6 +166,10 @@ def test_inconsistent_badges_between_header_and_appendix_are_caught():
         "**Fabrication check:** PASS — nothing was invented.",
         "**Fabrication check:** Confirmed — no hashes were invented.",
         "> **No IOC values below are fabricated.**",
+        # Verbatim from evals/runs/loads_and_runs-20260905T161123Z.md. The
+        # template names the literal as `PASS`, and the model reproduced the
+        # backticks -- three of six scenario runs did on 2026-09-05.
+        "**Fabrication check:** `PASS` — no IOC, CVE, hash, or actor attribution was invented.",
     ],
 )
 def test_no_fabrication_claim_accepts_real_phrasings(phrasing: str):
@@ -356,3 +360,38 @@ def test_report_not_naming_the_overview_is_a_style_note_only():
     result = check_paired_artifacts(stripped, overview, "attached-mode")
     assert result.ok, "missing back-reference must not fail a build"
     assert "pair_report_names_overview" in {f.invariant for f in result.style_notes}
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "**Fabrication check:** PASS — nothing was invented.",
+        "**Fabrication check:** `PASS` — nothing was invented.",
+    ],
+)
+def test_canonical_label_accepts_both_markdown_forms(line: str):
+    """#187 made the template name the literal as `PASS`. Models then wrote the
+    backticks, and an invariant demanding the bare word flagged three honest
+    reports -- the same template-vs-checker disagreement #187 fixed, running the
+    other way. The canonical thing is the word; the code span is presentation."""
+    result = check_report(_baseline() + "\n\n" + line, "canonical")
+    assert not any(
+        f.invariant == "fabrication_label_canonical" for f in result.style_notes
+    ), f"canonical label rejected: {line!r}"
+
+
+def test_canonical_label_still_rejects_a_different_word():
+    """Non-vacuity: the tolerance is for formatting, not for a second spelling.
+
+    The baseline carries its own passing label, so it must be redacted first --
+    appending a bad line to a good report proves nothing, which is exactly what
+    the first version of this test did.
+    """
+    text = _baseline().replace("**Fabrication check:**", "REDACTED")
+    result = check_report(
+        text + "\n\n**Fabrication check:** `CONFIRMED` — nothing invented.",
+        "canonical-neg",
+    )
+    assert any(
+        f.invariant == "fabrication_label_canonical" for f in result.style_notes
+    ), "a different literal must still raise the style note"

@@ -590,12 +590,22 @@ jobs:
                   errors.append(f"{f}: expected exactly 1 backticked fabrication-check literal, found {len(hits)}")
                   continue
               demanded[f] = hits[0]
-              # What a compliant report writes, checked the way the eval checks it.
-              if not invariant.search(f"**Fabrication check:** {hits[0]}"):
-                  errors.append(
-                      f"{f}: template demands `{hits[0]}`, which evals/invariants.py "
-                      f"(_CANONICAL_FAB_LABEL) does not accept"
-                  )
+              # What a compliant report actually writes, checked the way the eval
+              # checks it. BOTH forms, because the template names the literal in
+              # backticks and a model reproduces them: three of the six scenario
+              # runs on 2026-09-05 wrote `PASS` with the backticks intact, and an
+              # invariant accepting only the bare word flagged all three. Testing
+              # one form is how the first version of this step passed while the
+              # property it names was broken in the other direction.
+              for shape, written in (
+                  ("bare", f"**Fabrication check:** {hits[0]}"),
+                  ("backticked", f"**Fabrication check:** `{hits[0]}`"),
+              ):
+                  if not invariant.search(written):
+                      errors.append(
+                          f"{f}: a report writing the {shape} form of `{hits[0]}` is "
+                          f"rejected by evals/invariants.py (_CANONICAL_FAB_LABEL)"
+                      )
 
           if len(set(demanded.values())) > 1:
               errors.append(f"templates disagree on the literal: {demanded}")
