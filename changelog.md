@@ -10,6 +10,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Scenario 6 now asserts the relation it was written to assert.** It declares seven `pair_*` invariants and its own notes say they must be checked "with `check_paired_artifacts` over both artifacts, not `check_report` over either alone — the property is a relation between them and is invisible in each on its own." `run_scenario` called only `check_report`, so the scenario ran and reported a verdict about a different property than the one on its label.
+
+  The harness now names both destinations, and for the reply path asks for two marked documents it can split. A pair it cannot recover **fails** rather than degrading to `check_report` over whichever half turned up. That changes the diagnosis rather than the verdict — measured, not assumed: without the guard the run still goes red, because `pair_overview_names_report` rejects an empty overview. But it goes red saying "the overview does not point at the technical report", which is a statement about an overview that does not exist.
+
+- **A paired artifact keeps both halves.** The first paired run failed `pair_same_badge` and the overview it had been judged against was already gone, so the finding could not be checked at all — the same "keep what you judged" failure #185 fixed for the report, reappearing on the other side of the pair.
+
+- **Three pair invariants were brittle, and the first real run proved it.** `check_paired_artifacts` had never been executed against real output. On its first run it reported three failures, and **all three were the assertion, not the artifacts**:
+
+  | Invariant | What it read | What the documents said |
+  |---|---|---|
+  | `pair_same_badge` | overview `FULL` | `<div class="badge">COVERAGE: MINIMAL</div>` — the scan hit the word "full" in "full technical IOC package" |
+  | `pair_same_source_count` | report `0`, overview `1` | both 1 — the loose regex hit "`sources_consulted` > 0" in an actions-matrix success metric |
+  | `pair_overview_names_report` | not named | named `report.md` three times; the pattern wanted `threat-intel.md` |
+
+  The badge is now read from a labelled context, because `FULL` is an ordinary English word and cannot be matched bare. The count prefers the ledger's own total line over an incidental mention. The naming check accepts how reports actually refer to each other — and the old pattern had come to contradict the harness itself, which now tells the run to write `report.md`.
+
+  This is the failure mode `evals/README.md` warns about in its own words: a brittle eval cries wolf on prose variation, gets muted, and then misses the real regression. Four tests assert the loosening did not cost the check its teeth — a genuinely different badge, a genuinely different count, an overview naming no companion, and a CVE appearing only in the overview all still fail.
+
+  With the assertions corrected, the real pair passes: the overview agreed with the report all along.
+
+### Fixed
+
 - **The scenario harness asserted over the model's sign-off instead of its report.** `claude -p` in text mode prints only the *final* assistant message. Two of the six runs on 2026-09-05 composed their report across turns and ended with a short note — one saying it had not committed to `reports/`, one summarising two artifacts it had been denied permission to write — so the harness ran the invariants over a few sentences of prose and reported hard failures about text it never saw. A third of the scenario suite could not return a meaningful result.
 
   `run.py` now invokes with `--output-format stream-json --verbose` and reconstructs the report from **every** assistant text block. Tool-use blocks are excluded, because how the report was gathered is not the report. Non-JSON lines are skipped rather than fatal, since the CLI is entitled to emit diagnostics the harness has no contract with. The artifact records exactly the text that was asserted over, plus the number of messages merged, so a verdict and its evidence can never describe different things.

@@ -395,3 +395,77 @@ def test_canonical_label_still_rejects_a_different_word():
     assert any(
         f.invariant == "fabrication_label_canonical" for f in result.style_notes
     ), "a different literal must still raise the style note"
+
+
+# ─── The pair check, first exercised against real output on 2026-09-06 ───────
+
+from invariants import overview_badge, source_count  # noqa: E402
+
+_REP = (
+    "Report ID: r-1\nGenerated: 2026-09-06T00:00:00Z\nCoverage: MINIMAL\n\n"
+    "| P1 | Next run shows `sources_consulted` > 0 for Tiers 1-3 |\n\n"
+    "**Total preferred-source targets consulted:** 1 / ~25\n"
+    "**Coverage badge (honest self-report):** `MINIMAL`\n"
+)
+_OV = (
+    '<header>Report ID: r-1 · Generated: 2026-09-06<br>'
+    'Companion artifact: report.md (full technical IOC package - same coverage badge)'
+    '<div class="badge">COVERAGE: MINIMAL</div></header>'
+    '<tr><td>Sources consulted</td><td>1 / ~25 target</td></tr>'
+    '<div class="footer-note">This overview is a projection of report.md.</div>'
+)
+
+
+def test_the_real_agreeing_pair_passes():
+    """Verbatim shapes from the first real paired run, which failed all three.
+
+    Each failure was the assertion, not the artifacts: the badge scan hit the
+    word "full" in "full technical IOC package"; the count regex hit
+    "`sources_consulted` > 0" in an actions matrix; and the naming pattern
+    wanted `threat-intel.md` while the overview said `report.md` three times.
+    """
+    result = check_paired_artifacts(_REP, _OV, "agreeing")
+    assert result.ok, [f"{f.invariant}: {f.detail}" for f in result.failures]
+
+
+def test_badge_is_read_from_a_label_not_from_prose():
+    assert overview_badge(_OV) == "MINIMAL"
+
+
+def test_source_count_prefers_the_ledger_total_over_an_incidental_mention():
+    assert source_count(_REP) == "1"
+
+
+# ─── Non-vacuity: a real disagreement must still fail ────────────────────────
+
+
+def test_a_genuinely_disagreeing_badge_still_fails():
+    """The whole point of the pair check. Loosening the badge reader must not
+    cost it the disagreement it exists to catch."""
+    ov = _OV.replace('class="badge">COVERAGE: MINIMAL', 'class="badge">COVERAGE: FULL')
+    result = check_paired_artifacts(_REP, ov, "badge-disagree")
+    assert any(f.invariant == "pair_same_badge" for f in result.failures)
+
+
+def test_a_genuinely_different_source_count_still_fails():
+    ov = _OV.replace("<td>1 / ~25 target</td>", "<td>19 / ~25 target</td>")
+    result = check_paired_artifacts(_REP, ov, "count-disagree")
+    assert any(f.invariant == "pair_same_source_count" for f in result.failures)
+
+
+def test_an_overview_naming_no_companion_still_fails():
+    ov = (
+        '<div class="badge">COVERAGE: MINIMAL</div>'
+        "<tr><td>Sources consulted</td><td>1 / ~25 target</td></tr>"
+        "<div>Risk is trending down. Nothing else to see.</div>"
+    )
+    result = check_paired_artifacts(_REP, ov, "orphan")
+    assert any(f.invariant == "pair_overview_names_report" for f in result.failures)
+
+
+def test_a_cve_only_in_the_overview_still_fails():
+    """Untouched by these fixes, asserted here because it is the invariant that
+    most directly encodes 'the overview was written rather than derived'."""
+    ov = _OV + " CVE-2099-9999 is the top risk."
+    result = check_paired_artifacts(_REP, ov, "invented-cve")
+    assert any(f.invariant == "pair_no_cve_only_in_overview" for f in result.failures)
