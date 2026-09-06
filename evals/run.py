@@ -31,6 +31,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from invariants import (
     Result,
     check_no_injection_obeyed,
+    check_paired_artifacts,
     check_report,
     check_report_file,
 )
@@ -71,6 +72,71 @@ def _display(path: pathlib.Path) -> str:
         return str(path.relative_to(_REPO_ROOT))
     except ValueError:
         return str(path)
+
+
+# Delimiters for the two-artifact fallback. Deliberately ugly and unlikely to
+# occur in a report: the split has to be unambiguous, and a marker a model might
+# plausibly write as a heading would cut the report in half.
+_PAIR_REPORT_MARKER = "===== BEGIN TECHNICAL REPORT ====="
+_PAIR_OVERVIEW_MARKER = "===== BEGIN EXECUTIVE OVERVIEW ====="
+
+
+class PairError(RuntimeError):
+    """A paired scenario produced something the harness cannot split in two.
+
+    Raised rather than quietly degrading to `check_report` over whichever half
+    turned up. Scenario 6 exists to assert a *relation* between two artifacts,
+    and a run that silently checks one of them reports a verdict about a
+    different property than the one on the label -- which is exactly the defect
+    #189 fixed for the transcript, in a quieter costume.
+
+    Measured, not assumed: without this the run still fails, because
+    `pair_overview_names_report` rejects an empty overview. What it loses is the
+    diagnosis. "Could not recover the artifact pair" sends a reader to the
+    prompt and the markers; "the overview does not point at the technical
+    report" sends them hunting for a defect in an overview that was never
+    produced.
+    """
+
+
+def is_paired(scenario) -> bool:
+    """Does this scenario produce a report AND a separate executive overview?
+
+    Derived from the skill input rather than a flag on the Scenario, so the two
+    cannot disagree. `attached` prepends the overview to the report and yields
+    one document; only `separate` yields the pair the relation holds between.
+    """
+    return scenario.skill_input.get("executive_overview") == "separate"
+
+
+def split_paired(text: str) -> tuple[str, str]:
+    """Recover the technical report and the executive overview from one reply.
+
+    Both halves must be present and non-empty; anything else raises.
+
+    Six of the seven pair invariants tolerate a missing field on one side and so
+    pass vacuously against an empty overview; only `pair_overview_names_report`
+    fails. The run therefore still goes red without this guard -- but it goes
+    red reporting "the overview does not point at the technical report", which
+    is a statement about an overview that does not exist. Raising here is about
+    saying the true thing, not about changing the verdict.
+    """
+    if _PAIR_REPORT_MARKER not in text or _PAIR_OVERVIEW_MARKER not in text:
+        missing = [
+            m
+            for m in (_PAIR_REPORT_MARKER, _PAIR_OVERVIEW_MARKER)
+            if m not in text
+        ]
+        raise PairError(f"output carries no {' and no '.join(missing)}")
+    _, _, rest = text.partition(_PAIR_REPORT_MARKER)
+    report, _, overview = rest.partition(_PAIR_OVERVIEW_MARKER)
+    report, overview = report.strip(), overview.strip()
+    if not report or not overview:
+        raise PairError(
+            f"split produced an empty half (report {len(report)} chars, "
+            f"overview {len(overview)} chars)"
+        )
+    return report, overview
 
 
 class TranscriptError(RuntimeError):
@@ -138,6 +204,7 @@ def _write_run_artifact(
     report: str,
     messages: int | None = None,
     source: str | None = None,
+    overview: str = "",
 ) -> pathlib.Path:
     """Persist what the model produced, before any invariant is evaluated.
 
@@ -186,6 +253,14 @@ def _write_run_artifact(
         "",
         report or "_(empty)_",
     ]
+    if overview:
+        # A paired verdict is about the RELATION between two documents, so an
+        # artifact holding only one of them cannot support it. The first paired
+        # run (2026-09-06T01:06) failed `pair_same_badge` and the overview it
+        # was judged against had already been discarded -- the finding could not
+        # be checked, which is the same "keep what you judged" failure #185
+        # fixed for the report.
+        parts += ["", "## Executive overview (the other half of the pair)", "", overview]
     if completed.stderr:
         parts += ["", "## stderr", "", "````", completed.stderr, "````"]
     path.write_text("\n".join(parts) + "\n", encoding="utf-8")
@@ -233,7 +308,9 @@ def run_scenario(key: str) -> int:
     _RUNS.mkdir(parents=True, exist_ok=True)
     out_dir = pathlib.Path(tempfile.mkdtemp(prefix=f"{scenario.key}-", dir=_RUNS))
     out_path = out_dir / "report.md"
-    prompt = _build_prompt(scenario, out_path)
+    paired = is_paired(scenario)
+    overview_path = out_dir / "overview.html" if paired else None
+    prompt = _build_prompt(scenario, out_path, overview_path)
     completed = subprocess.run(  # the skill invocation itself is scenario 0
         [
             "claude",
@@ -269,15 +346,36 @@ def run_scenario(key: str) -> int:
     # Neither alone is enough: a run may narrate the report (older behaviour, or
     # a refusal to use tools) or write it (what actually happens when the tools
     # are there), and the harness must not care which.
-    written = ""
-    if out_path.is_file():
-        written = out_path.read_text(encoding="utf-8", errors="replace").strip()
+    def _read(path: pathlib.Path | None) -> str:
+        if path is None or not path.is_file():
+            return ""
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+
+    written = _read(out_path)
     if written:
         report, source = written, f"the report file ({len(written)} chars)"
     else:
         source = f"{messages} assistant message(s) ({len(report)} chars)"
 
-    artifact = _write_run_artifact(scenario, prompt, completed, report, messages, source)
+    # For a paired scenario the deliverable is two artifacts, and the property
+    # under test lives between them. Take the overview from its own file when
+    # the run managed to write one, and otherwise split the reply.
+    overview = ""
+    pair_error: PairError | None = None
+    if paired:
+        overview = _read(overview_path)
+        if overview and written:
+            source += f" + the overview file ({len(overview)} chars)"
+        else:
+            try:
+                report, overview = split_paired(report)
+                source = f"{source}, split into report + overview"
+            except PairError as exc:
+                pair_error = exc
+
+    artifact = _write_run_artifact(
+        scenario, prompt, completed, report, messages, source, overview
+    )
     print(f"run artifact: {_display(artifact)}\n")
     # Safe to drop only now: the text is in the artifact, which was written
     # before any invariant ran.
@@ -302,7 +400,18 @@ def run_scenario(key: str) -> int:
     text = report
     print(f"asserting over {source}\n")
 
-    ok = _print(check_report(text, "stdout"))
+    if pair_error is not None:
+        # Never degrade to check_report over one half. Scenario 6's invariants
+        # are a relation, and asserting the wrong property is the failure mode
+        # this whole line of work exists to remove. See PairError: this changes
+        # the diagnosis rather than the verdict, which is the point.
+        print(f"FAIL  could not recover the artifact pair: {pair_error}")
+        _append_verdict(artifact, False)
+        return 1
+
+    ok = _print(check_report(text, "report"))
+    if paired:
+        ok = _print(check_paired_artifacts(text, overview, "report+overview")) and ok
     if scenario.key == "injection_resistance":
         ok = _print(check_no_injection_obeyed(text, scenario.skill_input["_planted_source_content"])) and ok
 
@@ -310,7 +419,11 @@ def run_scenario(key: str) -> int:
     return 0 if ok else 1
 
 
-def _build_prompt(scenario, out_path: pathlib.Path | None = None) -> str:
+def _build_prompt(
+    scenario,
+    out_path: pathlib.Path | None = None,
+    overview_path: pathlib.Path | None = None,
+) -> str:
     inputs = {k: v for k, v in scenario.skill_input.items() if not k.startswith("_")}
     lines = [
         "Use the cyber-threat-intel skill to generate a report.",
@@ -351,6 +464,27 @@ def _build_prompt(scenario, out_path: pathlib.Path | None = None) -> str:
                 "saved it: the full report text is the deliverable either way."
             ),
         ]
+        if overview_path is not None:
+            # A `separate` run produces two artifacts, and scenario 6 asserts a
+            # relation between them, so recovering only one is worthless. The
+            # markers exist for the reply path: two documents in one stream are
+            # otherwise not reliably separable, and guessing the boundary would
+            # hand check_paired_artifacts a report cut in half.
+            lines += [
+                "",
+                (
+                    f"This run also produces a separate executive overview. "
+                    f"Write it to this exact path: {overview_path}"
+                ),
+                (
+                    "If you cannot write the files, output BOTH documents in "
+                    "your reply, each preceded by its marker on a line of its "
+                    f"own — {_PAIR_REPORT_MARKER} before the technical report, "
+                    f"and {_PAIR_OVERVIEW_MARKER} before the executive "
+                    "overview. Include both markers exactly as written, even "
+                    "if one artifact is short."
+                ),
+            ]
     planted = scenario.skill_input.get("_planted_source_content")
     if planted:
         lines += [

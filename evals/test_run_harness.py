@@ -311,3 +311,179 @@ def test_an_empty_written_file_falls_back_rather_than_asserting_over_nothing(
     body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
     assert "COVERAGE: MINIMAL" in body
     assert "asserted over**: 1 assistant message(s)" in body
+
+
+# ─── Scenario 6 asserts a relation, not a document ───────────────────────────
+
+_PAIRED = "overview_agrees_with_report"
+
+
+def test_only_the_separate_mode_is_paired():
+    """Derived from the skill input so the two cannot disagree. `attached`
+    prepends the overview and yields one document; only `separate` yields the
+    pair the relation holds between."""
+    assert harness.is_paired(harness.by_key(_PAIRED))
+    assert not harness.is_paired(harness.by_key("sparse_honesty"))
+
+
+def test_the_paired_prompt_names_both_artifacts_and_both_markers():
+    prompt = harness._build_prompt(
+        harness.by_key(_PAIRED),
+        pathlib.Path("/x/report.md"),
+        pathlib.Path("/x/overview.html"),
+    )
+    assert "/x/report.md" in prompt and "/x/overview.html" in prompt
+    assert harness._PAIR_REPORT_MARKER in prompt
+    assert harness._PAIR_OVERVIEW_MARKER in prompt
+
+
+def test_split_paired_recovers_both_halves():
+    text = (
+        "here you go\n"
+        f"{harness._PAIR_REPORT_MARKER}\n## Technical\nCOVERAGE: MINIMAL\n"
+        f"{harness._PAIR_OVERVIEW_MARKER}\n<html>dashboard</html>\n"
+    )
+    report, overview = harness.split_paired(text)
+    assert report.startswith("## Technical")
+    assert "COVERAGE: MINIMAL" in report
+    assert overview == "<html>dashboard</html>"
+    assert harness._PAIR_OVERVIEW_MARKER not in report, "marker leaked into the report"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "no markers at all",
+        f"{harness._PAIR_REPORT_MARKER}\nreport only",
+        f"{harness._PAIR_OVERVIEW_MARKER}\noverview only",
+        f"{harness._PAIR_REPORT_MARKER}\n\n{harness._PAIR_OVERVIEW_MARKER}\noverview",
+        f"{harness._PAIR_REPORT_MARKER}\nreport\n{harness._PAIR_OVERVIEW_MARKER}\n   ",
+    ],
+)
+def test_an_unrecoverable_pair_raises_rather_than_returning_half(text: str):
+    """A vacuous pass is the failure to avoid here.
+
+    Every pair invariant tolerates a missing field on one side, so
+    check_paired_artifacts over an empty overview passes all seven while
+    asserting nothing.
+    """
+    with pytest.raises(harness.PairError):
+        harness.split_paired(text)
+
+
+# A standalone report that PASSES check_report on its own. Load-bearing: the
+# first version of the test below used markerless junk, which check_report
+# rejected for three unrelated reasons, so the run failed whether or not the
+# pair guard existed. Removing the guard left every test green. The text has to
+# be good enough that degrading to check_report would PASS, or the test proves
+# nothing about the guard.
+_STANDALONE_OK = (
+    "Report ID: r-1\nGenerated: 2026-09-05T00:00:00Z\nCoverage: MINIMAL\n\n"
+    "This week was genuinely quiet and coverage is limited; little was retrievable.\n\n"
+    "## Appendix A: Source Coverage Ledger\nSources consulted: 3\n"
+    "**Fabrication check:** `PASS` — nothing was invented.\n"
+)
+
+
+def test_the_standalone_fixture_really_would_pass_alone():
+    """Guards the guard: if this ever stops passing, the test below silently
+    goes vacuous again."""
+    from invariants import check_report
+
+    assert check_report(_STANDALONE_OK, "fixture").ok
+
+
+def test_a_paired_run_that_cannot_be_split_fails_instead_of_checking_one_half(
+    runs_dir, monkeypatch, capsys
+):
+    """The defect this closes: run_scenario called check_report over whichever
+    text it had, so scenario 6 reported a verdict about a different property
+    than the one on its label.
+
+    The report here is a perfectly good report. Judged as one it passes; judged
+    as half of a missing pair it must fail.
+
+    The assertion is on the DIAGNOSIS, not just the exit code, and that is not a
+    weaker test — it is the only honest one. Measured: without the guard the run
+    still fails, because `pair_overview_names_report` rejects an empty overview.
+    Asserting `rc == 1` therefore passes with the guard removed, which is how
+    the first version of this test went green against a sabotaged runner.
+    """
+    rc = _run(monkeypatch, _PAIRED, _fake_completed(stdout=_STANDALONE_OK))
+    out = capsys.readouterr().out
+
+    assert rc == 1, "a paired scenario must not pass on the report alone"
+    assert "could not recover the artifact pair" in out, (
+        "the run must say the pair was unrecoverable, not blame the overview "
+        "for failing an invariant it never had a chance to satisfy; got:\n" + out
+    )
+    body = next(runs_dir.glob(f"{_PAIRED}-*.md")).read_text(encoding="utf-8")
+    assert "## Verdict\n\nFAIL" in body
+
+
+def test_a_paired_run_asserts_the_relation(runs_dir, monkeypatch, capsys):
+    """The overview names a CVE the report does not — invisible in either
+    document alone, which is the whole point of the pair check."""
+    text = (
+        f"{harness._PAIR_REPORT_MARKER}\n"
+        "Report ID: r-1\nGenerated: 2026-09-05T00:00:00Z\n"
+        "Coverage: MINIMAL\n\n## Appendix A: Source Coverage Ledger\n"
+        "Sources consulted: 3\n**Fabrication check:** `PASS` — nothing was invented.\n"
+        f"{harness._PAIR_OVERVIEW_MARKER}\n"
+        "<html>Report ID: r-1 Coverage: MINIMAL CVE-2099-9999 "
+        "see the technical report</html>\n"
+    )
+    _run(monkeypatch, _PAIRED, _fake_completed(stdout=text))
+
+    out = capsys.readouterr().out
+    assert "pair_no_cve_only_in_overview" in out, (
+        "the relation was not asserted; output was:\n" + out
+    )
+
+
+def test_the_overview_file_is_read_when_the_run_can_write(runs_dir, monkeypatch):
+    """Both artifacts on disk is the path a permissioned run takes."""
+
+    def fake_run(cmd, **kwargs):
+        prompt = cmd[-1]
+        report_p = pathlib.Path(_out_path_from(prompt))
+        overview_p = report_p.parent / "overview.html"
+        report_p.write_text("Coverage: MINIMAL\n## Appendix A: Source Coverage Ledger\n", encoding="utf-8")
+        overview_p.write_text("<html>MINIMAL</html>", encoding="utf-8")
+        return _fake_raw(_stream("Both files written."))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    harness.run_scenario(_PAIRED)
+
+    body = next(runs_dir.glob(f"{_PAIRED}-*.md")).read_text(encoding="utf-8")
+    assert "the overview file" in body, "the overview file was not picked up"
+
+
+def test_a_paired_artifact_keeps_both_halves(runs_dir, monkeypatch):
+    """A pair verdict is about a relation, so an artifact holding one document
+    cannot support it.
+
+    The first real paired run failed `pair_same_badge` and the overview it was
+    judged against had already been discarded — the finding could not be
+    checked at all. That is the same "keep what you judged" failure #185 fixed
+    for the report, reappearing on the other half.
+    """
+    text = (
+        f"{harness._PAIR_REPORT_MARKER}\nCoverage: MINIMAL\n"
+        "## Appendix A: Source Coverage Ledger\n"
+        f"{harness._PAIR_OVERVIEW_MARKER}\n<html>DASHBOARD-MARKER Coverage: FULL</html>\n"
+    )
+    _run(monkeypatch, _PAIRED, _fake_completed(stdout=text))
+
+    body = next(runs_dir.glob(f"{_PAIRED}-*.md")).read_text(encoding="utf-8")
+    assert "DASHBOARD-MARKER" in body, "the overview was judged but not kept"
+    assert "## Executive overview" in body
+
+
+def test_an_unpaired_artifact_has_no_overview_section(runs_dir, monkeypatch):
+    """Non-vacuity: the section appears because there is a second document,
+    not unconditionally."""
+    _run(monkeypatch, "sparse_honesty", _fake_completed(stdout="COVERAGE: MINIMAL"))
+
+    body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
+    assert "## Executive overview" not in body

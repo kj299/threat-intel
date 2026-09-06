@@ -165,6 +165,46 @@ def header_badge(text: str) -> str | None:
     return match.group(1).upper() if match else None
 
 
+# The overview is rendered HTML, so its badge sits in a labelled element
+# (`<div class="badge">COVERAGE: MINIMAL</div>`) rather than a markdown header.
+_LABELLED_BADGE = re.compile(
+    r"(?:coverage|badge)\b[^A-Za-z]{0,12}(FULL|PARTIAL|MINIMAL)", re.IGNORECASE
+)
+
+
+# How an overview actually names its companion. The original pattern accepted
+# only `threat-intel.md` or the literal phrase "technical report", and the first
+# real paired run (2026-09-06) failed it while naming `report.md` three times --
+# including "This overview is a projection of report.md". Worse, the harness
+# itself now tells the run to write `report.md`, so the assertion contradicted
+# the prompt that produced the artifact. Matches the substance: a companion
+# markdown file, or a phrase pointing at the fuller technical document.
+_NAMES_COMPANION = re.compile(
+    r"[\w-]+\.md\b|technical\s+(?:report|ioc\s+package)|full\s+(?:detail|technical)",
+    re.IGNORECASE,
+)
+
+
+def overview_badge(text: str) -> str | None:
+    """The overview's coverage badge, read from a labelled context.
+
+    Scanning for the first badge WORD anywhere is what the first version did,
+    and the first real paired run (2026-09-06) proved it wrong: it reported
+    `overview='FULL'` against an overview whose badge is
+    `<div class="badge">COVERAGE: MINIMAL</div>`, because the phrase "full
+    technical IOC package" appears higher up. The two documents agreed; the
+    assertion did not. `FULL` is an ordinary English word and cannot be matched
+    bare.
+
+    The bare scan survives only as a fallback, for an overview that states a
+    badge with no nearby label at all.
+    """
+    match = _LABELLED_BADGE.search(text)
+    if match:
+        return match.group(1).upper()
+    return next((b for b in BADGES if b in text.upper()), None)
+
+
 def appendix_badge(text: str) -> str | None:
     for match in _APPENDIX_BADGE.finditer(text):
         value = match.group(1).upper()
@@ -334,6 +374,23 @@ _SOURCE_COUNT = re.compile(
     r"(\d{1,3})\s*(?:preferred\s+)?(?:sources?|tiers?)\s+consulted|consulted[^\d\n]{0,20}(\d{1,3})",
     re.IGNORECASE,
 )
+# The ledger's own total line, which is the authoritative statement of the
+# count. Checked before the loose pattern above: in the first real paired run
+# (2026-09-06) the loose one matched an actions-matrix success metric --
+# "`sources_consulted` > 0" -- and read the report's count as 0, when its ledger
+# says "Total preferred-source targets consulted: 1 / ~25". The overview said 1.
+# The documents agreed; the assertion picked the wrong number out of the report.
+_SOURCE_TOTAL = re.compile(
+    r"total[^\n]{0,40}consulted[^\d\n]{0,10}(\d{1,3})", re.IGNORECASE
+)
+
+
+def source_count(text: str) -> str | None:
+    """How many preferred sources the artifact claims, total line preferred."""
+    explicit = _SOURCE_TOTAL.search(text)
+    if explicit:
+        return explicit.group(1)
+    return _first(_SOURCE_COUNT, text)
 
 
 def _first(pattern: re.Pattern[str], text: str) -> str | None:
@@ -377,7 +434,7 @@ def check_paired_artifacts(
 
     # 2. Identical coverage badge and source count.
     r_badge = header_badge(report) or appendix_badge(report)
-    o_badge = next((b for b in BADGES if b in overview.upper()), None)
+    o_badge = overview_badge(overview)
     add(
         Finding(
             "pair_same_badge",
@@ -385,7 +442,7 @@ def check_paired_artifacts(
             f"badge: report={r_badge!r} overview={o_badge!r}",
         )
     )
-    r_count, o_count = _first(_SOURCE_COUNT, report), _first(_SOURCE_COUNT, overview)
+    r_count, o_count = source_count(report), source_count(overview)
     add(
         Finding(
             "pair_same_source_count",
@@ -429,7 +486,7 @@ def check_paired_artifacts(
     add(
         Finding(
             "pair_overview_names_report",
-            bool(re.search(r"threat-intel\.md|technical report", overview, re.IGNORECASE)),
+            bool(_NAMES_COMPANION.search(overview)),
             "overview points the reader at the technical report",
         )
     )
