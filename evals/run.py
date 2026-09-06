@@ -288,6 +288,39 @@ def run_corpus() -> int:
     return 0
 
 
+def run_files(paths: list[str]) -> int:
+    """Run the honesty invariants over reports given by path.
+
+    The same assertions `--corpus` applies to the frozen eleven, pointed at a
+    report that was just generated. That is the difference that matters: the
+    corpus proves the invariants hold over *historic* output, and until now
+    nothing checked a live-feed run at all -- `scheduled-report.yml` published
+    its report and asserted nothing about it.
+
+    Missing files are an error, not an empty pass. A glob that matched nothing
+    would otherwise report "all reports satisfy the hard invariants" having
+    checked none, which is the vacuous-guard shape this repository keeps
+    finding in its own checks.
+    """
+    resolved = [pathlib.Path(p) for p in paths]
+    missing = [p for p in resolved if not p.is_file()]
+    if missing:
+        print(f"no such report file(s): {', '.join(_display(p) for p in missing)}", file=sys.stderr)
+        return 1
+    if not resolved:
+        print("no report files given — nothing to check", file=sys.stderr)
+        return 1
+
+    print(f"Honesty invariants over {len(resolved)} report(s)\n")
+    failures = sum(0 if _print(check_report_file(p)) else 1 for p in resolved)
+    print()
+    if failures:
+        print(f"{failures} report(s) failed a hard invariant")
+        return 1
+    print("all reports satisfy the hard invariants")
+    return 0
+
+
 def run_scenario(key: str) -> int:
     """Invoke the skill for one scenario, then assert over its output.
 
@@ -505,6 +538,12 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--corpus", action="store_true", help="check committed reports (no model calls)")
     group.add_argument("--scenario", metavar="KEY", help="run one scenario (invokes the skill)")
     group.add_argument("--list", action="store_true", help="list scenarios")
+    group.add_argument(
+        "--files",
+        nargs="+",
+        metavar="PATH",
+        help="check the given report file(s) (no model calls)",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
@@ -514,6 +553,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.corpus:
         return run_corpus()
+    if args.files:
+        return run_files(args.files)
     return run_scenario(args.scenario)
 
 
