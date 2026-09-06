@@ -384,6 +384,24 @@ jobs:
       # built into the runner, so there is no action version to pin or to get
       # wrong. If a downloadable file is wanted later, upload-artifact is the
       # addition.
+      - name: Upload the report as an artifact
+        # Before the publish step, not after. That step also enforces the
+        # reports/ freeze and can exit 1, and evidence should not be contingent
+        # on a later check passing -- the same ordering rule evals/run.py
+        # follows when it writes a run artifact before evaluating invariants.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: threat-intel-report
+          path: report-output/*.md
+          # A run that produced nothing is a warning, not a failure; the publish
+          # step below already says so loudly and is the place that decides.
+          if-no-files-found: warn
+          # Longer than feed-data's single day: the feed payload is a working
+          # input, this is the deliverable someone reviews after the fact. Still
+          # bounded -- reports/ is the frozen corpus and this is not it.
+          retention-days: 30
+
       - name: Publish the report to the run summary
         if: always()
         run: |
