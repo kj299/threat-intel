@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The artifact actions no longer target a deprecated Node runtime.** Every prefetch run logged `Node.js 20 is deprecated ... being forced to run on Node.js 24` for `actions/upload-artifact@v4` and `actions/download-artifact@v4`. Bumped to the current majors, which run on Node 24 natively.
+
+  They land on **different** major versions, which looks like a typo and is not: upload's latest is `v7`, download's is `v8`. `download-artifact@v8`'s own documentation names `upload-artifact@v7` as the pairing, so the mismatch is the supported combination rather than a guess. Verified against the actions' release pages rather than assumed — a wrong tag here does not fail fast, it fails at dispatch time on a workflow that costs a full agent session to retry.
+
+  Also bumps `actions/checkout@v6` to `v7` in the `prefetch` job. It was the only v6 in the repository and the odd one out in its own workflow; the inconsistency arrived with #192 and is mine.
+
 ### Fixed
 
 - **An empty credential was treated as a credential**, found by the first real prefetch run (2026-09-06). An unset GitHub Actions secret interpolates to the **empty string**, not to nothing. `EnvCredentialProvider` raised only on `None`, so the new `prefetch` job — which wires up all twelve feed credentials — handed every *unconfigured* adapter a `""` to authenticate with.
