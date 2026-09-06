@@ -8,6 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **The report path can now use credentialed feeds (#169).** Until now the workflow that runs the prompt was denied every feed credential, so a report could only ever reach the three keyless feeds and badge `MINIMAL` — the keys were configured and unusable.
+
+  `scheduled-report.yml` is now **two jobs**. `prefetch` holds every feed credential, runs a fixed script (`mcp/scripts/prefetch_feeds.py`, no model in the loop), and uploads a `feed-data.json` artifact. `generate` runs `needs: prefetch`, downloads that file, and holds no feed credential at all.
+
+  **A job, not a step**, and that is the whole point. The runbook originally prescribed a separate *step*, but steps share a runner: the credential would still be on the agent's machine, in a prior process and possibly on disk. Jobs get separate machines, so the agent's runner never holds a feed credential in any form at any moment. The `prefetch` job is also narrowed to `contents: read` — the job that can write is the one with no credentials, and vice versa.
+
+  The script refuses to write a payload containing any credential it holds, rather than trusting that responses never echo a key. It passes `sources_consulted`, `sources_degraded` with reasons, and the `coverage_ledger` straight through, because a feed that failed must reach the report as `unverified` with its reason — flattening it into silence is the "confident report of incomplete data" the honesty rules exist to prevent.
+
+  The agent no longer has the MCP feed server connected. Re-fetching from that job would give a strictly worse second picture — no credentials there, so every credentialed feed would come back `unverified` and contradict the file — and two disagreeing accounts of the same feeds is exactly what R1–R6 exist to stop. It also shrinks the tool surface an injection in the feed content could reach.
+
+### Changed
+
+- **The agent credential isolation check is now scoped to the agent's job.** It scanned the whole workflow file, which made the architecture its own error message recommended impossible to implement. The invariant was never "this file names no credential"; it is "no credential reaches the agent's environment". Scoping to the job states the real rule and is stricter about it: it now also rejects `secrets: inherit`, which no credential-name scan can see, and it fails if it finds no `claude-code-action` job at all rather than passing while guarding nothing. Which job is the agent's is derived from the action it invokes, so a second agent job is covered automatically.
+
+  Verified by sabotage: a feed credential added to the agent job, `secrets: inherit` on that job, and the agent step being removed each fail it.
+
 ### Fixed
 
 - **The documented way to set feed keys locally did not work.** Three defects compounded, and together they explain a run that badges `MINIMAL` with every credentialed feed `unverified` despite the keys being "set":
