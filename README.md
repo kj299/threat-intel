@@ -235,10 +235,10 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 | | What | Where it goes |
 |---|---|---|
-| **Feed keys** | The 12 adapter credentials (`NVD_API_KEY`, `VIRUSTOTAL_API_KEY`, …) | Local `mcp/.env`, or your fork's secrets for `record-cassettes` |
+| **Feed keys** | The 12 adapter credentials (`NVD_API_KEY`, `VIRUSTOTAL_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes` and by `scheduled-report`'s `prefetch` job |
 | **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
 
-**Never put a feed key in `scheduled-report.yml`** — CI fails the PR if you do. That workflow runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. `record-cassettes.yml` runs a fixed script: same secrets, categorically different blast radius.
+**Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
 
 ### Which context reads which keys
 
@@ -248,7 +248,8 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 |---|---|---|
 | Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
 | `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — all 12 |
-| `scheduled-report` workflow (runs the prompt) | model credential only | no, and CI fails the PR if you add them |
+| `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — all 12 |
+| `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 
 **Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
 

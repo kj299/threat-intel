@@ -955,18 +955,59 @@ jobs:
           # would flag. Round-tripping through the YAML parser drops comments and
           # keeps everything that actually reaches the runner -- env: keys,
           # secrets expressions, run scripts, action inputs.
-          text = yaml.dump(yaml.safe_load(workflow.read_text(encoding="utf-8")))
-          hits = sorted(name for name in expected if name in text)
-          if hits:
-              print(f"FAIL: {workflow} references feed credentials:")
-              for name in hits:
-                  print(f"  {name}")
+          doc = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+
+          # Scoped to the AGENT'S JOB, not the whole file (#169).
+          #
+          # It used to scan the file, which made the architecture its own error
+          # message recommends -- fetch separately, hand the agent a data file --
+          # impossible to implement here. The invariant was never "this file
+          # names no credential"; it is "no credential reaches the agent's
+          # environment". Jobs run on separate machines and do not share an
+          # environment, so scoping to the agent's job states the real rule and
+          # is stricter about it: it now also refuses a job that pulls in every
+          # secret wholesale.
+          #
+          # Which job is the agent's is derived, not hardcoded: any job invoking
+          # anthropics/claude-code-action. A second agent job added later is
+          # therefore covered automatically.
+          agent_jobs = {
+              name: job
+              for name, job in doc.get("jobs", {}).items()
+              if any(
+                  "claude-code-action" in str(step.get("uses", ""))
+                  for step in job.get("steps", [])
+              )
+          }
+          if not agent_jobs:
+              print("FAIL: found no job using claude-code-action in "
+                    f"{workflow.name}. Either the agent step moved and this "
+                    "check now guards nothing, or the workflow changed shape.")
+              sys.exit(1)
+
+          failures = []
+          for name, job in agent_jobs.items():
+              text = yaml.dump(job)
+              hits = sorted(cred for cred in expected if cred in text)
+              if hits:
+                  failures.append(f"job {name!r} references: {', '.join(hits)}")
+              # `secrets: inherit` would hand the job everything, which no
+              # credential-name scan can see.
+              if str(job.get("secrets", "")).strip() == "inherit":
+                  failures.append(f"job {name!r} uses `secrets: inherit`")
+
+          if failures:
+              print("FAIL: the agent's job must hold no feed credential:")
+              for line in failures:
+                  print(f"  {line}")
               print()
               print("These would sit in the environment of an agent that reads "
                     "untrusted web content and can commit files. Fetch the feeds "
-                    "in a separate step and pass the agent a data file instead.")
+                    "in a SEPARATE JOB and pass the agent a data file instead -- "
+                    "the shape the `prefetch` job already uses.")
               sys.exit(1)
-          print(f"OK: none of the {len(expected)} feed credentials appear in {workflow.name}")
+          print(f"OK: none of the {len(expected)} feed credentials appear in "
+                f"the agent job(s): {', '.join(sorted(agent_jobs))}")
           PY
 
       - name: Plugin manifest (.claude-plugin/plugin.json)

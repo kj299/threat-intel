@@ -129,11 +129,30 @@ configurable". So `echo $VIRUSTOTAL_API_KEY` is available under any Bash allow
 rule, and writing deny rules for every way a shell can read its own environment
 is whack-a-mole that would only look like protection.
 
-If paid feeds are wanted in the weekly report later, the fix is architectural:
-fetch them in a **separate step** that runs a fixed script and writes results to
-a file, then let the agent read that file. Credentials then live in a step the
-agent never touches — the shape [`record-cassettes.yml`](../.github/workflows/record-cassettes.yml)
-already uses. `mcp/src/threat_intel_mcp/vault/env.py` makes the same point about
+This is now implemented, and as a **separate job** rather than a separate step
+(#169). The `prefetch` job holds every feed credential, runs a fixed script
+([`mcp/scripts/prefetch_feeds.py`](../mcp/scripts/prefetch_feeds.py)), and
+uploads the result as an artifact; the `generate` job runs `needs: prefetch`,
+downloads that file, and holds no feed credential at all.
+
+The job boundary is the point. Steps share a runner, so a "separate step" leaves
+the credential on the same machine as the agent — in a prior process, possibly
+in a file. Separate jobs get separate machines, so the agent's runner never
+holds a feed credential in any form at any moment. The script also refuses to
+write a payload containing any credential it holds, and the `prefetch` job is
+narrowed to `contents: read` since it only fetches and uploads.
+
+The agent no longer has the MCP feed server connected. Re-fetching from that job
+would produce a second, strictly worse picture — no credentials there, so every
+credentialed feed would come back `unverified` and contradict the file — and two
+disagreeing accounts of the same feeds is what the honesty rules exist to
+prevent. It also shrinks the tool surface an injection in the feed content could
+reach.
+
+`validate.yml`'s isolation check is scoped to the agent's **job** accordingly. It
+derives which job that is from whichever one invokes `claude-code-action`, so a
+second agent job is covered automatically, and it fails if no such job is found
+rather than passing while guarding nothing. `mcp/src/threat_intel_mcp/vault/env.py` makes the same point about
 environment variables generally, and a scheduled Actions job is a non-local
 deployment by its own definition.
 
