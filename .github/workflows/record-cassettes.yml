@@ -65,12 +65,15 @@ jobs:
         env:
           # Keyless feeds need none of these; they are read only when a keyed
           # feed is selected, and are empty unless configured.
+          # The `|| secrets.X` fallbacks are this repository's actual secret
+          # names; see scheduled-report.yml for why they are aliased rather
+          # than renamed.
           QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
-          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
-          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
-          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
-          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
-          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY || secrets.ABUSEIPDB }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY || secrets.VIRUSTOTAL_API }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || secrets.ALIENVAULT_OTX_API }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY || secrets.SHODAN }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY || secrets.GREYNOISE_API }}
           ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
           INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
           INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
@@ -93,11 +96,11 @@ jobs:
         working-directory: mcp
         env:
           QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
-          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
-          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
-          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
-          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
-          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY || secrets.ABUSEIPDB }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY || secrets.VIRUSTOTAL_API }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || secrets.ALIENVAULT_OTX_API }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY || secrets.SHODAN }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY || secrets.GREYNOISE_API }}
           ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
           INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
           INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}

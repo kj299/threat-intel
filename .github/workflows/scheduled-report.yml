@@ -154,12 +154,23 @@ jobs:
           # The credentials the agent must never see. Unset secrets simply make
           # their adapter degrade to `unverified` with a reason, which reaches
           # the report honestly — a missing key is a coverage gap, not an error.
+          #
+          # The `|| secrets.X` fallbacks are NOT redundancy — they are the
+          # repository's actual secret names. The left-hand env var is the
+          # interface the adapters read (vault/env.py, mcp/.env.example and
+          # docs/architecture.md all agree on it); the right-hand name is what
+          # the secret is called in Settings. Five did not match, so five feeds
+          # reported CredentialNotFoundError in every run through #196 while
+          # their keys sat configured and unread. GitHub cannot rename a secret
+          # and will not reveal a stored value, so aliasing here is the fix that
+          # does not require re-obtaining five API keys. Canonical name wins
+          # when both exist, so creating one later migrates cleanly.
           QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
-          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
-          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
-          OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
-          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
-          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY || secrets.ABUSEIPDB }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY || secrets.VIRUSTOTAL_API }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || secrets.ALIENVAULT_OTX_API }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY || secrets.SHODAN }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY || secrets.GREYNOISE_API }}
           ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
           INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
           INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
