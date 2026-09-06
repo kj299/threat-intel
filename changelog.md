@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The documented way to set feed keys locally did not work.** Three defects compounded, and together they explain a run that badges `MINIMAL` with every credentialed feed `unverified` despite the keys being "set":
+
+  - `README.md` said to `cp mcp/.env.example mcp/.env` and fill it in, and stopped there. **Nothing loads that file.** `python-dotenv` is not a dependency and no code reads it; `EnvCredentialProvider` reads `os.environ` only. Copying the file has no effect without an explicit export.
+  - `mcp/README.md`'s loader, `export $(grep -v '^#' .env | xargs)`, **silently truncates** `ANYRUN_API_KEY`. Its value is a full Authorization header (`API-Key <token>`), and `xargs` splits on whitespace, so the adapter receives `API-Key` and sends a malformed header that fails far from the cause.
+  - `.env.example` shipped that value **unquoted**, so the safe loader (`set -a; . ./.env; set +a`) died on it with `your-anyrun-token-here: command not found`.
+
+  The value is now quoted, the loader corrected, and a CI test sources `.env.example` in a real shell and asserts the ANY.RUN value survives as `API-Key <token>` — verified by reverting the quoting, which fails it.
+
+### Added
+
+- **README now says which context reads which keys.** The recurring question is why Actions secrets appear unused: they exist only inside a running workflow, and `scheduled-report.yml` — the workflow that runs the prompt — is deliberately denied feed credentials (CI enforces it), so the only workflow that receives them is `record-cassettes`. A short table maps each way of running the skill to where its keys come from; the three working routes for a local run live in `mcp/README.md`, per the #166 split.
+
+  Written to the README's size ceiling rather than around it: the first draft ran 38 lines against the 30-line cap and the #166 check caught it, which is the drift that check exists to stop.
+
+### Fixed
+
 - **Scenario 6 now asserts the relation it was written to assert.** It declares seven `pair_*` invariants and its own notes say they must be checked "with `check_paired_artifacts` over both artifacts, not `check_report` over either alone — the property is a relation between them and is invisible in each on its own." `run_scenario` called only `check_report`, so the scenario ran and reported a verdict about a different property than the one on its label.
 
   The harness now names both destinations, and for the reply path asks for two marked documents it can split. A pair it cannot recover **fails** rather than degrading to `check_report` over whichever half turned up. That changes the diagnosis rather than the verdict — measured, not assumed: without the guard the run still goes red, because `pair_overview_names_report` rejects an empty overview. But it goes red saying "the overview does not point at the technical report", which is a statement about an overview that does not exist.

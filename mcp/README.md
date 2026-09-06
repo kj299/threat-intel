@@ -102,8 +102,29 @@ cp .env.example .env
 #   INTEL471_EMAIL + INTEL471_API_KEY — https://portal.intel471.com/api
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 #   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
-export $(grep -v '^#' .env | xargs)
+
+# Load it into your shell. `set -a` exports everything the file defines.
+# Do NOT use `export $(grep -v '^#' .env | xargs)`: it splits on whitespace,
+# so ANYRUN_API_KEY ("API-Key <token>") is silently truncated to `API-Key`
+# and the adapter then sends a malformed Authorization header.
+set -a; . ./.env; set +a
 ```
+
+**Three routes, and why the file alone does nothing.** The credential provider reads `os.environ` of the *MCP server* process ([`vault/env.py`](src/threat_intel_mcp/vault/env.py)), and that process is a child of `claude`. `python-dotenv` is not a dependency and no code reads `.env` — it is a place to keep keys, not a mechanism. So pick one:
+
+1. **Put them in the registration.** Most reliable: it does not depend on which shell you launch from.
+
+   ```bash
+   claude mcp add threat-intel \
+     -e ABUSEIPDB_API_KEY=... -e OTX_API_KEY=... -e NVD_API_KEY=... \
+     -- python -m threat_intel_mcp
+   ```
+
+2. **Export, then launch Claude Code from that same shell**, so the server inherits them — the `set -a` line above, followed by `claude`.
+
+3. **Write the `env` block by hand** in your MCP config, as below.
+
+Whichever you choose, **Actions secrets are not one of them**: they exist only inside a running workflow, and `scheduled-report.yml` — the one that runs the prompt — is deliberately denied feed credentials, with CI enforcing it. See [why feed keys are isolated](../docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow).
 
 Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **ThreatFox and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
@@ -115,7 +136,15 @@ pytest
 
 ### 4. Wire into Claude Code
 
-Add to your Claude Code MCP config (`~/.claude/mcp_servers.json` or `.claude/mcp_servers.json`):
+Register the server with Claude Code. The `-e` flags put the keys in the registration itself, which is the most reliable route because the server is launched as a child process of `claude` and inherits only what that process has:
+
+```bash
+claude mcp add threat-intel \
+  -e ABUSEIPDB_API_KEY=... -e OTX_API_KEY=... -e NVD_API_KEY=... \
+  -- python -m threat_intel_mcp
+```
+
+`--scope project` writes `.mcp.json` in the repo instead of your user config. Equivalent JSON, if you prefer to write the config by hand:
 
 > **Launch it as a module, not by bare command name.** `pip install` puts the
 > `threat-intel-mcp` console script in the interpreter's scripts directory,

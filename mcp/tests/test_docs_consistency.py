@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
+import subprocess
+
+import pytest
 
 _MCP_DIR = pathlib.Path(__file__).resolve().parents[1]
 _REPO_ROOT = _MCP_DIR.parent
@@ -166,4 +170,36 @@ def test_server_advertises_its_version():
     advertised = getattr(mcp, "version", None)
     assert advertised == __version__, (
         f"MCP server advertises {advertised!r}, package version is {__version__!r}"
+    )
+
+
+def test_env_example_actually_loads_in_a_shell():
+    """`.env.example` must survive the loader the docs tell people to run.
+
+    It did not. `ANYRUN_API_KEY`'s value is the full Authorization header and so
+    contains a space, and it shipped unquoted. `set -a; . ./.env` then died with
+    "your-anyrun-token-here: command not found", and the older documented form,
+    `export $(grep -v '^#' .env | xargs)`, silently truncated the value to
+    `API-Key` -- which is worse, because the adapter then sends a malformed
+    header and fails somewhere far from the cause.
+
+    Asserts the value survives intact, not merely that sourcing exits 0.
+    """
+    bash = shutil.which("bash")
+    if bash is None:  # pragma: no cover - CI images all have bash
+        pytest.skip("bash not available")
+
+    script = (
+        f"set -a; . '{_ENV_EXAMPLE}'; set +a; "
+        'printf "%s" "$ANYRUN_API_KEY"'
+    )
+    done = subprocess.run([bash, "-c", script], capture_output=True, text=True)
+
+    assert done.returncode == 0, f"sourcing .env.example failed: {done.stderr.strip()}"
+    assert done.stdout.startswith("API-Key "), (
+        "ANYRUN_API_KEY lost its space-separated token when sourced; quote any "
+        f"value containing a space. Got: {done.stdout!r}"
+    )
+    assert len(done.stdout.split()) == 2, (
+        f"expected 'API-Key <token>', got {done.stdout!r}"
     )
