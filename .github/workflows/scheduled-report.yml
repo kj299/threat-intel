@@ -139,7 +139,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
         with:
@@ -174,7 +174,7 @@ jobs:
             --time-range "${{ inputs.time_range || '7d' }}"
 
       - name: Upload the feed data for the report job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feed-data
           path: ${{ runner.temp }}/feed-data.json
@@ -258,7 +258,7 @@ jobs:
 
       - name: Download the prefetched feed data
         if: steps.guard.outputs.configured == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: feed-data
           path: ${{ runner.temp }}/feeds
