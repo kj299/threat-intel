@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **The report is uploaded as an artifact.** Until now a run's only output was the run summary page, which `cat` writes to and nothing can read back — the report existed but was not retrievable as a file. `threat-intel-report` keeps it for 30 days: longer than `feed-data`'s single day, because the feed payload is a working input and this is the deliverable someone reviews after the fact, but still bounded, since `reports/` is the frozen corpus and this is deliberately not that.
+
+  Uploaded **before** the publish step, not after. That step also enforces the `reports/` freeze and can `exit 1`, and evidence should not be contingent on a later check passing — the same ordering rule `evals/run.py` follows when it writes a run artifact before evaluating any invariant.
+
+  **What this does not do**, measured rather than assumed: it does not make the report readable from a Claude Code session on this proxy. `actions_get download_workflow_run_artifact` returns a pre-signed URL on `productionresultssa9.blob.core.windows.net`, and the agent proxy refuses that host with `CONNECT tunnel failed, 403`. The artifact is retrievable by a human, by CI, and by any client with open egress — not by this session. Running the honesty invariants against live-feed output still needs the check to happen *inside* the job, where its verdict lands in a readable log.
+
 ### Changed
 
 - **The artifact actions no longer target a deprecated Node runtime.** Every prefetch run logged `Node.js 20 is deprecated ... being forced to run on Node.js 24` for `actions/upload-artifact@v4` and `actions/download-artifact@v4`. Bumped to the current majors, which run on Node 24 natively.
