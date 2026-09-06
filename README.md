@@ -240,7 +240,21 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 **Never put a feed key in `scheduled-report.yml`** — CI fails the PR if you do. That workflow runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. `record-cassettes.yml` runs a fixed script: same secrets, categorically different blast radius.
 
-**Locally:** `cp mcp/.env.example mcp/.env` and fill in what you have. [`mcp/.env.example`](mcp/.env.example) lists every key with its signup URL and is pinned to the adapter code by a CI test, so the list cannot drift.
+### Which context reads which keys
+
+The commonest surprise: **Actions secrets only exist inside a running workflow.** Nothing bridges them into a local shell, and the workflow that runs the *prompt* is deliberately not given them.
+
+| How you run it | Reads keys from | Actions secrets used? |
+|---|---|---|
+| Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
+| `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — all 12 |
+| `scheduled-report` workflow (runs the prompt) | model credential only | no, and CI fails the PR if you add them |
+
+**Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
+
+**Checking it worked:** read Appendix A of the report. A feed with no credential is reported `unverified` with a reason, never silently skipped.
+
+**Locally:** [`mcp/.env.example`](mcp/.env.example) lists every key with its signup URL and is pinned to the adapter code by a CI test, so the list cannot drift.
 
 **In a fork:** *Settings → Secrets and variables → Actions → New repository secret*. Fork secrets are not inherited from upstream — you create your own, and only the ones you want.
 
