@@ -1010,6 +1010,66 @@ jobs:
                 f"the agent job(s): {', '.join(sorted(agent_jobs))}")
           PY
 
+
+      - name: Every feed credential reaches the prefetch job
+        run: |
+          python <<'PY'
+          # The counterpart to the isolation check above, and the half that was
+          # missing. That one asserts no credential reaches the AGENT; this one
+          # asserts every credential reaches the FETCHER. Without it the pair is
+          # trivially satisfiable by passing no credentials at all, and a feed
+          # added to the adapters would degrade to `unverified` forever with no
+          # signal -- indistinguishable, in the report, from a key nobody has.
+          #
+          # This is the CI-visible half of the #169 defect. The other half was
+          # invisible here by construction: five secrets existed in repository
+          # settings under names the workflow never read (ABUSEIPDB rather than
+          # ABUSEIPDB_API_KEY, and four more), so five feeds reported
+          # CredentialNotFoundError while their keys sat configured. No check
+          # can see repository settings, so scheduled-report.yml now reads both
+          # the canonical name and the repository's actual one.
+          import pathlib, re, sys, yaml
+
+          adapters = pathlib.Path("mcp/src/threat_intel_mcp/adapters")
+          pattern = re.compile(r'_credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"\s*\)')
+          expected = set()
+          for src in sorted(adapters.glob("*.py")):
+              for adapter_name, key in pattern.findall(src.read_text(encoding="utf-8")):
+                  expected.add(f"{adapter_name.upper()}_{key.upper()}")
+          if not expected:
+              print("FAIL: found no adapter credential lookups -- has the "
+                    "CredentialProvider call shape changed? This check would "
+                    "silently pass forever.")
+              sys.exit(1)
+
+          doc = yaml.safe_load(
+              pathlib.Path(".github/workflows/scheduled-report.yml").read_text(encoding="utf-8")
+          )
+          job = doc["jobs"].get("prefetch")
+          if job is None:
+              print("FAIL: scheduled-report.yml has no `prefetch` job. Feed "
+                    "credentials live there and nowhere else; if it was renamed, "
+                    "update this check and the isolation check together.")
+              sys.exit(1)
+
+          provided = set()
+          for step in job.get("steps", []):
+              provided.update((step.get("env") or {}).keys())
+
+          missing = sorted(expected - provided)
+          if missing:
+              print("FAIL: these adapter credentials are never passed to the "
+                    "prefetch job, so their feeds can only ever degrade:")
+              for name in missing:
+                  print(f"  {name}")
+              print()
+              print("Add them to the `env:` block of the fetch step. A feed "
+                    "whose key is never passed reports CredentialNotFoundError "
+                    "identically to a feed nobody has a key for.")
+              sys.exit(1)
+          print(f"OK: all {len(expected)} feed credentials are passed to the "
+                f"prefetch job")
+          PY
       - name: Plugin manifest (.claude-plugin/plugin.json)
         run: |
           python <<'PY'
