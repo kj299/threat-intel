@@ -487,3 +487,60 @@ def test_an_unpaired_artifact_has_no_overview_section(runs_dir, monkeypatch):
 
     body = next(runs_dir.glob("sparse_honesty-*.md")).read_text(encoding="utf-8")
     assert "## Executive overview" not in body
+
+
+# ─── --files: the invariants, pointed at a freshly generated report ──────────
+
+
+def test_files_mode_passes_an_honest_report(tmp_path, capsys):
+    """The same assertions --corpus applies, against a report given by path.
+
+    This is what runs inside scheduled-report.yml. Until it existed the report
+    path published its output and asserted nothing about it, so the honesty
+    rules were checked only over the frozen eleven — all but one generated
+    without live feeds.
+    """
+    report = tmp_path / "2026-09-06-threat-intel.md"
+    report.write_text(_STANDALONE_OK, encoding="utf-8")
+
+    assert harness.run_files([str(report)]) == 0
+    assert "all reports satisfy the hard invariants" in capsys.readouterr().out
+
+
+def test_files_mode_fails_a_report_that_breaks_a_hard_invariant(tmp_path):
+    """A dishonest report must fail the job, not pass quietly."""
+    report = tmp_path / "bad.md"
+    report.write_text("Coverage: MINIMAL\n\nNo ledger, no fabrication claim.\n", encoding="utf-8")
+
+    assert harness.run_files([str(report)]) == 1
+
+
+def test_files_mode_errors_on_a_missing_path(tmp_path, capsys):
+    """Non-vacuity, and the failure mode this repository keeps rediscovering.
+
+    A glob that matched nothing would otherwise report "all reports satisfy the
+    hard invariants" having checked none — a green step asserting nothing,
+    which is exactly the shape of #106's confident-zero bug and of the cassette
+    tests that were green because they skipped.
+    """
+    assert harness.run_files([str(tmp_path / "nope.md")]) == 1
+    assert "no such report file" in capsys.readouterr().err
+
+
+def test_files_mode_checks_every_file_given(tmp_path):
+    """One good and one bad must fail: a per-file loop that stopped at the
+    first pass would report success for the pair."""
+    good = tmp_path / "good.md"
+    good.write_text(_STANDALONE_OK, encoding="utf-8")
+    bad = tmp_path / "bad.md"
+    bad.write_text("nothing honest here\n", encoding="utf-8")
+
+    assert harness.run_files([str(good), str(bad)]) == 1
+
+
+def test_files_mode_is_reachable_from_the_cli(tmp_path):
+    """The workflow calls `run.py --files`, not the function."""
+    report = tmp_path / "r.md"
+    report.write_text(_STANDALONE_OK, encoding="utf-8")
+
+    assert harness.main(["--files", str(report)]) == 0

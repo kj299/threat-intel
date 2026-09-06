@@ -424,3 +424,36 @@ jobs:
             git status --porcelain reports/
             exit 1
           fi
+
+      - name: Assert the report's honesty invariants
+        # LAST, deliberately. The artifact and the run summary are already
+        # written by the two steps above, so a failing verdict flags the report
+        # without destroying it -- the same "keep what you judged" ordering
+        # evals/run.py follows. A reader can always see WHY it failed.
+        #
+        # This is the first thing that has ever checked a live-feed report.
+        # `--corpus` proves the invariants hold over the frozen eleven, all but
+        # one of which were generated without live feeds; the report path
+        # published its output and asserted nothing about it.
+        #
+        # Hard invariants fail the job. They are the honesty properties the
+        # skill exists to guarantee -- an over-claimed badge, a missing coverage
+        # ledger, no no-fabrication statement, a reserved-range address offered
+        # as an indicator. Publishing one of those quietly is the outcome this
+        # repository is built to prevent. Style notes never fail: the badge
+        # check is directional, and under-claiming is correct behaviour.
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(report-output/*.md)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::warning::No report to check; the step above already said so."
+            exit 0
+          fi
+          # evals/invariants.py imports yaml to read spec.yaml's badge
+          # thresholds. mcp[dev] happens to pull PyYAML in transitively via
+          # vcrpy, which would work until the day vcrpy drops it and this step
+          # dies on an ImportError after a ten-minute agent run. Named
+          # explicitly against the same lock validate.yml uses, so both agree.
+          pip install pyyaml -c mcp/constraints-dev.txt
+          python evals/run.py --files "${files[@]}"

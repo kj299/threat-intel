@@ -10,6 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **The report path now asserts its own honesty rules.** `scheduled-report.yml` published a report and checked nothing about it. `--corpus` proves the invariants hold over the frozen eleven — all but one generated *without* live feeds — so no live-feed report had ever been checked at all. The generate job now runs the same assertions over what it just produced.
+
+  `evals/run.py --files PATH...` is the new mode. It reuses `check_report_file`, so the report path and the corpus cannot drift into checking different things.
+
+  **Hard invariants fail the job.** An over-claimed badge, a missing coverage ledger, no no-fabrication statement, a reserved-range address offered as an indicator — publishing one of those quietly is the outcome this repository exists to prevent. Style notes never fail: the badge check is directional and under-claiming is correct behaviour.
+
+  The step runs **last**, after the artifact upload and the summary publish. A failing verdict then flags the report without destroying it, and a reader can see why — the same "keep what you judged" ordering `evals/run.py` already follows.
+
+  A missing path is an **error**, not an empty pass. A glob matching nothing would otherwise print "all reports satisfy the hard invariants" having checked none: a green step asserting nothing, the same shape as #106's confident zero and as cassette tests that were green because they skipped. Two sabotage tests hold that line, along with one proving every file given is checked rather than just the first.
+
+  `pyyaml` is installed explicitly rather than relied on transitively. `evals/invariants.py` imports it to read `spec.yaml`'s badge thresholds, and it currently arrives only through vcrpy inside `mcp[dev]` — which would work until the day vcrpy drops it and this step died on an `ImportError` after a ten-minute agent run. Pinned against the same lock `validate.yml` uses.
+
+### Added
+
 - **The report is uploaded as an artifact.** Until now a run's only output was the run summary page, which `cat` writes to and nothing can read back — the report existed but was not retrievable as a file. `threat-intel-report` keeps it for 30 days: longer than `feed-data`'s single day, because the feed payload is a working input and this is the deliverable someone reviews after the fact, but still bounded, since `reports/` is the frozen corpus and this is deliberately not that.
 
   Uploaded **before** the publish step, not after. That step also enforces the `reports/` freeze and can `exit 1`, and evidence should not be contingent on a later check passing — the same ordering rule `evals/run.py` follows when it writes a run artifact before evaluating any invariant.
