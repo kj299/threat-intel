@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An empty credential was treated as a credential**, found by the first real prefetch run (2026-09-06). An unset GitHub Actions secret interpolates to the **empty string**, not to nothing. `EnvCredentialProvider` raised only on `None`, so the new `prefetch` job — which wires up all twelve feed credentials — handed every *unconfigured* adapter a `""` to authenticate with.
+
+  The feed rejected it, and the adapter reported `HTTPStatusError`: an upstream failure, and therefore **retryable**. The truth was a missing credential, which is configuration and not retryable. Two costs, both real in that run:
+
+  - **94 seconds** burned retrying nine feeds that simply had no key, with backoff, three attempts each.
+  - The coverage ledger would have told the reader those sources hit *upstream errors*. Misreporting **why** a source is unverified is exactly the quiet dishonesty the ledger exists to prevent, and it also destroyed the diagnostic — the log could no longer distinguish "no key set" from "key set but rejected".
+
+  Empty and whitespace-only values now raise `CredentialNotFoundError`, which degrades cleanly and does not retry. The check uses `.strip()` only to *test*; the value returned is never altered, because a real credential may contain spaces — ANY.RUN's is the full `API-Key <token>` header, and a test asserts it survives untouched.
+
+### Verified
+
+- **The prefetch path works end to end** (run 34044941615). `prefetch` fetched 5,107 IOCs and 7,049 CVE records in 94s, wrote a 12.2 MB payload, passed the credential-leak scan, and uploaded it; `generate` downloaded it on a separate runner with no feed credentials. CISA KEV and NVD both came back `consulted` with zero degraded — the NVD key is working through this path.
+
 ### Added
 
 - **The report path can now use credentialed feeds (#169).** Until now the workflow that runs the prompt was denied every feed credential, so a report could only ever reach the three keyless feeds and badge `MINIMAL` — the keys were configured and unusable.

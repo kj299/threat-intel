@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from threat_intel_mcp.vault.base import CredentialError
+from threat_intel_mcp.vault.base import CredentialError, CredentialNotFoundError
 from threat_intel_mcp.vault.env import EnvCredentialProvider
 from threat_intel_mcp.vault.factory import credential_provider_from_env
 from threat_intel_mcp.vault.hashicorp import VaultCredentialProvider
@@ -161,3 +161,35 @@ class TestVaultCredentialProvider:
         # Verify the secret_id does not appear in the error message.
         assert "secret-id" not in str(exc_info.value)
         assert "role-id" not in str(exc_info.value)
+
+
+# ─── An empty credential is not a credential (2026-09-06) ────────────────────
+
+
+@pytest.mark.parametrize("value", ["", "   ", "\t\n"])
+def test_an_empty_env_value_is_treated_as_absent(monkeypatch, value):
+    """An unset GitHub Actions secret interpolates to the EMPTY STRING.
+
+    So a workflow wiring up all twelve feed credentials hands every
+    unconfigured adapter a `""` to authenticate with. The feed rejects it and
+    the adapter reports `HTTPStatusError` — upstream and *retryable* — when the
+    truth is a missing credential, which is config and not retryable.
+
+    Measured on the first real prefetch run: 94 seconds spent retrying nine
+    feeds that simply had no key, and a coverage ledger that would have told
+    the reader those feeds had upstream errors. Misreporting *why* a source is
+    unverified is the quiet dishonesty the ledger exists to prevent.
+    """
+    monkeypatch.setenv("SHODAN_API_KEY", value)
+
+    with pytest.raises(CredentialNotFoundError):
+        EnvCredentialProvider().get("shodan", "api_key")
+
+
+def test_a_credential_containing_spaces_is_returned_untouched(monkeypatch):
+    """Non-vacuity, and a real case: ANY.RUN's value is the full
+    `API-Key <token>` Authorization header. The emptiness test must not strip
+    or reject it."""
+    monkeypatch.setenv("ANYRUN_API_KEY", "API-Key sometoken")
+
+    assert EnvCredentialProvider().get("anyrun", "api_key") == "API-Key sometoken"
