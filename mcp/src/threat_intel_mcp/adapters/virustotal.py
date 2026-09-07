@@ -24,8 +24,11 @@ What replaces it is the thing the key *can* do: per-indicator lookup.
 
 Feed contract
 -------------
-Verified against VirusTotal's published object reference for the IP address
-object; the domain object is the same envelope with different attributes.
+Taken from VirusTotal's published object reference for the IP address object,
+then **confirmed against a real response** (``tests/cassettes/virustotal.yaml``,
+recorded 2026-09-07): every attribute the parser reads was present in the two
+recorded lookups. The domain object is the same envelope with different
+attributes.
 
   - ``GET /api/v3/ip_addresses/{ip}``
   - ``GET /api/v3/domains/{domain}``
@@ -39,17 +42,14 @@ object; the domain object is the same envelope with different attributes.
   - IP objects additionally carry ``as_owner``, ``asn``, ``country``,
     ``continent``
 
-.. warning::
-
-   The **response shape above has not been observed by this code.** It comes
-   from VirusTotal's object reference, not from a response. That is a better
-   footing than the bulk adapter had — the endpoints themselves are documented
-   and the account can reach them — but it is not verification.
-
-   ``guard_parsed`` makes a wrong guess raise rather than return a confident
-   empty result. **Record a cassette before trusting the field mapping**:
-   ``record-cassettes`` with ``feeds: virustotal``, which enriches a small set
-   of stable public indicators.
+The recording is what separates this adapter from the one it replaced. The
+bulk adapter's mock fixture and its parser were authored from the same belief,
+so they agreed with each other and with nothing else, and every test passed
+against an endpoint that did not exist. ``tests/test_cassette_playback.py``
+now replays bytes VirusTotal actually sent, so a field rename upstream fails a
+test instead of quietly zeroing a verdict. ``guard_parsed`` remains the
+backstop: an unreadable body raises rather than returning a confident empty
+result.
 
 Quota discipline
 ----------------

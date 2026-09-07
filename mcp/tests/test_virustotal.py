@@ -9,13 +9,12 @@ the parser had been written from the same belief, so they agreed with each
 other and with nothing else.
 
 That history shapes what is asserted here. The mock body below follows
-VirusTotal's **published object reference**, which is better footing than the
-bulk adapter had but is still not a response anyone has seen — so the tests
-that matter most are the ones that hold whatever the attribute names turn out
-to be: an unreadable body raises, a caller error raises, the quota cap refuses,
-and one bad lookup does not sink the rest.
-
-Record a cassette before trusting the field mapping.
+VirusTotal's **published object reference**, and the field mapping is no longer
+taken on trust: ``tests/test_cassette_playback.py`` replays a real recorded
+response and asserts every attribute this parser reads was actually present.
+These tests cover what a recording cannot — the failure modes. An unreadable
+body raises, a caller error raises, the quota cap refuses, and one bad lookup
+does not sink the rest.
 """
 
 from __future__ import annotations
