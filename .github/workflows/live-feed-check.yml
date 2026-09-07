@@ -18,10 +18,29 @@ name: live-feed-check
 #   this workflow   — detection: drift becomes an alarm within days.
 #
 # ─── SCOPE ───────────────────────────────────────────────────────────────────
-# Keyless feeds only (ThreatFox, CISA KEV, NVD unauthenticated). No secrets, so
-# it works in a fork and in a repo with nothing configured. A scheduled job
-# holding nine live API keys would be a standing liability for a check whose
-# value is mostly in the free feeds.
+# Every feed this repository can reach: the keyless three (ThreatFox, CISA KEV,
+# NVD unauthenticated) plus every credentialed adapter whose key is configured.
+#
+# This previously covered the keyless feeds only, on the reasoning that "a
+# scheduled job holding nine live API keys would be a standing liability for a
+# check whose value is mostly in the free feeds". That was written when the
+# repository held no feed credentials at all. Six now exist, and the value moved
+# with them -- the keyless feeds have never broken, while the credentialed ones
+# produced two faults in one day that nothing offline could see: five secrets
+# named so the workflow never read them (#197), and a VirusTotal key that
+# resolves and is then rejected for an insufficient plan. Neither is visible to
+# any mock, cassette, or parity check; only a live call finds them.
+#
+# The liability is also smaller than that note assumed. This runs a fixed pytest
+# process, not an agent, so the credentials sit in exactly the shape the
+# `prefetch` job in scheduled-report.yml already uses with the same set of keys.
+#
+# **A feed with no credential SKIPS; a feed WITH one that fails FAILS.** Without
+# that split the check is noise -- nine "no credential" lines every week,
+# indistinguishable from a real outage -- and it would be muted within a month.
+# With it, a red run means one thing: a key this repository holds stopped
+# working against its API. Forks and unconfigured repos see every keyed test
+# skip and the keyless three still run, so nothing here needs a secret to pass.
 
 on:
   schedule:
@@ -56,6 +75,23 @@ jobs:
         id: live
         working-directory: mcp
         continue-on-error: true # a failure must open an issue, not just go red
+        env:
+          # Every credentialed adapter's key. Unset secrets interpolate to an
+          # empty string rather than being absent, which is why the tests test
+          # for a non-empty value and skip rather than fail on one.
+          QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY || secrets.ABUSEIPDB }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY || secrets.VIRUSTOTAL_API }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || secrets.ALIENVAULT_OTX_API }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY || secrets.SHODAN }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY || secrets.GREYNOISE_API }}
+          ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
+          INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
+          INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
+          CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}
+          CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          VULNCHECK_API_KEY: ${{ secrets.VULNCHECK_API_KEY }}
         run: |
           set -o pipefail
           python -m pytest -m live -v --tb=short 2>&1 | tee live-check.log
@@ -90,10 +126,13 @@ jobs:
 
           [Full log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-          This checks ThreatFox, CISA KEV and NVD against their real endpoints — a
-          failure means the feed is down, moved, or has drifted from what the
-          adapter expects. PR CI is mock-only and will stay green regardless, which
-          is why this alarm exists (#78).
+          This checks every feed against its real endpoint — the keyless three
+          (ThreatFox, CISA KEV, NVD) plus every credentialed adapter whose key is
+          configured. A feed with no credential skips, so a failure here means one
+          of two things: a keyless feed is down, moved or schema-drifted, or a key
+          this repository holds has stopped working against its API. PR CI is
+          mock-only and will stay green regardless, which is why this alarm exists
+          (#78).
 
           Close it when the feeds pass again.
 

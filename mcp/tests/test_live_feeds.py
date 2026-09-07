@@ -31,9 +31,21 @@ the free ones.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
+from threat_intel_mcp.adapters.abuseipdb import AbuseIPDBAdapter
+from threat_intel_mcp.adapters.anyrun import AnyRunAdapter
+from threat_intel_mcp.adapters.censys import CensysAdapter
 from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
+from threat_intel_mcp.adapters.greynoise import GreyNoiseAdapter
+from threat_intel_mcp.adapters.intel471 import Intel471Adapter
+from threat_intel_mcp.adapters.otx import OTXAdapter
+from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter
+from threat_intel_mcp.adapters.shodan import ShodanAdapter
+from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter
+from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.normalize import finalize_iocs
@@ -41,6 +53,20 @@ from threat_intel_mcp.vault.factory import credential_provider_from_env
 from threat_intel_mcp.vulns import finalize_vulns
 
 pytestmark = pytest.mark.live
+
+# Adapter constructors, keyed by the same name vault/env.py uses.
+_IOC_ADAPTERS = {
+    "qfeeds": QFeedsAdapter,
+    "abuseipdb": AbuseIPDBAdapter,
+    "virustotal": VirusTotalAdapter,
+    "otx": OTXAdapter,
+    "shodan": ShodanAdapter,
+    "greynoise": GreyNoiseAdapter,
+    "anyrun": AnyRunAdapter,
+    "intel471": Intel471Adapter,
+    "censys": CensysAdapter,
+}
+_CVE_ADAPTERS = {"vulncheck": VulnCheckAdapter}
 
 
 class TestThreatFox:
@@ -121,3 +147,117 @@ class TestNVD:
     async def test_records_carry_the_expected_shape(self):
         result = await NVDAdapter(credential_provider_from_env()).fetch(time_range="7d")
         assert all(v["cve_id"].startswith("CVE-") for v in result.vulns)
+
+
+# ─── Credentialed feeds ──────────────────────────────────────────────────────
+#
+# Added because the original scope note above -- "keyed feeds are deliberately
+# out of scope: a scheduled job holding nine live API keys is a standing
+# liability for a check whose value is mostly in the free ones" -- was written
+# when this repository held no feed credentials at all. Six now exist, and the
+# value has moved with them: the keyless feeds have never broken, while the
+# credentialed ones produced two faults in a single day that nothing offline
+# could see.
+#
+#   * Five secrets were named ABUSEIPDB / SHODAN / VIRUSTOTAL_API rather than
+#     ABUSEIPDB_API_KEY / SHODAN_API_KEY / VIRUSTOTAL_API_KEY, so five feeds
+#     reported CredentialNotFoundError for weeks while their keys sat
+#     configured and unread (#197). No offline check can see repository
+#     settings; only a live call can.
+#   * VirusTotal's key resolves and is then REJECTED by VirusTotal -- an
+#     insufficient plan, not a missing key. That is invisible to every mock,
+#     cassette and parity check in this repository.
+#
+# The liability is also smaller than the note assumed: this is a fixed pytest
+# run, not an agent, so the credentials sit in the same shape as the `prefetch`
+# job in scheduled-report.yml, which holds the identical set by design.
+#
+# ─── The distinction that makes this worth running ───────────────────────────
+#
+# A feed with no credential SKIPS. A feed WITH a credential that fails FAILS.
+#
+# Without that split the check is noise: nine "degraded, no credential" lines
+# every week, indistinguishable from a real outage, and it would be muted
+# within a month. With it, a failure means exactly one thing -- a key this
+# repository holds no longer works against its API -- which is the question
+# #169 has been asking all along.
+
+_CREDENTIALED_IOC_FEEDS = [
+    ("Q-Feeds", "qfeeds", ("QFEEDS_API_KEY",)),
+    ("AbuseIPDB", "abuseipdb", ("ABUSEIPDB_API_KEY",)),
+    ("VirusTotal", "virustotal", ("VIRUSTOTAL_API_KEY",)),
+    ("AlienVault OTX", "otx", ("OTX_API_KEY",)),
+    ("Shodan", "shodan", ("SHODAN_API_KEY",)),
+    ("GreyNoise", "greynoise", ("GREYNOISE_API_KEY",)),
+    ("ANY.RUN", "anyrun", ("ANYRUN_API_KEY",)),
+    ("Intel 471", "intel471", ("INTEL471_EMAIL", "INTEL471_API_KEY")),
+    ("Censys", "censys", ("CENSYS_API_ID", "CENSYS_API_SECRET")),
+]
+
+_CREDENTIALED_CVE_FEEDS = [
+    ("VulnCheck KEV", "vulncheck", ("VULNCHECK_API_KEY",)),
+]
+
+
+def _configured(env_vars: tuple[str, ...]) -> bool:
+    """True when every variable this feed needs holds a non-empty value.
+
+    Emptiness matters as much as absence: an unset GitHub Actions secret
+    interpolates to an empty string rather than being absent, so a workflow
+    hands the adapter `""` and it fails as an HTTP error instead of a missing
+    credential. That cost 94 seconds of pointless retries and put a false reason
+    in the ledger before `vault/env.py` was taught to reject it.
+    """
+    return all(os.environ.get(name, "").strip() for name in env_vars)
+
+
+def _skip_unless_configured(name: str, env_vars: tuple[str, ...]) -> None:
+    if not _configured(env_vars):
+        pytest.skip(
+            f"{name} has no credential configured ({', '.join(env_vars)}) — "
+            "not a failure, and deliberately distinguished from one"
+        )
+
+
+@pytest.mark.parametrize(
+    "name,adapter_key,env_vars",
+    _CREDENTIALED_IOC_FEEDS,
+    ids=[f[1] for f in _CREDENTIALED_IOC_FEEDS],
+)
+@pytest.mark.asyncio
+async def test_credentialed_ioc_feed_answers_its_api(name, adapter_key, env_vars):
+    """A configured IOC key must still work against its live API.
+
+    Deliberately NOT asserting `record_count > 0`: a genuinely quiet week is a
+    valid answer, and failing on it would push toward padding, which R3 forbids.
+    What is asserted is that the call completed — the credential was accepted,
+    the body was readable, and the empty-parse guard did not fire.
+    """
+    _skip_unless_configured(name, env_vars)
+
+    adapter = _IOC_ADAPTERS[adapter_key](credential_provider_from_env())
+    result = await adapter.fetch(time_range="7d")
+
+    assert result.source == name
+    assert result.record_count >= 0
+    if result.iocs:
+        assert finalize_iocs(result.iocs), f"every live {name} record was dropped"
+
+
+@pytest.mark.parametrize(
+    "name,adapter_key,env_vars",
+    _CREDENTIALED_CVE_FEEDS,
+    ids=[f[1] for f in _CREDENTIALED_CVE_FEEDS],
+)
+@pytest.mark.asyncio
+async def test_credentialed_cve_feed_answers_its_api(name, adapter_key, env_vars):
+    """The CVE-side counterpart. Same contract, vuln-shaped output."""
+    _skip_unless_configured(name, env_vars)
+
+    adapter = _CVE_ADAPTERS[adapter_key](credential_provider_from_env())
+    result = await adapter.fetch(time_range="7d")
+
+    assert result.source == name
+    assert result.record_count >= 0
+    if result.vulns:
+        assert finalize_vulns(result.vulns), f"every live {name} record was dropped"
