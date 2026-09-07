@@ -80,7 +80,6 @@ _SINGLE_ENDPOINT_TOOLS = {"abuseipdb_fetch_blocklist"}
 _IOC_TOOLS = {
     "qfeeds_fetch_iocs": "_qfeeds",
     "abuseipdb_fetch_blocklist": "_abuseipdb",
-    "virustotal_fetch_iocs": "_virustotal",
     "otx_fetch_iocs": "_otx",
     "shodan_fetch_iocs": "_shodan",
     "greynoise_fetch_iocs": "_greynoise",

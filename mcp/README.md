@@ -13,7 +13,7 @@ Claude Code
   │
   │  IOC tool calls: fetch_all_iocs            (all IOC feeds at once)
   │                  qfeeds_fetch_iocs         (single feed)
-  │                  abuseipdb_fetch_blocklist / virustotal_fetch_iocs /
+  │                  abuseipdb_fetch_blocklist /
   │                  otx_fetch_iocs / shodan_fetch_iocs / greynoise_fetch_iocs /
   │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs /
   │                  threatfox_fetch_iocs
@@ -46,7 +46,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | VirusTotal Intelligence adapter (malicious IPs + domains) | ✅ Phase 3 |
 | AlienVault OTX subscribed-pulses adapter | ✅ Phase 3 |
 | MCP tool: `abuseipdb_fetch_blocklist` | ✅ Phase 3 |
-| MCP tool: `virustotal_fetch_iocs` | ✅ Phase 3 |
+| MCP tool: `virustotal_enrich_iocs` (per-indicator lookup; the bulk-feed tool it replaced called an endpoint that never existed, #203) | ✅ |
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
