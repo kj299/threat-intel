@@ -177,6 +177,7 @@ jobs:
           CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}
           CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          VULNCHECK_API_KEY: ${{ secrets.VULNCHECK_API_KEY }}
         # The log line per feed answers "which keys actually worked" without
         # opening the artifact — the question issue #169 exists to settle.
         run: |
