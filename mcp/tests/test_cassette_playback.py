@@ -28,6 +28,7 @@ from tests.vcr_config import build_vcr, cassette_path, has_cassette
 from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.vault.base import CredentialNotFoundError
 from threat_intel_mcp.vulns import finalize_vulns
@@ -133,6 +134,55 @@ async def test_nvd_parses_the_real_response():
 async def test_nvd_output_survives_the_real_pipeline():
     result = await _play("nvd", NVDAdapter(_NoKeyCredentials()), time_range="7d")
     assert finalize_vulns(result.vulns)
+
+
+class _StubToken:
+    """VulnCheck requires a credential; the cassette replaces the network, but
+    the adapter still resolves a token before making the request."""
+
+    def get(self, adapter_name: str, key: str) -> str:
+        return "recorded-playback-token"
+
+
+@_requires("vulncheck")
+@pytest.mark.asyncio
+async def test_vulncheck_parses_the_real_catalog():
+    """The test this adapter was written to be corrected by.
+
+    Its first draft was authored from published SDK signatures with no response
+    ever observed, and this recording found two real defects: no pagination at
+    all (1,000 of 5,229 entries), and four dropped fields.
+    """
+    result = await _play("vulncheck", VulnCheckAdapter(_StubToken()), time_range="7d")
+
+    assert result.record_count > 0
+    assert all(v["cve_id"].startswith("CVE-") for v in result.vulns)
+    assert all(v["exploit_status"] == "known_exploited" for v in result.vulns)
+
+
+@_requires("vulncheck")
+@pytest.mark.asyncio
+async def test_vulncheck_output_survives_the_real_pipeline():
+    result = await _play("vulncheck", VulnCheckAdapter(_StubToken()), time_range="7d")
+    assert finalize_vulns(result.vulns)
+
+
+@_requires("vulncheck")
+@pytest.mark.asyncio
+async def test_vulncheck_reads_the_fields_the_first_draft_dropped():
+    """Pins the four fields the recording revealed as missing.
+
+    Each is real intelligence: the CWE class, whether ransomware crews use it,
+    the CISA remediation deadline, and the evidence URL behind the
+    "exploited" claim. A record asserting exploitation with no reference is
+    weaker than one that names its report.
+    """
+    result = await _play("vulncheck", VulnCheckAdapter(_StubToken()), time_range="7d")
+
+    assert any(v.get("cwes") for v in result.vulns)
+    assert any(v.get("known_ransomware_use") for v in result.vulns)
+    assert any(v.get("due_date") for v in result.vulns)
+    assert any(v.get("references") for v in result.vulns)
 
 
 def test_no_key_provider_engages_the_unauthenticated_fallback():

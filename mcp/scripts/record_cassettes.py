@@ -187,7 +187,75 @@ def shrink_nvd_cassette(path: pathlib.Path) -> tuple[int, int]:
 # Feeds whose recordings are trimmed. ThreatFox (~1 MB) and CISA KEV (~1.6 MB)
 # are committed whole: they are single responses of a size git handles fine, and
 # an untrimmed cassette is the stronger artefact where it is affordable.
-_SHRINK = {"nvd": shrink_nvd_cassette}
+def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
+    """Trim VulnCheck response bodies in place. Returns (bytes_before, after).
+
+    One page of vulncheck-kev is ~7.8 MB, over the 4 MB ceiling
+    tests/test_vcr_harness.py enforces, so the `data` array is trimmed to a
+    representative slice.
+
+    `_meta` is left EXACTLY as sent, and that is load-bearing rather than
+    tidiness -- the adapter paginates on `_meta.page` / `_meta.total_pages`, so
+    those two fields alone decide the request sequence. It is the same reasoning
+    that keeps NVD's resultsPerPage / totalResults untouched above.
+
+    The kept slice is the first N entries plus one exercising each optional
+    branch the parser has (a populated vulncheck_xdb, a cwes list, a canary
+    report), so trimming cannot silently drop the branch that parses one of
+    them and leave a green test asserting nothing about it.
+    """
+    before = path.stat().st_size
+    data = yaml.safe_load(path.read_text())
+    for interaction in data.get("interactions", []):
+        body = interaction.get("response", {}).get("body", {})
+        raw = body.get("string")
+        if not raw:
+            continue
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            continue  # not JSON; leave it exactly as recorded
+        entries = parsed.get("data")
+        if not isinstance(entries, list):
+            continue
+
+        kept = list(entries[:_MAX_ENTRIES_PER_PAGE])
+        kept_ids = {id(e) for e in kept}
+
+        def _has(entry, key):
+            return isinstance(entry, dict) and bool(entry.get(key))
+
+        for key in ("vulncheck_xdb", "cwes", "vulncheck_reported_exploitation"):
+            if not any(_has(e, key) for e in kept):
+                extra = next((e for e in entries if _has(e, key)), None)
+                if extra is not None and id(extra) not in kept_ids:
+                    kept.append(extra)
+                    kept_ids.add(id(extra))
+        # The canary flag is a bool, so truthiness is the right test here.
+        if not any(
+            isinstance(e, dict) and e.get("reported_exploited_by_vulncheck_canaries")
+            for e in kept
+        ):
+            extra = next(
+                (
+                    e
+                    for e in entries
+                    if isinstance(e, dict)
+                    and e.get("reported_exploited_by_vulncheck_canaries")
+                ),
+                None,
+            )
+            if extra is not None and id(extra) not in kept_ids:
+                kept.append(extra)
+
+        parsed["data"] = kept
+        # _meta deliberately untouched -- see above.
+        body["string"] = json.dumps(parsed)
+    path.write_text(yaml.safe_dump(data, default_flow_style=False, allow_unicode=True))
+    return before, path.stat().st_size
+
+
+_SHRINK = {"nvd": shrink_nvd_cassette, "vulncheck": shrink_vulncheck_cassette}
 
 
 async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None, str]:
