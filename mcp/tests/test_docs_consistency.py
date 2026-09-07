@@ -253,3 +253,126 @@ def test_every_credentialed_adapter_has_a_live_check():
         "credentialed live checks are out of step with the server's feed "
         f"registry; unchecked: {sorted(registered - covered - keyless)}"
     )
+
+
+# --- README ⟷ server cross-check -------------------------------------------
+
+_CLAUDE_MD = _REPO_ROOT / "CLAUDE.md"
+
+
+def _registered_tools() -> set[str]:
+    return set(_TOOL_DEF_RE.findall(_SERVER_PY.read_text(encoding="utf-8")))
+
+
+def test_readmes_name_exactly_the_registered_tools():
+    """Both READMEs must name every registered tool, and no others.
+
+    The skill files already get this check; the READMEs did not, and drifted
+    exactly as you would expect. The root README advertised
+    ``virustotal_fetch_iocs`` — a tool deleted in #203 — and omitted
+    ``vulncheck_fetch_cves``; ``mcp/README.md``'s status table omitted both
+    ``threatfox_fetch_iocs`` and ``vulncheck_fetch_cves``, so a reader counting
+    the rows to see what was built got the wrong answer. All four were found by
+    reading, on a pass that was specifically looking for them. This finds them
+    on the PR that introduces them.
+    """
+    registered = _registered_tools()
+    assert registered, "no @mcp.tool() registrations found — regex/refactor drift?"
+
+    for readme in (_REPO_ROOT / "README.md", _README):
+        documented = set(_DOC_TOOL_RE.findall(readme.read_text(encoding="utf-8")))
+        missing = registered - documented
+        phantom = documented - registered
+        assert not missing, f"{readme}: registered tools not named: {sorted(missing)}"
+        assert not phantom, (
+            f"{readme}: names tools that do not exist in server.py: {sorted(phantom)}"
+        )
+
+
+def test_documented_counts_match_the_server_registry():
+    """Every "N <things>" claim in the docs must equal what the code registers.
+
+    Nine such claims were wrong at once in #209 — 10 IOC feeds when there were
+    9, 2 CVE feeds when there were 3, 15 tools when there were 16, "all 12"
+    credentials in three places when there were 13. Each was true when written
+    and quietly stopped being true when an adapter landed. Nothing checked
+    them, because a number in prose is invisible to every other guard in this
+    repository.
+
+    Only claims that ARE made are checked, so a doc may stay silent about a
+    count. That makes the check vacuum-able by rewording ("nine IOC feed
+    adapters"), which is why the required-claims assertion at the bottom
+    exists: the root README must still be making the four load-bearing claims
+    in a form this test recognises.
+    """
+    from threat_intel_mcp import server
+
+    registered = _registered_tools()
+    # A single-feed tool is anything that is not a fan-out, the enrichment
+    # tool, or the registry listing.
+    non_feed_tools = {
+        "fetch_all_iocs",
+        "fetch_all_cves",
+        "virustotal_enrich_iocs",
+        "list_available_feeds",
+    }
+    assert non_feed_tools <= registered, (
+        f"tool renamed out from under this check: {sorted(non_feed_tools - registered)}"
+    )
+
+    expected: dict[str, int] = {
+        r"(\d+) IOC feed adapters": len(server._FEED_SOURCES),
+        r"(\d+) Tier 1 CVE feeds": len(server._VULN_SOURCES),
+        r"(\d+) MCP tools": len(registered),
+        r"\*\*(\d+) tools\*\*": len(registered),
+        r"(\d+) single-feed tools": len(registered - non_feed_tools),
+        r"(\d+) adapter credentials": len(_code_credentials()),
+        r"Recorded for \d+ of (\d+)": len(_code_credentials()),
+    }
+
+    docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD)
+    wrong: list[str] = []
+    seen: set[str] = set()
+    for doc in docs:
+        text = doc.read_text(encoding="utf-8")
+        for pattern, truth in expected.items():
+            for claimed in re.findall(pattern, text):
+                seen.add(pattern)
+                if int(claimed) != truth:
+                    wrong.append(
+                        f"{doc.name}: /{pattern}/ says {claimed}, code says {truth}"
+                    )
+    assert not wrong, "documented counts contradict the code:\n  " + "\n  ".join(wrong)
+
+    required = {
+        r"(\d+) IOC feed adapters",
+        r"(\d+) Tier 1 CVE feeds",
+        r"(\d+) MCP tools",
+        r"(\d+) adapter credentials",
+    }
+    assert required <= seen, (
+        "the root README no longer states these counts in a form this check "
+        f"recognises, so it is guarding nothing: {sorted(required - seen)}. "
+        "Reword the docs back, or update the pattern here."
+    )
+
+
+def test_recorded_cassette_count_is_accurate():
+    """"Recorded for N of M adapters" must count the cassettes on disk.
+
+    The numerator moves whenever someone records a feed, which is the moment
+    nobody is thinking about prose. It said 3 while five cassettes existed.
+    """
+    cassettes = {p.stem for p in (_MCP_DIR / "tests" / "cassettes").glob("*.yaml")}
+    assert cassettes, "no cassettes found — layout drift?"
+
+    claims = re.findall(r"Recorded for (\d+) of \d+", _CLAUDE_MD.read_text(encoding="utf-8"))
+    assert claims, (
+        "CLAUDE.md no longer states 'Recorded for N of M', so this check guards "
+        "nothing. Reword the docs back, or update the pattern here."
+    )
+    for claimed in claims:
+        assert int(claimed) == len(cassettes), (
+            f"CLAUDE.md says {claimed} cassettes recorded, {len(cassettes)} are on "
+            f"disk: {sorted(cassettes)}"
+        )

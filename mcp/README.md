@@ -43,20 +43,21 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | pytest suite (no live calls) | ✅ Phase 1 |
 | HashiCorp Vault credential provider | ✅ Phase 2 |
 | AbuseIPDB blacklist adapter | ✅ Phase 3 |
-| VirusTotal Intelligence adapter (malicious IPs + domains) | ✅ Phase 3 |
+| VirusTotal per-indicator **enrichment** adapter (IPs + domains) | ✅ #203 |
 | AlienVault OTX subscribed-pulses adapter | ✅ Phase 3 |
 | MCP tool: `abuseipdb_fetch_blocklist` | ✅ Phase 3 |
 | MCP tool: `virustotal_enrich_iocs` (per-indicator lookup; the bulk-feed tool it replaced called an endpoint that never existed, #203) | ✅ |
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
-| ThreatFox adapter (free public abuse.ch feed, no key) | ✅ Phase 2 |
+| ThreatFox adapter + `threatfox_fetch_iocs` (free public abuse.ch feed, no key) | ✅ Phase 2 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Censys hosts adapter + `censys_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | CISA KEV adapter + `cisa_kev_fetch_cves` (public, no key) | ✅ Phase 5 |
 | NVD 2.0 adapter + `nvd_fetch_cves` (key optional) | ✅ Phase 5 |
+| VulnCheck KEV adapter + `vulncheck_fetch_cves` (key required) | ✅ #198 |
 | Vulnerability-output path (`vulns.py`) + `fetch_all_cves` fan-out | ✅ Phase 5 |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
@@ -68,8 +69,8 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard (`guard_parsed` / `UpstreamFormatError`) on every adapter | ✅ #106 |
-| Recorded feed cassettes (ThreatFox, CISA KEV, NVD) replayed offline | ✅ #105 |
-| Cassettes for the nine credentialed adapters | blocked on feed credentials (#169) |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, VulnCheck KEV, VirusTotal | ✅ #105, #199, #208 |
+| Cassettes for the remaining eight credentialed adapters | blocked on feed credentials (#169) |
 | Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start
@@ -304,9 +305,9 @@ An adapter signals three different failures with three different exception class
 
 **The trap:** a malformed upstream body (a 200 with an unexpected shape) is the *third* row, **not** the first — never raise `ValueError` for it, or the tool re-raises and crashes instead of degrading. Raise `RuntimeError` (or let the underlying `httpx`/parse exception propagate). See `adapters/cisa_kev.py::_parse_catalog` for the reference pattern; `tests/test_server_smoke.py` has a parametrized guard that every single-feed tool degrades — never raises — when its upstream returns a malformed body.
 
-### Worked example: VirusTotal Intelligence (a real paid feed already in this repo)
+### Worked example: Q-Feeds (a real paid feed already in this repo)
 
-`adapters/virustotal.py` is the canonical subscription-API adapter. VirusTotal Intelligence (the `feeds` API) requires a **paid VT Enterprise/Intelligence licence** — a free key returns 403. The adapter, distilled to its load-bearing parts (read the vendor reference at <https://docs.virustotal.com/reference/> for the full contract):
+`adapters/qfeeds.py` is the reference subscription-feed adapter: a Tier 2 commercial CTI service, HTTP Basic auth, two feed types, paginated plain-text responses. It is used here rather than VirusTotal because VirusTotal is no longer a feed at all — see the note above. Distilled to its load-bearing parts:
 
 ```python
 from ..audit import log_tool_call
@@ -314,11 +315,11 @@ from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
 from .base import FetchResult
 
-_API_BASE = "https://www.virustotal.com/api/v3"          # 1. real base URL, from the docs
-FEED_TYPES = {"malicious_ips": "ip_address", "malicious_domains": "domain"}
+_API_BASE = "https://api.qfeeds.com/api"                     # 1. real base URL, from the docs
+FEED_TYPES = {"malware_ip": "ip", "malware_domains": "domain"}
 
-class VirusTotalAdapter:
-    name = "VirusTotal"
+class QFeedsAdapter:
+    name = "Q-Feeds"
     tier = 2
 
     def __init__(self, credentials: CredentialProvider) -> None:
@@ -326,41 +327,52 @@ class VirusTotalAdapter:
         self._cache: dict[str, tuple[list[dict], float]] = {}
 
     def _make_client(self) -> httpx.AsyncClient:
-        api_key = self._credentials.get("virustotal", "api_key")   # 2. key from the provider only
+        api_key = self._credentials.get("qfeeds", "api_key")     # 2. key from the provider only
         return httpx.AsyncClient(
-            headers={"x-apikey": api_key},                         #    real auth header, from the docs
+            auth=("api_token", api_key),                         #    real auth scheme, from the docs
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
-            event_hooks=egress_event_hooks("www.virustotal.com"),  # 3. egress allowlist: one host
+            event_hooks=egress_event_hooks("api.qfeeds.com"),    # 3. egress allowlist: one host
         )
 
     async def fetch(self, *, time_range="7d", feed_types=None) -> FetchResult:
         requested = feed_types or list(FEED_TYPES)
-        api_key = self._credentials.get("virustotal", "api_key")   # 4. fail fast on a missing key
-        failed, last_exc, iocs = [], None, []
-        async with self._make_client() as client:
-            for ft in requested:
+        unknown = [t for t in requested if t not in FEED_TYPES]
+        if unknown:
+            raise ValueError(f"Unknown feed_type(s): {unknown}")  # 4. ValueError is for CALLER errors
+        failed, truncations, last_exc, iocs = [], [], None, []
+        async with self._make_client() as client:                 #    opening it reads the key: an
+            for ft in requested:                                  #    unconfigured feed fails fast
                 try:
-                    iocs.extend(await self._fetch_feed(client, ft))
+                    got, truncated = await self._fetch_feed(client, ft)
+                    iocs.extend(got)
+                    if truncated:
+                        truncations.append(truncated)             # 5. truncated != failed
                 except Exception as exc:
-                    failed.append(ft); last_exc = exc              # 5. per-feed-type partial failure
+                    failed.append(ft); last_exc = exc             #    per-feed-type partial failure
         if last_exc is not None and len(failed) == len(requested):
-            raise last_exc                                         # 6. TOTAL failure propagates
-        return FetchResult(iocs=iocs, source="VirusTotal", tier=2, ...,
+            raise last_exc                                        # 6. TOTAL failure propagates
+        return FetchResult(iocs=iocs, source="Q-Feeds", tier=2, ...,
                            feed_types_fetched=[t for t in requested if t not in failed],
-                           partial_failure=failed)
+                           partial_failure=failed + truncations)
 
-    def _normalize(self, entry, feed_type) -> dict | None:         # 7. map ONE record → ioc_network
-        value = entry.get("id")
-        if not value:
+def _normalize_line(line, feed_type) -> dict | None:              # 7. map ONE record → ioc_network
+    if feed_type == "malware_ip":
+        try:
+            addr = ipaddress.ip_address(line)                     #    parse, never regex-match: a
+        except ValueError:                                        #    regex calls 999.1.1.1 an IPv4
             return None
-        malicious = (entry.get("attributes") or {}).get("last_analysis_stats", {}).get("malicious", 0)
-        confidence = "High" if malicious >= 10 else "Medium" if malicious >= 3 else "Low"
-        ioc_type = "IPv4" if entry.get("type") == "ip_address" else "Domain"
-        return {"type": ioc_type, "value": value, "confidence": confidence,
-                "source": "VirusTotal", "action": "block", "tlp": "WHITE"}
+        ioc_type = "IPv4" if addr.version == 4 else "IPv6"
+    elif not _HOSTNAME_RE.match(line):
+        return None                                               #    reject what cannot be a
+    else:                                                         #    hostname, or an HTML error
+        ioc_type = "Domain"                                       #    page parses into "domains"
+    return {"type": ioc_type, "value": line, "confidence": "High",
+            "source": "Q-Feeds", "action": "block", "tlp": "GREEN"}
 ```
 
-The seven numbered points are the whole recipe; the rest (pagination, caching, rate-limit backoff) is feed-specific detail you take from the docs.
+The seven numbered points are the whole recipe; the rest (pagination, caching, inter-page delay) is feed-specific detail you take from the docs.
+
+Two of them are there because a live call disproved a belief, which is the best reason a line of code can have. Point 5 splits *truncated* from *failed*: the first call with a real key fetched page 1, was rate-limited on page 2, and the exception unwound the whole feed type — several thousand good indicators reported as none (#205). Point 7 rejects unparseable lines instead of defaulting them to `Domain`: an HTML error page used to parse cleanly into thousands of "domains", which also meant the empty-parse guard could never fire on this feed (#106).
 
 ### Step-by-step
 
