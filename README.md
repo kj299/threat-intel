@@ -178,7 +178,7 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.15.0):** 10 IOC feed adapters — Q-Feeds, AbuseIPDB, VirusTotal Intelligence, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feed ThreatFox; 2 government CVE feeds — CISA KEV and NVD (Tier 1) via a CVE-keyed vulnerability-output path. 15 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 12 single-feed tools, and `list_available_feeds`.
+**Current (v0.15.0):** 9 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feed ThreatFox; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 1 **enrichment** source, VirusTotal, which scores indicators you already hold rather than discovering any (so it is deliberately not part of `fetch_all_iocs`). 16 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 12 single-feed tools, `virustotal_enrich_iocs`, and `list_available_feeds`.
 
 Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
@@ -193,9 +193,10 @@ export OTX_API_KEY=...
 export SHODAN_API_KEY=...
 export GREYNOISE_API_KEY=...
 export ANYRUN_API_KEY=... INTEL471_EMAIL=... INTEL471_API_KEY=... CENSYS_API_ID=... CENSYS_API_SECRET=...
-export NVD_API_KEY=...   # optional — NVD works without a key at a lower rate limit
+export NVD_API_KEY=...        # optional — NVD works without a key at a lower rate limit
+export VULNCHECK_API_KEY=...  # required for VulnCheck KEV (free community account)
 # ThreatFox and CISA KEV are free public feeds and need no key
-threat-intel-mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
+python -m threat_intel_mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 
 Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
@@ -204,7 +205,8 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
 {
   "mcpServers": {
     "threat-intel": {
-      "command": "threat-intel-mcp",
+      "command": "python",
+      "args": ["-m", "threat_intel_mcp"],
       "env": {
         "QFEEDS_API_KEY": "your-qfeeds-key",
         "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
@@ -214,16 +216,17 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
         "GREYNOISE_API_KEY": "your-greynoise-key",
         "ANYRUN_API_KEY": "API-Key your-anyrun-token",
         "INTEL471_EMAIL": "you@example.com", "INTEL471_API_KEY": "your-intel471-key",
-        "CENSYS_API_ID": "your-censys-id", "CENSYS_API_SECRET": "your-censys-secret"
+        "CENSYS_API_ID": "your-censys-id", "CENSYS_API_SECRET": "your-censys-secret",
+        "VULNCHECK_API_KEY": "your-vulncheck-key"
       }
     }
   }
 }
 ```
 
-Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `virustotal_fetch_iocs`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`; plus `list_available_feeds`.
+Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD + VulnCheck KEV, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`; enrichment: `virustotal_enrich_iocs` (per-indicator lookup — takes indicators, returns verdicts); plus `list_available_feeds`.
 
-See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter) grounded in the VirusTotal Intelligence adapter, with a table of subscription sources and their official API-documentation portals.
+See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter), with a table of subscription sources and their official API-documentation portals.
 
 ---
 
@@ -235,7 +238,7 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 | | What | Where it goes |
 |---|---|---|
-| **Feed keys** | The 12 adapter credentials (`NVD_API_KEY`, `VIRUSTOTAL_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes` and by `scheduled-report`'s `prefetch` job |
+| **Feed keys** | The 13 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, and `scheduled-report`'s `prefetch` job |
 | **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
 
 **Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
@@ -247,8 +250,9 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 | How you run it | Reads keys from | Actions secrets used? |
 |---|---|---|
 | Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
-| `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — all 12 |
-| `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — all 12 |
+| `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — all 13 |
+| `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — all 13; a feed with no key skips, one whose key fails is a red run |
+| `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — all 13 |
 | `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 
 **Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
@@ -259,7 +263,7 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 
 **In a fork:** *Settings → Secrets and variables → Actions → New repository secret*. Fork secrets are not inherited from upstream — you create your own, and only the ones you want.
 
-Best first three, all free: **AbuseIPDB**, **AlienVault OTX**, and an **NVD key** (which lifts NVD from 5 to 50 requests/30s). Three gotchas worth knowing before you debug one: ANY.RUN's value includes its `API-Key ` prefix, Censys and Intel 471 are *two* secrets each and fail credential resolution if only half is set, and NVD's key is genuinely optional.
+Best first four, all free: **AbuseIPDB**, **AlienVault OTX**, **VulnCheck** (a second KEV catalogue, broader than CISA's), and an **NVD key** (which lifts NVD from 5 to 50 requests/30s). Gotchas worth knowing before you debug one: the secret's name must match the env var exactly — five once did not, and went unread for weeks — ANY.RUN's value includes its `API-Key ` prefix, Censys and Intel 471 are *two* secrets each and fail credential resolution if only half is set, and NVD's key is optional while VulnCheck's is not.
 
 Deeper: [local setup and Vault](mcp/README.md#2-set-your-api-keys) · [why feed keys are isolated](docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow) · [the model credential](docs/report-runbook.md#how-reports-are-generated)
 
@@ -290,7 +294,7 @@ How they're generated, how to run one (including wiring the MCP server for live-
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox; CVE feeds CISA KEV, NVD) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox; CVE feeds CISA KEV, NVD, VulnCheck KEV; enrichment VirusTotal) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
 
 ---
 
