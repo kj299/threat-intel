@@ -28,6 +28,7 @@ from tests.vcr_config import build_vcr, cassette_path, has_cassette
 from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter
 from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.vault.base import CredentialNotFoundError
@@ -183,6 +184,77 @@ async def test_vulncheck_reads_the_fields_the_first_draft_dropped():
     assert any(v.get("known_ransomware_use") for v in result.vulns)
     assert any(v.get("due_date") for v in result.vulns)
     assert any(v.get("references") for v in result.vulns)
+
+
+@_requires("virustotal")
+@pytest.mark.asyncio
+async def test_virustotal_parses_the_real_enrichment_response():
+    """The recording that turned a documented shape into a verified one.
+
+    This adapter replaced one whose endpoint did not exist and had never
+    returned an indicator (#203). Its successor was written from VirusTotal's
+    published object reference — better footing, but still not a response
+    anyone had seen. These bytes are.
+    """
+    with build_vcr().use_cassette(str(cassette_path("virustotal"))):
+        result = await VirusTotalAdapter(
+            _StubToken(), _rate_limit_delay=0
+        ).enrich(["8.8.8.8", "1.1.1.1"], indicator_type="ip")
+
+    assert result["record_count"] == 2
+    assert result["failed"] == []
+    assert {e["indicator"] for e in result["enrichments"]} == {"8.8.8.8", "1.1.1.1"}
+
+
+@_requires("virustotal")
+@pytest.mark.asyncio
+async def test_virustotal_reads_every_attribute_it_claims_to():
+    """Pins the field mapping to the recorded response.
+
+    Each of these was a guess until this recording. A silent absence here
+    would leave the adapter reporting a verdict with no detections behind it,
+    which reads identically to a clean indicator.
+    """
+    with build_vcr().use_cassette(str(cassette_path("virustotal"))):
+        result = await VirusTotalAdapter(
+            _StubToken(), _rate_limit_delay=0
+        ).enrich(["8.8.8.8"], indicator_type="ip")
+
+    record = result["enrichments"][0]
+    for field in ("malicious", "suspicious", "harmless", "undetected"):
+        assert isinstance(record[field], int), f"{field} missing from the real body"
+    assert isinstance(record["reputation"], int)
+    assert set(record["community_votes"]) == {"harmless", "malicious"}
+    assert record["last_analysis"].startswith("20")
+    # Network ownership is IP-only and is the part most likely to be renamed
+    # upstream, so it is asserted by value rather than by presence.
+    assert record["as_owner"] == "Google LLC"
+    assert record["asn"] == 15169
+    assert record["country"] == "US"
+
+
+@_requires("virustotal")
+@pytest.mark.asyncio
+async def test_a_clean_indicator_survives_the_real_response():
+    """8.8.8.8 has no detections, and that is a result rather than a gap.
+
+    For a feed, nothing found means nothing to report. For enrichment, "no
+    engine flagged this" is information — so the record must come back rather
+    than being dropped as empty.
+    """
+    with build_vcr().use_cassette(str(cassette_path("virustotal"))):
+        result = await VirusTotalAdapter(
+            _StubToken(), _rate_limit_delay=0
+        ).enrich(["8.8.8.8"], indicator_type="ip")
+
+    record = result["enrichments"][0]
+    assert result["record_count"] == 1
+    assert record["malicious"] == 0
+    # `malicious == 0` ALONE is vacuous here: _stat defaults a missing counter
+    # to 0, so an unparsed stats block reads identically to a clean verdict.
+    # A non-zero sibling is what separates the two, and sabotage-testing the
+    # attribute name is what surfaced it.
+    assert record["harmless"] > 0, "a clean verdict must be parsed, not defaulted"
 
 
 def test_no_key_provider_engages_the_unauthenticated_fallback():
