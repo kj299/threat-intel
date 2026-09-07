@@ -1,0 +1,619 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - www.virustotal.com
+      user-agent:
+      - threat-intel-mcp/0.13 (kj299/threat-intel)
+      x-apikey:
+      - '[REDACTED]'
+    method: GET
+    uri: https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8
+  response:
+    body:
+      string: '{"data": {"id": "8.8.8.8", "type": "ip_address", "links": {"self":
+        "https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8"}, "attributes": {"as_owner":
+        "Google LLC", "asn": 15169, "reputation": 560, "last_https_certificate_date":
+        1788743823, "whois": "NetRange: 8.8.8.0 - 8.8.8.255\nCIDR: 8.8.8.0/24\nNetName:
+        GOGL\nNetHandle: NET-8-8-8-0-2\nParent: NET8 (NET-8-0-0-0-0)\nNetType: Direct
+        Allocation\nOriginAS: \nOrganization: Google LLC (GOGL)\nRegDate: 2023-12-28\nUpdated:
+        2023-12-28\nRef: https://rdap.arin.net/registry/ip/8.8.8.0\nOrgName: Google
+        LLC\nOrgId: GOGL\nAddress: 1600 Amphitheatre Parkway\nCity: Mountain View\nStateProv:
+        CA\nPostalCode: 94043\nCountry: US\nRegDate: 2000-03-30\nUpdated: 2019-10-31\nComment:
+        Please note that the recommended way to file abuse complaints are located
+        in the following links. \nComment: \nComment: To report abuse and illegal
+        activity: https://www.google.com/contact/\nComment: \nComment: For legal requests:
+        http://support.google.com/legal \nComment: \nComment: Regards, \nComment:
+        The Google Team\nRef: https://rdap.arin.net/registry/entity/GOGL\nOrgAbuseHandle:
+        ABUSE5250-ARIN\nOrgAbuseName: Abuse\nOrgAbusePhone: +1-650-253-0000 \nOrgAbuseEmail:
+        network-abuse@google.com\nOrgAbuseRef: https://rdap.arin.net/registry/entity/ABUSE5250-ARIN\nOrgTechHandle:
+        ZG39-ARIN\nOrgTechName: Google LLC\nOrgTechPhone: +1-650-253-0000 \nOrgTechEmail:
+        arin-contact@google.com\nOrgTechRef: https://rdap.arin.net/registry/entity/ZG39-ARIN\n",
+        "rdap": {"object_class_name": "ip network", "handle": "NET-8-8-8-0-2", "start_address":
+        "8.8.8.0", "end_address": "8.8.8.255", "ip_version": "v4", "name": "GOGL",
+        "type": "DIRECT ALLOCATION", "parent_handle": "NET-8-0-0-0-0", "status": ["active"],
+        "links": [{"href": "https://rdap.arin.net/registry/ip/8.8.8.0", "rel": "self",
+        "type": "application/rdap+json", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}, {"href": "https://whois.arin.net/rest/net/NET-8-8-8-0-2",
+        "rel": "alternate", "type": "application/xml", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "notices": [{"title": "Terms
+        of Service", "description": ["By using the ARIN RDAP/Whois service, you are
+        agreeing to the RDAP/Whois Terms of Use"], "links": [{"href": "https://www.arin.net/resources/registry/whois/tou/",
+        "rel": "terms-of-service", "type": "text/html", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "type": ""}, {"title": "Whois
+        Inaccuracy Reporting", "description": ["If you see inaccuracies in the results,
+        please visit: "], "links": [{"href": "https://www.arin.net/resources/registry/whois/inaccuracy_reporting/",
+        "rel": "inaccuracy-report", "type": "text/html", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "type": ""}, {"title": "Copyright
+        Notice", "description": ["Copyright 1997-2026, American Registry for Internet
+        Numbers, Ltd."], "links": [], "type": ""}], "events": [{"event_action": "last
+        changed", "event_date": "2023-12-28T17:24:56-05:00", "event_actor": "", "links":
+        []}, {"event_action": "registration", "event_date": "2023-12-28T17:24:33-05:00",
+        "event_actor": "", "links": []}], "rdap_conformance": ["nro_rdap_profile_0",
+        "rdap_level_0", "cidr0", "arin_originas0"], "entities": [{"object_class_name":
+        "entity", "handle": "GOGL", "vcard_array": [{"name": "version", "type": "text",
+        "values": ["4.0"], "parameters": {}}, {"name": "fn", "type": "text", "values":
+        ["Google LLC"], "parameters": {}}, {"name": "adr", "parameters": {"label":
+        ["1600 Amphitheatre Parkway\nMountain View\nCA\n94043\nUnited States"]}, "type":
+        "text", "values": ["", "", "", "", "", "", ""]}, {"name": "kind", "type":
+        "text", "values": ["org"], "parameters": {}}], "roles": ["registrant"], "entities":
+        [{"object_class_name": "entity", "handle": "ABUSE5250-ARIN", "vcard_array":
+        [{"name": "version", "type": "text", "values": ["4.0"], "parameters": {}},
+        {"name": "adr", "parameters": {"label": ["1600 Amphitheatre Parkway\nMountain
+        View\nCA\n94043\nUnited States"]}, "type": "text", "values": ["", "", "",
+        "", "", "", ""]}, {"name": "fn", "type": "text", "values": ["Abuse"], "parameters":
+        {}}, {"name": "org", "type": "text", "values": ["Google Inc."], "parameters":
+        {}}, {"name": "kind", "type": "text", "values": ["group"], "parameters": {}},
+        {"name": "email", "type": "text", "values": ["network-abuse@google.com"],
+        "parameters": {}}, {"name": "tel", "parameters": {"type": ["work", "voice"]},
+        "type": "text", "values": ["+1-650-253-0000"]}], "roles": ["abuse"], "remarks":
+        [{"title": "Registration Comments", "description": ["Please note that the
+        recommended way to file abuse complaints are located in the following links.",
+        "", "To report abuse and illegal activity: https://www.google.com/contact/",
+        "", "For legal requests: http://support.google.com/legal ", "", "Regards,",
+        "The Google Team"], "links": [], "type": ""}], "links": [{"href": "https://rdap.arin.net/registry/entity/ABUSE5250-ARIN",
+        "rel": "self", "type": "application/rdap+json", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}, {"href": "https://whois.arin.net/rest/poc/ABUSE5250-ARIN",
+        "rel": "alternate", "type": "application/xml", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "last
+        changed", "event_date": "2026-08-19T14:34:18-04:00", "event_actor": "", "links":
+        []}, {"event_action": "registration", "event_date": "2015-11-06T15:36:35-05:00",
+        "event_actor": "", "links": []}], "status": ["validated"], "port43": "whois.arin.net",
+        "public_ids": [], "entities": [], "as_event_actor": [], "networks": [], "autnums":
+        [], "url": "", "lang": "", "rdap_conformance": []}, {"object_class_name":
+        "entity", "handle": "ZG39-ARIN", "vcard_array": [{"name": "version", "type":
+        "text", "values": ["4.0"], "parameters": {}}, {"name": "adr", "parameters":
+        {"label": ["1600 Amphitheatre Parkway\nMountain View\nCA\n94043\nUnited States"]},
+        "type": "text", "values": ["", "", "", "", "", "", ""]}, {"name": "fn", "type":
+        "text", "values": ["Google LLC"], "parameters": {}}, {"name": "org", "type":
+        "text", "values": ["Google LLC"], "parameters": {}}, {"name": "kind", "type":
+        "text", "values": ["group"], "parameters": {}}, {"name": "email", "type":
+        "text", "values": ["arin-contact@google.com"], "parameters": {}}, {"name":
+        "tel", "parameters": {"type": ["work", "voice"]}, "type": "text", "values":
+        ["+1-650-253-0000"]}], "roles": ["administrative", "technical"], "links":
+        [{"href": "https://rdap.arin.net/registry/entity/ZG39-ARIN", "rel": "self",
+        "type": "application/rdap+json", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}, {"href": "https://whois.arin.net/rest/poc/ZG39-ARIN",
+        "rel": "alternate", "type": "application/xml", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "last
+        changed", "event_date": "2025-11-10T07:10:31-05:00", "event_actor": "", "links":
+        []}, {"event_action": "registration", "event_date": "2000-11-30T13:54:08-05:00",
+        "event_actor": "", "links": []}], "status": ["validated"], "port43": "whois.arin.net",
+        "public_ids": [], "entities": [], "remarks": [], "as_event_actor": [], "networks":
+        [], "autnums": [], "url": "", "lang": "", "rdap_conformance": []}], "remarks":
+        [{"title": "Registration Comments", "description": ["Please note that the
+        recommended way to file abuse complaints are located in the following links.
+        ", "", "To report abuse and illegal activity: https://www.google.com/contact/",
+        "", "For legal requests: http://support.google.com/legal ", "", "Regards,
+        ", "The Google Team"], "links": [], "type": ""}], "links": [{"href": "https://rdap.arin.net/registry/entity/GOGL",
+        "rel": "self", "type": "application/rdap+json", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}, {"href": "https://whois.arin.net/rest/org/GOGL",
+        "rel": "alternate", "type": "application/xml", "value": "https://rdap.arin.net/registry/ip/8.8.8.8",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "last
+        changed", "event_date": "2019-10-31T15:45:45-04:00", "event_actor": "", "links":
+        []}, {"event_action": "registration", "event_date": "2000-03-30T00:00:00-05:00",
+        "event_actor": "", "links": []}], "port43": "whois.arin.net", "public_ids":
+        [], "as_event_actor": [], "status": [], "networks": [], "autnums": [], "url":
+        "", "lang": "", "rdap_conformance": []}], "port43": "whois.arin.net", "cidr0_cidrs":
+        [{"v4prefix": "8.8.8.0", "length": 24, "v6prefix": ""}], "country": "", "arin_originas0_originautnums":
+        [], "remarks": []}, "tags": ["suspicious-udp"], "total_votes": {"harmless":
+        293, "malicious": 59}, "crowdsourced_context": [{"details": "AsyncRAT botnet
+        C2 server (confidence level: 100%)", "timestamp": 1694383565, "severity":
+        "medium", "title": "ThreatFox IOCs for 2023-09-10", "source": "ArcSight Threat
+        Intelligence"}], "continent": "NA", "last_analysis_date": 1788743522, "whois_date":
+        1788694162, "jarm": "29d3fd00029d29d00042d43d00041d8f924f5255cbc229bc55efa16391dad6",
+        "last_analysis_results": {"Acronis": {"method": "blacklist", "engine_name":
+        "Acronis", "category": "harmless", "result": "clean"}, "0xSI_f33d": {"method":
+        "blacklist", "engine_name": "0xSI_f33d", "category": "undetected", "result":
+        "unrated"}, "Abusix": {"method": "blacklist", "engine_name": "Abusix", "category":
+        "harmless", "result": "clean"}, "ADMINUSLabs": {"method": "blacklist", "engine_name":
+        "ADMINUSLabs", "category": "harmless", "result": "clean"}, "Axur": {"method":
+        "blacklist", "engine_name": "Axur", "category": "undetected", "result": "unrated"},
+        "ChainPatrol": {"method": "blacklist", "engine_name": "ChainPatrol", "category":
+        "undetected", "result": "unrated"}, "Criminal IP": {"method": "blacklist",
+        "engine_name": "Criminal IP", "category": "undetected", "result": "unrated"},
+        "AILabs (MONITORAPP)": {"method": "blacklist", "engine_name": "AILabs (MONITORAPP)",
+        "category": "harmless", "result": "clean"}, "AlienVault": {"method": "blacklist",
+        "engine_name": "AlienVault", "category": "harmless", "result": "clean"}, "alphaMountain.ai":
+        {"method": "blacklist", "engine_name": "alphaMountain.ai", "category": "undetected",
+        "result": "unrated"}, "AlphaSOC": {"method": "blacklist", "engine_name": "AlphaSOC",
+        "category": "undetected", "result": "unrated"}, "Antiy-AVL": {"method": "blacklist",
+        "engine_name": "Antiy-AVL", "category": "harmless", "result": "clean"}, "ArcSight
+        Threat Intelligence": {"method": "blacklist", "engine_name": "ArcSight Threat
+        Intelligence", "category": "undetected", "result": "unrated"}, "AutoShun":
+        {"method": "blacklist", "engine_name": "AutoShun", "category": "undetected",
+        "result": "unrated"}, "Bfore.Ai PreCrime": {"method": "blacklist", "engine_name":
+        "Bfore.Ai PreCrime", "category": "undetected", "result": "unrated"}, "BitDefender":
+        {"method": "blacklist", "engine_name": "BitDefender", "category": "harmless",
+        "result": "clean"}, "Bkav": {"method": "blacklist", "engine_name": "Bkav",
+        "category": "undetected", "result": "unrated"}, "Blueliv": {"method": "blacklist",
+        "engine_name": "Blueliv", "category": "harmless", "result": "clean"}, "Certego":
+        {"method": "blacklist", "engine_name": "Certego", "category": "harmless",
+        "result": "clean"}, "Chong Lua Dao": {"method": "blacklist", "engine_name":
+        "Chong Lua Dao", "category": "undetected", "result": "unrated"}, "CINS Army":
+        {"method": "blacklist", "engine_name": "CINS Army", "category": "harmless",
+        "result": "clean"}, "CRDF": {"method": "blacklist", "engine_name": "CRDF",
+        "category": "harmless", "result": "clean"}, "CSIS Security Group": {"method":
+        "blacklist", "engine_name": "CSIS Security Group", "category": "undetected",
+        "result": "unrated"}, "Snort IP sample list": {"method": "blacklist", "engine_name":
+        "Snort IP sample list", "category": "undetected", "result": "unrated"}, "CMC
+        Threat Intelligence": {"method": "blacklist", "engine_name": "CMC Threat Intelligence",
+        "category": "harmless", "result": "clean"}, "CTX AI": {"method": "blacklist",
+        "engine_name": "CTX AI", "category": "harmless", "result": "clean"}, "Cyan":
+        {"method": "blacklist", "engine_name": "Cyan", "category": "undetected", "result":
+        "unrated"}, "Cyble": {"method": "blacklist", "engine_name": "Cyble", "category":
+        "harmless", "result": "clean"}, "CyRadar": {"method": "blacklist", "engine_name":
+        "CyRadar", "category": "harmless", "result": "clean"}, "DNS8": {"method":
+        "blacklist", "engine_name": "DNS8", "category": "undetected", "result": "unrated"},
+        "Dr.Web": {"method": "blacklist", "engine_name": "Dr.Web", "category": "harmless",
+        "result": "clean"}, "Ermes": {"method": "blacklist", "engine_name": "Ermes",
+        "category": "undetected", "result": "unrated"}, "ESET": {"method": "blacklist",
+        "engine_name": "ESET", "category": "harmless", "result": "clean"}, "ESTsecurity":
+        {"method": "blacklist", "engine_name": "ESTsecurity", "category": "harmless",
+        "result": "clean"}, "EmergingThreats": {"method": "blacklist", "engine_name":
+        "EmergingThreats", "category": "harmless", "result": "clean"}, "Emsisoft":
+        {"method": "blacklist", "engine_name": "Emsisoft", "category": "harmless",
+        "result": "clean"}, "Forcepoint ThreatSeeker": {"method": "blacklist", "engine_name":
+        "Forcepoint ThreatSeeker", "category": "harmless", "result": "clean"}, "Fortinet":
+        {"method": "blacklist", "engine_name": "Fortinet", "category": "harmless",
+        "result": "clean"}, "Fortra": {"method": "blacklist", "engine_name": "Fortra",
+        "category": "undetected", "result": "unrated"}, "G-Data": {"method": "blacklist",
+        "engine_name": "G-Data", "category": "harmless", "result": "clean"}, "GCP
+        Abuse Intelligence": {"method": "blacklist", "engine_name": "GCP Abuse Intelligence",
+        "category": "undetected", "result": "unrated"}, "Google Safe Browsing": {"method":
+        "blacklist", "engine_name": "Google Safe Browsing", "category": "harmless",
+        "result": "clean"}, "GreenSnow": {"method": "blacklist", "engine_name": "GreenSnow",
+        "category": "harmless", "result": "clean"}, "GreyNoise": {"method": "blacklist",
+        "engine_name": "GreyNoise", "category": "undetected", "result": "unrated"},
+        "Gridinsoft": {"method": "blacklist", "engine_name": "Gridinsoft", "category":
+        "undetected", "result": "unrated"}, "Guardpot": {"method": "blacklist", "engine_name":
+        "Guardpot", "category": "undetected", "result": "unrated"}, "Heimdal Security":
+        {"method": "blacklist", "engine_name": "Heimdal Security", "category": "harmless",
+        "result": "clean"}, "Hunt.io Intelligence": {"method": "blacklist", "engine_name":
+        "Hunt.io Intelligence", "category": "undetected", "result": "unrated"}, "IPsum":
+        {"method": "blacklist", "engine_name": "IPsum", "category": "harmless", "result":
+        "clean"}, "Juniper Networks": {"method": "blacklist", "engine_name": "Juniper
+        Networks", "category": "harmless", "result": "clean"}, "Kaspersky": {"method":
+        "blacklist", "engine_name": "Kaspersky", "category": "undetected", "result":
+        "unrated"}, "LevelBlue": {"method": "blacklist", "engine_name": "LevelBlue",
+        "category": "harmless", "result": "clean"}, "Lionic": {"method": "blacklist",
+        "engine_name": "Lionic", "category": "harmless", "result": "clean"}, "Lumu":
+        {"method": "blacklist", "engine_name": "Lumu", "category": "undetected", "result":
+        "unrated"}, "MalwarePatrol": {"method": "blacklist", "engine_name": "MalwarePatrol",
+        "category": "harmless", "result": "clean"}, "MalwareURL": {"method": "blacklist",
+        "engine_name": "MalwareURL", "category": "undetected", "result": "unrated"},
+        "Malwared": {"method": "blacklist", "engine_name": "Malwared", "category":
+        "harmless", "result": "clean"}, "Mimecast": {"method": "blacklist", "engine_name":
+        "Mimecast", "category": "undetected", "result": "unrated"}, "Netcraft": {"method":
+        "blacklist", "engine_name": "Netcraft", "category": "undetected", "result":
+        "unrated"}, "OpenPhish": {"method": "blacklist", "engine_name": "OpenPhish",
+        "category": "harmless", "result": "clean"}, "Phishing Database": {"method":
+        "blacklist", "engine_name": "Phishing Database", "category": "harmless", "result":
+        "clean"}, "PhishFort": {"method": "blacklist", "engine_name": "PhishFort",
+        "category": "undetected", "result": "unrated"}, "Phishtank": {"method": "blacklist",
+        "engine_name": "Phishtank", "category": "harmless", "result": "clean"}, "PREBYTES":
+        {"method": "blacklist", "engine_name": "PREBYTES", "category": "harmless",
+        "result": "clean"}, "PrecisionSec": {"method": "blacklist", "engine_name":
+        "PrecisionSec", "category": "undetected", "result": "unrated"}, "Quick Heal":
+        {"method": "blacklist", "engine_name": "Quick Heal", "category": "harmless",
+        "result": "clean"}, "Quttera": {"method": "blacklist", "engine_name": "Quttera",
+        "category": "harmless", "result": "clean"}, "SafeToOpen": {"method": "blacklist",
+        "engine_name": "SafeToOpen", "category": "undetected", "result": "unrated"},
+        "Sansec eComscan": {"method": "blacklist", "engine_name": "Sansec eComscan",
+        "category": "undetected", "result": "unrated"}, "Scantitan": {"method": "blacklist",
+        "engine_name": "Scantitan", "category": "harmless", "result": "clean"}, "SCUMWARE.org":
+        {"method": "blacklist", "engine_name": "SCUMWARE.org", "category": "harmless",
+        "result": "clean"}, "Seclookup": {"method": "blacklist", "engine_name": "Seclookup",
+        "category": "harmless", "result": "clean"}, "SecureBrain": {"method": "blacklist",
+        "engine_name": "SecureBrain", "category": "undetected", "result": "unrated"},
+        "SOCRadar": {"method": "blacklist", "engine_name": "SOCRadar", "category":
+        "undetected", "result": "unrated"}, "Sophos": {"method": "blacklist", "engine_name":
+        "Sophos", "category": "harmless", "result": "clean"}, "StopForumSpam": {"method":
+        "blacklist", "engine_name": "StopForumSpam", "category": "harmless", "result":
+        "clean"}, "Sucuri SiteCheck": {"method": "blacklist", "engine_name": "Sucuri
+        SiteCheck", "category": "harmless", "result": "clean"}, "ThreatHive": {"method":
+        "blacklist", "engine_name": "ThreatHive", "category": "harmless", "result":
+        "clean"}, "URLhaus": {"method": "blacklist", "engine_name": "URLhaus", "category":
+        "harmless", "result": "clean"}, "URLQuery": {"method": "blacklist", "engine_name":
+        "URLQuery", "category": "undetected", "result": "unrated"}, "Viettel Threat
+        Intelligence": {"method": "blacklist", "engine_name": "Viettel Threat Intelligence",
+        "category": "harmless", "result": "clean"}, "VIPRE": {"method": "blacklist",
+        "engine_name": "VIPRE", "category": "undetected", "result": "unrated"}, "VX
+        Vault": {"method": "blacklist", "engine_name": "VX Vault", "category": "harmless",
+        "result": "clean"}, "ViriBack": {"method": "blacklist", "engine_name": "ViriBack",
+        "category": "harmless", "result": "clean"}, "Webroot": {"method": "blacklist",
+        "engine_name": "Webroot", "category": "harmless", "result": "clean"}, "Yandex
+        Safebrowsing": {"method": "blacklist", "engine_name": "Yandex Safebrowsing",
+        "category": "harmless", "result": "clean"}, "ZeroCERT": {"method": "blacklist",
+        "engine_name": "ZeroCERT", "category": "harmless", "result": "clean"}, "desenmascara.me":
+        {"method": "blacklist", "engine_name": "desenmascara.me", "category": "harmless",
+        "result": "clean"}, "Xcitium Verdict Cloud": {"method": "blacklist", "engine_name":
+        "Xcitium Verdict Cloud", "category": "undetected", "result": "unrated"}, "ZeroFox":
+        {"method": "blacklist", "engine_name": "ZeroFox", "category": "undetected",
+        "result": "unrated"}}, "last_analysis_stats": {"malicious": 0, "suspicious":
+        0, "undetected": 37, "harmless": 53, "timeout": 0}, "last_https_certificate":
+        {"cert_signature": {"signature_algorithm": "sha256RSA", "signature": "4b3f75667a85293e55b2005cb80eaf042be2738176d56a08c59373b2b1a8c67e7cc8780a9b1bd2f7685a0a59ed46e2fe4ed126db22e59660cd421b644641a4f0fda1fcb14e8c682de22b2ea5dcf9fcbdb4746b259aa635dc6884be238aaccd8bc14d71c13c1fabcf839b4e72a1167f533409025ffa29189f03d5e738640899a8b9711fefd4860791e449905f2e7843c175cf6e99b2a8e0d0f80a34a506ac9711ccd9c1de5ff4e9e038068ad460d8df29ec88e48c577980cb20930f36b94d135e4efde1d5c026d829c4b2e33096ead1cd162ee628adf67fd170d1c863fd618ea0b8fa6a4803de2e54cc023c69bbc4048c23bf03ad3c78778620a3f85b52673b22"},
+        "extensions": {"key_usage": ["digitalSignature", "keyEncipherment"], "extended_key_usage":
+        ["serverAuth"], "CA": false, "subject_key_identifier": "8674bf4b99e966301d91c79c94babe4d9590135f",
+        "authority_key_identifier": {"keyid": "de1b1eed7915d43e3724c321bbec34396d42b230"},
+        "ca_information_access": {"CA Issuers": "http://i.pki.goog/wr2.crt"}, "subject_alternative_name":
+        ["dns.google", "dns.google.com", "*.dns.google.com", "8888.google", "dns64.dns.google",
+        "8.8.8.8", "8.8.4.4", "8.8.8.53", "2001:4860:4860::8888", "2001:4860:4860::8844",
+        "2001:4860:4860::6464", "2001:4860:4860::64"], "certificate_policies": ["2.23.140.1.2.1"],
+        "crl_distribution_points": ["http://c.pki.goog/wr2/9UVbN0w5E6Y.crl"], "1.3.6.1.4.1.11129.2.4.2":
+        "0481f200f0007600d809553b944f7affc816196f944f85abb0f8fc5e8755260f"}, "validity":
+        {"not_after": "2026-11-02 08:39:51", "not_before": "2026-08-10 08:39:52"},
+        "size": 1433, "version": "V3", "public_key": {"algorithm": "RSA", "rsa": {"modulus":
+        "afd7e138854ca3feba91fbb8e5e80b7ec2e601bdf7b4dc8b9c1c020cf0fd222c743983f6894d219dc5f009caf07b0358c6b317f23cc4ec0284e4d8f44742640f09146d90c11818f4eb1e096ea42ab385bea060e98ce8b1b5cd2f8cd5fc75540f50fe740594ba94ea6806ae05ffb76910114ae8c4637a039363bf71c81702ac2983e9d722e096f6feaec3886e412a8dc05e20973cd1650d9fe8726afe595aa70c9fa0046384356f458a6184014570fa5b1fb4a6de796fed8472eaf7dbc21c85dcde0db9d5b02d6f845c3ce9d72b75453f97f8c64fe54a09767b80e852788f03d2675463a1487e66edb2dd05b8c43c7ea1f602557c355e42e46785304f6dc04285",
+        "exponent": "10001", "key_size": 2048}}, "thumbprint_sha256": "2f89b6fc5a3dbc03f8582594749cb5649d513e8e0fdb94984235ad4e3f2bf1d9",
+        "thumbprint": "8e044898dc2d0cfb11eb7d1c30b9aa741928cacb", "serial_number":
+        "875c4875260b38c712bd46930d0674e7", "issuer": {"C": "US", "O": "Google Trust
+        Services", "CN": "WR2"}, "subject": {"CN": "dns.google"}}, "last_modification_date":
+        1788748658, "network": "8.8.8.0/24", "country": "US", "regional_internet_registry":
+        "ARIN"}}}'
+    headers:
+      alt-svc:
+      - h3=":443"; ma=2592000
+      content-length:
+      - '22192'
+      content-type:
+      - application/json
+      date:
+      - Mon, 07 Sep 2026 02:37:47 GMT
+      server:
+      - Google Frontend
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      via:
+      - 1.1 google
+      x-cloud-trace-context:
+      - 156b25b955d83007223113afcc8b23ab
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - www.virustotal.com
+      user-agent:
+      - threat-intel-mcp/0.13 (kj299/threat-intel)
+      x-apikey:
+      - '[REDACTED]'
+    method: GET
+    uri: https://www.virustotal.com/api/v3/ip_addresses/1.1.1.1
+  response:
+    body:
+      string: '{"data": {"id": "1.1.1.1", "type": "ip_address", "links": {"self":
+        "https://www.virustotal.com/api/v3/ip_addresses/1.1.1.1"}, "attributes": {"as_owner":
+        "Cloudflare, Inc.", "tags": ["suspicious-udp"], "last_analysis_results": {"Acronis":
+        {"method": "blacklist", "engine_name": "Acronis", "category": "harmless",
+        "result": "clean"}, "0xSI_f33d": {"method": "blacklist", "engine_name": "0xSI_f33d",
+        "category": "undetected", "result": "unrated"}, "Abusix": {"method": "blacklist",
+        "engine_name": "Abusix", "category": "harmless", "result": "clean"}, "ADMINUSLabs":
+        {"method": "blacklist", "engine_name": "ADMINUSLabs", "category": "harmless",
+        "result": "clean"}, "Axur": {"method": "blacklist", "engine_name": "Axur",
+        "category": "undetected", "result": "unrated"}, "ChainPatrol": {"method":
+        "blacklist", "engine_name": "ChainPatrol", "category": "undetected", "result":
+        "unrated"}, "Criminal IP": {"method": "blacklist", "engine_name": "Criminal
+        IP", "category": "undetected", "result": "unrated"}, "AILabs (MONITORAPP)":
+        {"method": "blacklist", "engine_name": "AILabs (MONITORAPP)", "category":
+        "harmless", "result": "clean"}, "AlienVault": {"method": "blacklist", "engine_name":
+        "AlienVault", "category": "harmless", "result": "clean"}, "alphaMountain.ai":
+        {"method": "blacklist", "engine_name": "alphaMountain.ai", "category": "harmless",
+        "result": "clean"}, "AlphaSOC": {"method": "blacklist", "engine_name": "AlphaSOC",
+        "category": "undetected", "result": "unrated"}, "Antiy-AVL": {"method": "blacklist",
+        "engine_name": "Antiy-AVL", "category": "harmless", "result": "clean"}, "ArcSight
+        Threat Intelligence": {"method": "blacklist", "engine_name": "ArcSight Threat
+        Intelligence", "category": "undetected", "result": "unrated"}, "AutoShun":
+        {"method": "blacklist", "engine_name": "AutoShun", "category": "undetected",
+        "result": "unrated"}, "Bfore.Ai PreCrime": {"method": "blacklist", "engine_name":
+        "Bfore.Ai PreCrime", "category": "undetected", "result": "unrated"}, "BitDefender":
+        {"method": "blacklist", "engine_name": "BitDefender", "category": "harmless",
+        "result": "clean"}, "Bkav": {"method": "blacklist", "engine_name": "Bkav",
+        "category": "undetected", "result": "unrated"}, "Blueliv": {"method": "blacklist",
+        "engine_name": "Blueliv", "category": "harmless", "result": "clean"}, "Certego":
+        {"method": "blacklist", "engine_name": "Certego", "category": "harmless",
+        "result": "clean"}, "Chong Lua Dao": {"method": "blacklist", "engine_name":
+        "Chong Lua Dao", "category": "harmless", "result": "clean"}, "CINS Army":
+        {"method": "blacklist", "engine_name": "CINS Army", "category": "harmless",
+        "result": "clean"}, "CRDF": {"method": "blacklist", "engine_name": "CRDF",
+        "category": "harmless", "result": "clean"}, "CSIS Security Group": {"method":
+        "blacklist", "engine_name": "CSIS Security Group", "category": "undetected",
+        "result": "unrated"}, "Snort IP sample list": {"method": "blacklist", "engine_name":
+        "Snort IP sample list", "category": "undetected", "result": "unrated"}, "CMC
+        Threat Intelligence": {"method": "blacklist", "engine_name": "CMC Threat Intelligence",
+        "category": "harmless", "result": "clean"}, "CTX AI": {"method": "blacklist",
+        "engine_name": "CTX AI", "category": "harmless", "result": "clean"}, "Cyan":
+        {"method": "blacklist", "engine_name": "Cyan", "category": "undetected", "result":
+        "unrated"}, "Cyble": {"method": "blacklist", "engine_name": "Cyble", "category":
+        "harmless", "result": "clean"}, "CyRadar": {"method": "blacklist", "engine_name":
+        "CyRadar", "category": "harmless", "result": "clean"}, "DNS8": {"method":
+        "blacklist", "engine_name": "DNS8", "category": "undetected", "result": "unrated"},
+        "Dr.Web": {"method": "blacklist", "engine_name": "Dr.Web", "category": "harmless",
+        "result": "clean"}, "Ermes": {"method": "blacklist", "engine_name": "Ermes",
+        "category": "undetected", "result": "unrated"}, "ESET": {"method": "blacklist",
+        "engine_name": "ESET", "category": "harmless", "result": "clean"}, "ESTsecurity":
+        {"method": "blacklist", "engine_name": "ESTsecurity", "category": "harmless",
+        "result": "clean"}, "EmergingThreats": {"method": "blacklist", "engine_name":
+        "EmergingThreats", "category": "harmless", "result": "clean"}, "Emsisoft":
+        {"method": "blacklist", "engine_name": "Emsisoft", "category": "harmless",
+        "result": "clean"}, "Forcepoint ThreatSeeker": {"method": "blacklist", "engine_name":
+        "Forcepoint ThreatSeeker", "category": "harmless", "result": "clean"}, "Fortinet":
+        {"method": "blacklist", "engine_name": "Fortinet", "category": "harmless",
+        "result": "clean"}, "Fortra": {"method": "blacklist", "engine_name": "Fortra",
+        "category": "undetected", "result": "unrated"}, "G-Data": {"method": "blacklist",
+        "engine_name": "G-Data", "category": "harmless", "result": "clean"}, "GCP
+        Abuse Intelligence": {"method": "blacklist", "engine_name": "GCP Abuse Intelligence",
+        "category": "undetected", "result": "unrated"}, "Google Safe Browsing": {"method":
+        "blacklist", "engine_name": "Google Safe Browsing", "category": "harmless",
+        "result": "clean"}, "GreenSnow": {"method": "blacklist", "engine_name": "GreenSnow",
+        "category": "harmless", "result": "clean"}, "GreyNoise": {"method": "blacklist",
+        "engine_name": "GreyNoise", "category": "undetected", "result": "unrated"},
+        "Gridinsoft": {"method": "blacklist", "engine_name": "Gridinsoft", "category":
+        "undetected", "result": "unrated"}, "Guardpot": {"method": "blacklist", "engine_name":
+        "Guardpot", "category": "undetected", "result": "unrated"}, "Heimdal Security":
+        {"method": "blacklist", "engine_name": "Heimdal Security", "category": "harmless",
+        "result": "clean"}, "Hunt.io Intelligence": {"method": "blacklist", "engine_name":
+        "Hunt.io Intelligence", "category": "undetected", "result": "unrated"}, "IPsum":
+        {"method": "blacklist", "engine_name": "IPsum", "category": "harmless", "result":
+        "clean"}, "Juniper Networks": {"method": "blacklist", "engine_name": "Juniper
+        Networks", "category": "harmless", "result": "clean"}, "Kaspersky": {"method":
+        "blacklist", "engine_name": "Kaspersky", "category": "harmless", "result":
+        "clean"}, "LevelBlue": {"method": "blacklist", "engine_name": "LevelBlue",
+        "category": "harmless", "result": "clean"}, "Lionic": {"method": "blacklist",
+        "engine_name": "Lionic", "category": "harmless", "result": "clean"}, "Lumu":
+        {"method": "blacklist", "engine_name": "Lumu", "category": "undetected", "result":
+        "unrated"}, "MalwarePatrol": {"method": "blacklist", "engine_name": "MalwarePatrol",
+        "category": "harmless", "result": "clean"}, "MalwareURL": {"method": "blacklist",
+        "engine_name": "MalwareURL", "category": "undetected", "result": "unrated"},
+        "Malwared": {"method": "blacklist", "engine_name": "Malwared", "category":
+        "harmless", "result": "clean"}, "Mimecast": {"method": "blacklist", "engine_name":
+        "Mimecast", "category": "undetected", "result": "unrated"}, "Netcraft": {"method":
+        "blacklist", "engine_name": "Netcraft", "category": "undetected", "result":
+        "unrated"}, "OpenPhish": {"method": "blacklist", "engine_name": "OpenPhish",
+        "category": "harmless", "result": "clean"}, "Phishing Database": {"method":
+        "blacklist", "engine_name": "Phishing Database", "category": "harmless", "result":
+        "clean"}, "PhishFort": {"method": "blacklist", "engine_name": "PhishFort",
+        "category": "undetected", "result": "unrated"}, "Phishtank": {"method": "blacklist",
+        "engine_name": "Phishtank", "category": "harmless", "result": "clean"}, "PREBYTES":
+        {"method": "blacklist", "engine_name": "PREBYTES", "category": "harmless",
+        "result": "clean"}, "PrecisionSec": {"method": "blacklist", "engine_name":
+        "PrecisionSec", "category": "undetected", "result": "unrated"}, "Quick Heal":
+        {"method": "blacklist", "engine_name": "Quick Heal", "category": "harmless",
+        "result": "clean"}, "Quttera": {"method": "blacklist", "engine_name": "Quttera",
+        "category": "harmless", "result": "clean"}, "SafeToOpen": {"method": "blacklist",
+        "engine_name": "SafeToOpen", "category": "undetected", "result": "unrated"},
+        "Sansec eComscan": {"method": "blacklist", "engine_name": "Sansec eComscan",
+        "category": "undetected", "result": "unrated"}, "Scantitan": {"method": "blacklist",
+        "engine_name": "Scantitan", "category": "harmless", "result": "clean"}, "SCUMWARE.org":
+        {"method": "blacklist", "engine_name": "SCUMWARE.org", "category": "harmless",
+        "result": "clean"}, "Seclookup": {"method": "blacklist", "engine_name": "Seclookup",
+        "category": "harmless", "result": "clean"}, "SecureBrain": {"method": "blacklist",
+        "engine_name": "SecureBrain", "category": "undetected", "result": "unrated"},
+        "SOCRadar": {"method": "blacklist", "engine_name": "SOCRadar", "category":
+        "harmless", "result": "clean"}, "Sophos": {"method": "blacklist", "engine_name":
+        "Sophos", "category": "harmless", "result": "clean"}, "StopForumSpam": {"method":
+        "blacklist", "engine_name": "StopForumSpam", "category": "harmless", "result":
+        "clean"}, "Sucuri SiteCheck": {"method": "blacklist", "engine_name": "Sucuri
+        SiteCheck", "category": "harmless", "result": "clean"}, "ThreatHive": {"method":
+        "blacklist", "engine_name": "ThreatHive", "category": "harmless", "result":
+        "clean"}, "URLhaus": {"method": "blacklist", "engine_name": "URLhaus", "category":
+        "harmless", "result": "clean"}, "URLQuery": {"method": "blacklist", "engine_name":
+        "URLQuery", "category": "undetected", "result": "unrated"}, "Viettel Threat
+        Intelligence": {"method": "blacklist", "engine_name": "Viettel Threat Intelligence",
+        "category": "harmless", "result": "clean"}, "VIPRE": {"method": "blacklist",
+        "engine_name": "VIPRE", "category": "undetected", "result": "unrated"}, "VX
+        Vault": {"method": "blacklist", "engine_name": "VX Vault", "category": "harmless",
+        "result": "clean"}, "ViriBack": {"method": "blacklist", "engine_name": "ViriBack",
+        "category": "harmless", "result": "clean"}, "Webroot": {"method": "blacklist",
+        "engine_name": "Webroot", "category": "harmless", "result": "clean"}, "Yandex
+        Safebrowsing": {"method": "blacklist", "engine_name": "Yandex Safebrowsing",
+        "category": "harmless", "result": "clean"}, "ZeroCERT": {"method": "blacklist",
+        "engine_name": "ZeroCERT", "category": "harmless", "result": "clean"}, "desenmascara.me":
+        {"method": "blacklist", "engine_name": "desenmascara.me", "category": "harmless",
+        "result": "clean"}, "Xcitium Verdict Cloud": {"method": "blacklist", "engine_name":
+        "Xcitium Verdict Cloud", "category": "undetected", "result": "unrated"}, "ZeroFox":
+        {"method": "blacklist", "engine_name": "ZeroFox", "category": "undetected",
+        "result": "unrated"}}, "total_votes": {"harmless": 152, "malicious": 38},
+        "asn": 13335, "last_modification_date": 1788748658, "last_https_certificate":
+        {"cert_signature": {"signature_algorithm": "1.2.840.10045.4.3.3", "signature":
+        "306402301b2eb53f7f34ee2a79c9dc5e3fe15aeaf3fd0581b24ec6cab641ef5480d4fed03010e89c5a727e41105a889600d7cf0f023012fce5ba42cf30d3c2296380704acb379151ea1e24a8c1337752ea4e3bb1e2348d5d6cc2b205639cec499f8ab7323285"},
+        "extensions": {"CA": false, "authority_key_identifier": {"keyid": "0d74660a5e9fe22cecd5c25d25047f7532baff7d"},
+        "ca_information_access": {"CA Issuers": "http://cert.ssl.com/SSLcom-SubCA-SSL-ECC-384-R2.cer",
+        "OCSP": "http://ocsps.ssl.com"}, "subject_alternative_name": ["cloudflare-dns.com",
+        "*.cloudflare-dns.com", "1.0.0.1", "1.1.1.1", "162.159.36.1", "162.159.46.1",
+        "2606:4700:4700::1001", "2606:4700:4700::1111", "2606:4700:4700::64", "2606:4700:4700::6400",
+        "one.one.one.one"], "certificate_policies": ["2.23.140.1.2.2", "1.3.6.1.4.1.38064.1.3.1.2"],
+        "extended_key_usage": ["serverAuth"], "crl_distribution_points": ["http://crls.ssl.com/SSLcom-SubCA-SSL-ECC-384-R2.crl"],
+        "subject_key_identifier": "2c28ec5420b686002655aa69bbb6c3652e16fa1f", "key_usage":
+        ["digitalSignature"], "1.3.6.1.4.1.11129.2.4.2": "0482016b0169007600c2317e574519a345ee7f38deb29041ebc7c2215a22bf7f"},
+        "validity": {"not_after": "2026-12-21 19:20:01", "not_before": "2025-12-31
+        19:20:01"}, "size": 1413, "version": "V3", "public_key": {"algorithm": "EC",
+        "ec": {"oid": "secp256r1", "pub": "3059301306072a8648ce3d020106082a8648ce3d030107034200046383502512ea727819eb3247afc105529c2a2b608a844e756d814847c1c7becf85796c12295b50b3ccec50a1949edc4408070c801a93d3bd78117bb6a3c8eaac"}},
+        "thumbprint_sha256": "e3b02826789d653d224d3edacbe4e877cb7286fc4c922672f6226741ca57ad65",
+        "thumbprint": "f88635017260d40b9eb417bee73737911b630e59", "serial_number":
+        "4ed03304c46b87a8c2eb5569db9eba0c", "issuer": {"C": "US", "ST": "Texas", "L":
+        "Houston", "O": "SSL Corp", "CN": "SSL.com SSL Intermediate CA ECC R2"}, "subject":
+        {"C": "US", "ST": "California", "L": "San Francisco", "O": "Cloudflare, Inc.",
+        "CN": "cloudflare-dns.com"}}, "last_analysis_stats": {"malicious": 0, "suspicious":
+        0, "undetected": 33, "harmless": 57, "timeout": 0}, "whois_date": 1788120482,
+        "last_https_certificate_date": 1788746409, "last_analysis_date": 1788746108,
+        "rdap": {"object_class_name": "ip network", "handle": "1.1.1.0 - 1.1.1.255",
+        "start_address": "1.1.1.0", "end_address": "1.1.1.255", "ip_version": "v4",
+        "name": "APNIC-LABS", "type": "ASSIGNED PORTABLE", "country": "AU", "status":
+        ["active"], "links": [{"href": "https://rdap.apnic.net/ip/1.1.1.0/24", "rel":
+        "self", "type": "application/rdap+json", "value": "https://rdap.apnic.net/ip/1.1.1.1",
+        "title": "", "media": "", "href_lang": []}], "notices": [{"title": "Source",
+        "description": ["Objects returned came from source", "APNIC"], "links": [],
+        "type": ""}, {"title": "Terms and Conditions", "description": ["This is the
+        APNIC WHOIS Database query service. The objects are in RDAP format."], "links":
+        [{"href": "http://www.apnic.net/db/dbcopyright.html", "rel": "terms-of-service",
+        "type": "text/html", "value": "https://rdap.apnic.net/ip/1.1.1.1", "title":
+        "", "media": "", "href_lang": []}], "type": ""}, {"title": "Whois Inaccuracy
+        Reporting", "description": ["If you see inaccuracies in the results, please
+        visit: "], "links": [{"href": "https://www.apnic.net/manage-ip/using-whois/abuse-and-spamming/invalid-contact-form",
+        "rel": "inaccuracy-report", "type": "text/html", "value": "https://rdap.apnic.net/ip/1.1.1.1",
+        "title": "", "media": "", "href_lang": []}], "type": ""}], "events": [{"event_action":
+        "registration", "event_date": "2011-08-10T23:12:35Z", "event_actor": "", "links":
+        []}, {"event_action": "last changed", "event_date": "2023-04-26T22:57:58Z",
+        "event_actor": "", "links": []}], "rdap_conformance": ["history_version_0",
+        "nro_rdap_profile_0", "cidr0", "rdap_level_0"], "entities": [{"object_class_name":
+        "entity", "handle": "AIC3-AP", "vcard_array": [{"name": "version", "type":
+        "text", "values": ["4.0"], "parameters": {}}, {"name": "fn", "type": "text",
+        "values": ["APNICRANDNET Infrastructure Contact"], "parameters": {}}, {"name":
+        "kind", "type": "text", "values": ["group"], "parameters": {}}, {"name": "adr",
+        "parameters": {"label": ["6 Cordelia St South Brisbane QLD 4101"]}, "type":
+        "text", "values": ["", "", "", "", "", "", ""]}, {"name": "tel", "parameters":
+        {"type": ["voice"]}, "type": "text", "values": ["+61 7 3858 3100"]}, {"name":
+        "email", "type": "text", "values": ["research@apnic.net"], "parameters": {}}],
+        "roles": ["administrative", "technical"], "links": [{"href": "https://rdap.apnic.net/entity/AIC3-AP",
+        "rel": "self", "type": "application/rdap+json", "value": "https://rdap.apnic.net/ip/1.1.1.1",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "registration",
+        "event_date": "2023-04-26T00:42:16Z", "event_actor": "", "links": []}, {"event_action":
+        "last changed", "event_date": "2024-07-18T04:37:37Z", "event_actor": "", "links":
+        []}], "public_ids": [], "entities": [], "remarks": [], "as_event_actor": [],
+        "status": [], "port43": "", "networks": [], "autnums": [], "url": "", "lang":
+        "", "rdap_conformance": []}, {"object_class_name": "entity", "handle": "IRT-APNICRANDNET-AU",
+        "vcard_array": [{"name": "version", "type": "text", "values": ["4.0"], "parameters":
+        {}}, {"name": "fn", "type": "text", "values": ["IRT-APNICRANDNET-AU"], "parameters":
+        {}}, {"name": "kind", "type": "text", "values": ["group"], "parameters": {}},
+        {"name": "adr", "parameters": {"label": ["PO Box 3646\nSouth Brisbane, QLD
+        4101\nAustralia"]}, "type": "text", "values": ["", "", "", "", "", "", ""]},
+        {"name": "email", "type": "text", "values": ["helpdesk@apnic.net"], "parameters":
+        {}}, {"name": "email", "parameters": {"pref": ["1"]}, "type": "text", "values":
+        ["helpdesk@apnic.net"]}], "roles": ["abuse"], "remarks": [{"title": "remarks",
+        "description": ["helpdesk@apnic.net was validated on 2021-02-09"], "links":
+        [], "type": ""}], "links": [{"href": "https://rdap.apnic.net/entity/IRT-APNICRANDNET-AU",
+        "rel": "self", "type": "application/rdap+json", "value": "https://rdap.apnic.net/ip/1.1.1.1",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "registration",
+        "event_date": "2011-04-12T17:56:54Z", "event_actor": "", "links": []}, {"event_action":
+        "last changed", "event_date": "2025-11-18T00:26:57Z", "event_actor": "", "links":
+        []}], "public_ids": [], "entities": [], "as_event_actor": [], "status": [],
+        "port43": "", "networks": [], "autnums": [], "url": "", "lang": "", "rdap_conformance":
+        []}, {"object_class_name": "entity", "handle": "ORG-ARAD1-AP", "vcard_array":
+        [{"name": "version", "type": "text", "values": ["4.0"], "parameters": {}},
+        {"name": "fn", "type": "text", "values": ["APNIC Research and Development"],
+        "parameters": {}}, {"name": "kind", "type": "text", "values": ["org"], "parameters":
+        {}}, {"name": "adr", "parameters": {"label": ["6 Cordelia St"]}, "type": "text",
+        "values": ["", "", "", "", "", "", ""]}, {"name": "tel", "parameters": {"type":
+        ["voice"]}, "type": "text", "values": ["+61-7-38583100"]}, {"name": "tel",
+        "parameters": {"type": ["fax"]}, "type": "text", "values": ["+61-7-38583199"]},
+        {"name": "email", "type": "text", "values": ["helpdesk@apnic.net"], "parameters":
+        {}}], "roles": ["registrant"], "links": [{"href": "https://rdap.apnic.net/entity/ORG-ARAD1-AP",
+        "rel": "self", "type": "application/rdap+json", "value": "https://rdap.apnic.net/ip/1.1.1.1",
+        "title": "", "media": "", "href_lang": []}], "events": [{"event_action": "registration",
+        "event_date": "2017-08-08T23:21:55Z", "event_actor": "", "links": []}, {"event_action":
+        "last changed", "event_date": "2023-09-05T02:15:19Z", "event_actor": "", "links":
+        []}], "public_ids": [], "entities": [], "remarks": [], "as_event_actor": [],
+        "status": [], "port43": "", "networks": [], "autnums": [], "url": "", "lang":
+        "", "rdap_conformance": []}], "port43": "whois.apnic.net", "cidr0_cidrs":
+        [{"v4prefix": "1.1.1.0", "length": 24, "v6prefix": ""}], "remarks": [{"title":
+        "description", "description": ["APNIC and Cloudflare DNS Resolver project",
+        "Routed globally by AS13335/Cloudflare", "Research prefix for APNIC Labs"],
+        "links": [], "type": ""}, {"title": "remarks", "description": ["---------------",
+        "All Cloudflare abuse reporting can be done via", "resolver-abuse@cloudflare.com",
+        "---------------"], "links": [], "type": ""}], "parent_handle": "", "arin_originas0_originautnums":
+        []}, "reputation": 114, "whois": "NetRange: 1.0.0.0 - 1.255.255.255\nCIDR:
+        1.0.0.0/8\nNetName: APNIC-1\nNetHandle: NET-1-0-0-0-1\nParent: ()\nNetType:
+        Allocated to APNIC\nOriginAS: \nOrganization: Asia Pacific Network Information
+        Centre (APNIC)\nRegDate: \nUpdated: 2010-07-30\nComment: This IP address range
+        is not registered in the ARIN database.\nComment: For details, refer to the
+        APNIC Whois Database via\nComment: WHOIS.APNIC.NET or http://wq.apnic.net/apnic-bin/whois.pl\nComment:
+        ** IMPORTANT NOTE: APNIC is the Regional Internet Registry\nComment: for the
+        Asia Pacific region. APNIC does not operate networks\nComment: using this
+        IP address range and is not able to investigate\nComment: spam or abuse reports
+        relating to these addresses. For more\nComment: help, refer to http://www.apnic.net/apnic-info/whois_search2/abuse-and-spamming\nRef:
+        https://rdap.arin.net/registry/ip/1.0.0.0\nResourceLink: https://apps.db.ripe.net/db-web-ui/query\nResourceLink:
+        whois.apnic.net\nOrgName: Asia Pacific Network Information Centre\nOrgId:
+        APNIC\nAddress: PO Box 3646\nCity: South Brisbane\nStateProv: QLD\nPostalCode:
+        4101\nCountry: AU\nRegDate: \nUpdated: 2012-01-24\nRef: https://rdap.arin.net/registry/entity/APNIC\nReferralServer:
+        whois://whois.apnic.net\nResourceLink: http://wq.apnic.net/whois-search/static/search.html\nOrgTechHandle:
+        AWC12-ARIN\nOrgTechName: APNIC Whois Contact\nOrgTechPhone: +61 7 3858 3188
+        \nOrgTechEmail: search-apnic-not-arin@apnic.net\nOrgTechRef: https://rdap.arin.net/registry/entity/AWC12-ARIN\nOrgAbuseHandle:
+        AWC12-ARIN\nOrgAbuseName: APNIC Whois Contact\nOrgAbusePhone: +61 7 3858 3188
+        \nOrgAbuseEmail: search-apnic-not-arin@apnic.net\nOrgAbuseRef: https://rdap.arin.net/registry/entity/AWC12-ARIN\ninetnum:
+        1.1.1.0 - 1.1.1.255\nnetname: APNIC-LABS\ndescr: APNIC and Cloudflare DNS
+        Resolver project\ndescr: Routed globally by AS13335/Cloudflare\ndescr: Research
+        prefix for APNIC Labs\ncountry: AU\norg: ORG-ARAD1-AP\nadmin-c: AIC3-AP\ntech-c:
+        AIC3-AP\nabuse-c: AA1412-AP\nstatus: ASSIGNED PORTABLE\nremarks: ---------------\nremarks:
+        All Cloudflare abuse reporting can be done via\nremarks: resolver-abuse@cloudflare.com\nremarks:
+        ---------------\nmnt-by: APNIC-HM\nmnt-routes: MAINT-APNICRANDNET\nmnt-irt:
+        IRT-APNICRANDNET-AU\nlast-modified: 2023-04-26T22:57:58Z\nmnt-lower: MAINT-APNICRANDNET\nsource:
+        APNIC\nirt: IRT-APNICRANDNET-AU\naddress: PO Box 3646\naddress: South Brisbane,
+        QLD 4101\naddress: Australia\ne-mail: helpdesk@apnic.net\nabuse-mailbox: helpdesk@apnic.net\nadmin-c:
+        AR302-AP\ntech-c: AR302-AP\nauth: # Filtered\nremarks: helpdesk@apnic.net
+        was validated on 2021-02-09\nmnt-by: MAINT-APNICRANDNET\nlast-modified: 2025-11-18T00:26:57Z\nsource:
+        APNIC\norganisation: ORG-ARAD1-AP\norg-name: APNIC Research and Development\norg-type:
+        LIR\ncountry: AU\naddress: 6 Cordelia St\nphone: +61-7-38583100\nfax-no: +61-7-38583199\ne-mail:
+        helpdesk@apnic.net\nmnt-ref: APNIC-HM\nmnt-by: APNIC-HM\nlast-modified: 2023-09-05T02:15:19Z\nsource:
+        APNIC\nrole: ABUSE APNICRANDNETAU\ncountry: ZZ\naddress: PO Box 3646\naddress:
+        South Brisbane, QLD 4101\naddress: Australia\nphone: +000000000\ne-mail: helpdesk@apnic.net\nadmin-c:
+        AR302-AP\ntech-c: AR302-AP\nnic-hdl: AA1412-AP\nremarks: Generated from irt
+        object IRT-APNICRANDNET-AU\nremarks: helpdesk@apnic.net was validated on 2021-02-09\nabuse-mailbox:
+        helpdesk@apnic.net\nmnt-by: APNIC-ABUSE\nlast-modified: 2025-05-28T03:31:35Z\nsource:
+        APNIC\nrole: APNICRANDNET Infrastructure Contact\naddress: 6 Cordelia St\n
+        South Brisbane\n QLD 4101\ncountry: AU\nphone: +61 7 3858 3100\ne-mail: research@apnic.net\nadmin-c:
+        AIC3-AP\ntech-c: AIC3-AP\nnic-hdl: AIC3-AP\nmnt-by: MAINT-APNICRANDNET\nlast-modified:
+        2024-07-18T04:37:37Z\nsource: APNIC\nroute: 1.1.1.0/24\norigin: AS13335\ndescr:
+        APNIC Research and Development\n 6 Cordelia St\nmnt-by: MAINT-APNICRANDNET\nlast-modified:
+        2023-04-26T02:42:44Z\nsource: APNIC\n", "jarm": "27d27d27d00027d00042d43d00041df04c41293ba84f6efe3a613b22f983e6",
+        "network": "1.1.1.0/24"}}}'
+    headers:
+      alt-svc:
+      - h3=":443"; ma=2592000
+      content-length:
+      - '22953'
+      content-type:
+      - application/json
+      date:
+      - Mon, 07 Sep 2026 02:37:47 GMT
+      server:
+      - Google Frontend
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      via:
+      - 1.1 google
+      x-cloud-trace-context:
+      - abf630b634c68c54223113afcc8b22d7
+    status:
+      code: 200
+      message: OK
+version: 1
