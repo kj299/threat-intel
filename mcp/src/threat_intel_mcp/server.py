@@ -2,7 +2,7 @@
 
 Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
 Intel 471, Censys, and the free abuse.ch feed ThreatFox as IOC tools, plus
-the government CVE feeds CISA KEV + NVD as vulnerability tools, that Claude can call to
+the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools, that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
@@ -11,7 +11,7 @@ Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
 or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VIRUSTOTAL_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
 GREYNOISE_API_KEY / ANYRUN_API_KEY / INTEL471_EMAIL + INTEL471_API_KEY /
-CENSYS_API_ID + CENSYS_API_SECRET for env-var mode.
+CENSYS_API_ID + CENSYS_API_SECRET / VULNCHECK_API_KEY for env-var mode.
 """
 
 from __future__ import annotations
@@ -38,6 +38,10 @@ from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_T
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
 from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
+from .adapters.vulncheck import (
+    VulnCheckAdapter,
+    FEED_TYPES as VULNCHECK_FEED_TYPES,
+)
 from .audit import log_tool_call
 from .fanout import FeedSource, fan_out
 from .normalize import finalize_iocs
@@ -64,10 +68,12 @@ mcp = MCPServer(
         "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
         "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus the free abuse.ch "
         "feed ThreatFox Tier 9, no credential needed). "
-        "For vulnerabilities, call the government CVE feeds CISA KEV and NVD "
-        "(Tier 1, no credential needed; NVD accepts an optional key for a higher "
-        "rate limit) via cisa_kev_fetch_cves / nvd_fetch_cves, or fetch_all_cves "
-        "for both at once — these return CVE-keyed vulnerability records, not IOCs. "
+        "For vulnerabilities, call the Tier 1 CVE feeds: CISA KEV and NVD are "
+        "government sources needing no credential (NVD accepts an optional key "
+        "for a higher rate limit), and VulnCheck KEV is a vendor catalogue that "
+        "requires one. Use cisa_kev_fetch_cves / nvd_fetch_cves / "
+        "vulncheck_fetch_cves, or fetch_all_cves for all three at once — these "
+        "return CVE-keyed vulnerability records, not IOCs. "
         "Use fetch_all_iocs to query every configured IOC feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
@@ -92,6 +98,7 @@ _intel471 = Intel471Adapter(_credentials)
 _censys = CensysAdapter(_credentials)
 _cisa_kev = CISAKEVAdapter()  # public feed, no credential
 _nvd = NVDAdapter(_credentials)  # credential optional (higher rate limit if set)
+_vulncheck = VulnCheckAdapter(_credentials)  # community KEV; credential required
 
 # Fan-out registry: each source carries its own circuit breaker so one flaky
 # feed cannot take down a fetch_all_iocs call. Credential/config errors are
@@ -138,10 +145,19 @@ _FEED_SOURCES = [
 
 # Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
 # ioc_network indicators, so they run through their own fan-out/dedup path and
-# a separate aggregate tool (fetch_all_cves). Both are Tier 1 government sources.
+# a separate aggregate tool (fetch_all_cves).
+#
+# All three are Tier 1 -- the tier names a data category ("Vulnerability
+# Databases & Exploit Repositories"), not an operator, so VulnCheck sits here
+# beside the two government sources rather than in Tier 2. The two KEV catalogs
+# are complements: finalize_vulns dedupes by CVE ID and preserves corroboration,
+# so a CVE in both becomes one record naming both sources.
 _VULN_SOURCES = [
     VulnFeedSource(_cisa_kev, 1, "CISA KEV", CircuitBreaker("CISA KEV"), _CONFIG_ERRORS),
     VulnFeedSource(_nvd, 1, "NVD", CircuitBreaker("NVD"), _CONFIG_ERRORS),
+    VulnFeedSource(
+        _vulncheck, 1, "VulnCheck KEV", CircuitBreaker("VulnCheck KEV"), _CONFIG_ERRORS
+    ),
 ]
 
 
@@ -931,6 +947,83 @@ async def cisa_kev_fetch_cves(
 
 
 @mcp.tool()
+async def vulncheck_fetch_cves(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch the VulnCheck KEV catalog (Tier 1 vulnerability database).
+
+    Returns vulnerability records (NOT ioc_network objects) keyed by CVE ID.
+    Every entry is reported as exploited in the wild, carrying
+    exploit_status=known_exploited plus the URLs that reported the exploitation.
+    Sanitised, schema-validated, and de-duplicated by CVE ID before return.
+
+    Complements cisa_kev_fetch_cves rather than replacing it: VulnCheck's
+    catalog is broader than the U.S. binding-directive list, and a CVE in both
+    de-duplicates into one record naming both sources.
+
+    **Credential required**: VULNCHECK_API_KEY (free community tier).
+
+    Args:
+        time_range: Accepted for interface compatibility; a KEV catalog is a
+            full standing list, not a time-windowed feed, so it is recorded for
+            the Coverage Ledger but does not filter results.
+        feed_types: Defaults to all available. Available: kev_catalog.
+
+    Returns:
+        dict with keys: vulns, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive vulns.
+        2. Pass vulns as context to the skill invocation (vulnerability section).
+        3. Set skill_input.feed_integrations = [{"name": "VulnCheck KEV",
+           "tier": 1, "access_level": "community"}] so the Coverage Ledger marks
+           it consulted.
+    """
+    try:
+        result = await _vulncheck.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except (CredentialError, KeyError) as exc:
+        logger.warning("VulnCheck credential error: %s", type(exc).__name__)
+        return _degraded_vuln_result(
+            "VulnCheck KEV",
+            1,
+            feed_types or list(VULNCHECK_FEED_TYPES.keys()),
+            "VulnCheck credential not configured. Set VULNCHECK_API_KEY.",
+        )
+    except Exception as exc:
+        logger.warning("VulnCheck upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_vuln_result(
+            "VulnCheck KEV",
+            1,
+            feed_types or list(VULNCHECK_FEED_TYPES.keys()),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    finalized = finalize_vulns(result.vulns)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if finalized else "unverified"
+    return {
+        "vulns": finalized,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(finalized),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 1,
+            "source": "VulnCheck KEV",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
 async def nvd_fetch_cves(
     time_range: str = "7d",
     feed_types: list[str] | None = None,
@@ -1123,6 +1216,15 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         nvd_cred_ok = False
 
+    # VulnCheck's key is required, not optional: reported here so a caller can
+    # see the feed exists but is unconfigured, rather than inferring it from a
+    # degraded ledger entry after the fact.
+    vulncheck_cred_ok = True
+    try:
+        _credentials.get("vulncheck", "api_key")
+    except (KeyError, CredentialError):
+        vulncheck_cred_ok = False
+
     return {
         "feeds": [
             {
@@ -1234,6 +1336,15 @@ async def list_available_feeds() -> dict[str, Any]:
                 "feed_types": list(NVD_FEED_TYPES.keys()),
                 "credential_configured": nvd_cred_ok,
                 "tool": "nvd_fetch_cves",
+            },
+            {
+                "name": "VulnCheck KEV",
+                "tier": 1,
+                "domain": "vulncheck.com",
+                "description": "VulnCheck Known Exploited Vulnerabilities catalog — broader than CISA KEV, carries the URLs reporting exploitation (credential required)",
+                "feed_types": list(VULNCHECK_FEED_TYPES.keys()),
+                "credential_configured": vulncheck_cred_ok,
+                "tool": "vulncheck_fetch_cves",
             },
         ],
         "aggregate_tool": "fetch_all_iocs",

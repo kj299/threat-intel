@@ -56,9 +56,14 @@ _CREDENTIALED_FEED_TOOLS = [
 # Free public abuse.ch feeds: no credential, so they always attempt the network.
 _PUBLIC_FEED_TOOLS = ["threatfox_fetch_iocs"]
 _SINGLE_FEED_TOOLS = _CREDENTIALED_FEED_TOOLS + _PUBLIC_FEED_TOOLS
-# Government CVE feeds: emit CVE-keyed vuln records via a separate fan-out path.
-# CISA KEV needs no credential; NVD's key is optional — both attempt the network.
-_CVE_FEED_TOOLS = ["cisa_kev_fetch_cves", "nvd_fetch_cves"]
+# CVE feeds: emit CVE-keyed vuln records via a separate fan-out path.
+# CISA KEV needs no credential and NVD's key is optional, so both always attempt
+# the network. VulnCheck is the first CVE feed that REQUIRES one, so any sweep
+# expecting a network attempt must set VULNCHECK_API_KEY or it short-circuits on
+# the credential path and silently tests nothing.
+_CVE_FEED_TOOLS = ["cisa_kev_fetch_cves", "nvd_fetch_cves", "vulncheck_fetch_cves"]
+# CVE feeds that require a credential (a subset of the above).
+_CREDENTIALED_CVE_TOOLS = ["vulncheck_fetch_cves"]
 _ALL_TOOLS = (
     _SINGLE_FEED_TOOLS
     + _CVE_FEED_TOOLS
@@ -69,7 +74,7 @@ _EXPECTED_SOURCES = {
     "Q-Feeds", "AbuseIPDB", "VirusTotal", "AlienVault OTX", "Shodan",
     "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox",
 }
-_EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD"}
+_EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 
 # abuse.ch public feed URLs (mocked so the public tools fail gracefully offline).
 _PUBLIC_FEED_URLS = {
@@ -84,6 +89,9 @@ _CVE_FEED_URLS = {
     ),
     "nvd_fetch_cves": re.compile(
         r"^https://services\.nvd\.nist\.gov/rest/json/cves/2\.0"
+    ),
+    "vulncheck_fetch_cves": re.compile(
+        r"^https://api\.vulncheck\.com/v3/index/vulncheck-kev"
     ),
 }
 
@@ -167,8 +175,11 @@ async def test_cve_tool_degrades_on_upstream_error(
     """A CVE feed tool degrades gracefully when the upstream is unreachable: it
     returns a vuln-shaped degraded dict (vulns=[], unverified) rather than
     crashing. NVD's key is optional, so with no key it still attempts the
-    network."""
+    network; VulnCheck's is required, so it is supplied here — without it the
+    tool would short-circuit on the credential path and this sweep would assert
+    the upstream-error contract against a tool that never made a request."""
     monkeypatch.delenv("NVD_API_KEY", raising=False)
+    monkeypatch.setenv("VULNCHECK_API_KEY", "dummy-value-for-test")
     httpx_mock.add_response(url=_CVE_FEED_URLS[tool_name], status_code=503)
 
     result = await getattr(server, tool_name)()
@@ -184,7 +195,7 @@ async def test_cve_tool_degrades_on_upstream_error(
 _ALL_SINGLE_FEED_TOOLS = _SINGLE_FEED_TOOLS + _CVE_FEED_TOOLS
 # Dummy credentials so credentialed tools get past their fail-fast key check and
 # actually reach the (mocked) network, exercising their body-parsing path.
-_ALL_CRED_VARS = _CRED_VARS + ("NVD_API_KEY",)
+_ALL_CRED_VARS = _CRED_VARS + ("NVD_API_KEY", "VULNCHECK_API_KEY")
 
 
 @pytest.mark.asyncio
@@ -267,6 +278,7 @@ _FEED_TYPE_VALIDATING_TOOLS = [
     "threatfox_fetch_iocs",
     "cisa_kev_fetch_cves",
     "nvd_fetch_cves",
+    "vulncheck_fetch_cves",
 ]
 
 
@@ -318,6 +330,32 @@ async def test_tool_raises_on_invalid_feed_types(tool_name, httpx_mock: HTTPXMoc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", _CREDENTIALED_CVE_TOOLS)
+async def test_credentialed_cve_tool_degrades_without_creds(
+    tool_name, httpx_mock: HTTPXMock, monkeypatch
+):
+    """A CVE tool needing a credential must degrade, not raise, when it has none
+    — and must not touch the network to find that out.
+
+    The IOC-side equivalent asserts ``result["iocs"] == []``, so it cannot cover
+    a vuln-shaped tool; without this, the first credentialed CVE feed would have
+    no coverage for the contract that matters most operationally. The error text
+    must name the environment variable: a degraded entry reading only
+    "credential error" is what let five feeds sit misconfigured for weeks
+    (#197).
+    """
+    monkeypatch.delenv("VULNCHECK_API_KEY", raising=False)
+
+    result = await getattr(server, tool_name)()
+
+    assert result["coverage_ledger_entry"]["status"] == "unverified"
+    assert result["record_count"] == 0
+    assert result["vulns"] == []
+    assert "VULNCHECK_API_KEY" in result["error"]
+    assert httpx_mock.get_requests() == []  # short-circuited before HTTP
+
+
+@pytest.mark.asyncio
 async def test_cisa_kev_tool_degrades_on_malformed_body(httpx_mock: HTTPXMock):
     """A 200 response with an unexpected shape (e.g. CISA serves an error page or
     changes the schema) must degrade gracefully, not raise — the same
@@ -337,10 +375,15 @@ async def test_cisa_kev_tool_degrades_on_malformed_body(httpx_mock: HTTPXMock):
 
 @pytest.mark.asyncio
 async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeypatch):
-    """fetch_all_cves fans out across the government CVE feeds and returns a
-    coherent vuln result. Served empty catalogs, both come back 'consulted' with
-    zero records, and each appears once in the Coverage Ledger."""
+    """fetch_all_cves fans out across every CVE feed and returns a coherent vuln
+    result. Served empty catalogs, all three come back 'consulted' with zero
+    records, and each appears once in the Coverage Ledger.
+
+    VulnCheck's credential is set: this asserts the *fan-out* is coherent, and
+    an unconfigured feed degrading to 'unverified' is a different contract,
+    covered by test_credentialed_cve_tool_degrades_without_creds."""
     monkeypatch.delenv("NVD_API_KEY", raising=False)
+    monkeypatch.setenv("VULNCHECK_API_KEY", "dummy-value-for-test")
     httpx_mock.add_response(
         url=_CVE_FEED_URLS["cisa_kev_fetch_cves"],
         json={"vulnerabilities": []},
@@ -348,6 +391,10 @@ async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
     httpx_mock.add_response(
         url=_CVE_FEED_URLS["nvd_fetch_cves"],
         json={"resultsPerPage": 0, "totalResults": 0, "vulnerabilities": []},
+    )
+    httpx_mock.add_response(
+        url=_CVE_FEED_URLS["vulncheck_fetch_cves"],
+        json={"data": []},
     )
 
     result = await server.fetch_all_cves()
@@ -475,7 +522,7 @@ def test_server_instructions_reach_the_initialize_payload():
 
 
 def test_every_registered_tool_is_exposed_by_the_server():
-    """Guards the migration itself: 15 @mcp.tool() decorators must survive.
+    """Guards the migration itself: 16 @mcp.tool() decorators must survive.
 
     mcp 2.0 kept a compatible .tool() decorator, so the decorators were left
     untouched. This asserts that compatibility rather than assuming it.

@@ -18,7 +18,7 @@ Claude Code
   │                  anyrun_fetch_iocs / intel471_fetch_iocs / censys_fetch_iocs /
   │                  threatfox_fetch_iocs
   │  CVE tool calls: fetch_all_cves            (all CVE feeds at once)
-  │                  cisa_kev_fetch_cves / nvd_fetch_cves
+  │                  cisa_kev_fetch_cves / nvd_fetch_cves / vulncheck_fetch_cves
   ▼
 threat-intel-mcp  (this package, stdio MCP server)
   │  reads API keys from CredentialProvider (env vars or HashiCorp Vault)
@@ -102,6 +102,7 @@ cp .env.example .env
 #   INTEL471_EMAIL + INTEL471_API_KEY — https://portal.intel471.com/api
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 #   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
+#   VULNCHECK_API_KEY   — https://vulncheck.com (free Community account; REQUIRED for VulnCheck KEV)
 
 # Load it into your shell. `set -a` exports everything the file defines.
 # Do NOT use `export $(grep -v '^#' .env | xargs)`: it splits on whitespace,

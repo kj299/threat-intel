@@ -48,6 +48,7 @@ from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter  # noqa: E402
 from threat_intel_mcp.adapters.shodan import ShodanAdapter  # noqa: E402
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter  # noqa: E402
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter  # noqa: E402
+from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter  # noqa: E402
 from threat_intel_mcp.vault.factory import credential_provider_from_env  # noqa: E402
 
 # name -> (adapter factory, needs a credential)
@@ -66,6 +67,11 @@ FEEDS = {
     "anyrun": (lambda c: AnyRunAdapter(c), True),
     "intel471": (lambda c: Intel471Adapter(c), True),
     "censys": (lambda c: CensysAdapter(c), True),
+    # Keyed, and the reason this recorder matters most right now: the VulnCheck
+    # adapter's field mapping was written from published SDK signatures, not
+    # from a response anyone has seen. This recording is what turns it from
+    # belief into verified -- see the warning in adapters/vulncheck.py.
+    "vulncheck": (lambda c: VulnCheckAdapter(c), True),
 }
 
 # Credential-bearing header names and query parameters. These are checked
@@ -103,6 +109,7 @@ _CREDENTIAL_ENV_VARS = (
     "QFEEDS_API_KEY", "ABUSEIPDB_API_KEY", "VIRUSTOTAL_API_KEY", "OTX_API_KEY",
     "SHODAN_API_KEY", "GREYNOISE_API_KEY", "ANYRUN_API_KEY", "INTEL471_EMAIL",
     "INTEL471_API_KEY", "CENSYS_API_ID", "CENSYS_API_SECRET", "NVD_API_KEY",
+    "VULNCHECK_API_KEY",
 )
 
 _REDACTED = "[REDACTED]"
