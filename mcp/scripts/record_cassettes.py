@@ -187,6 +187,28 @@ def shrink_nvd_cassette(path: pathlib.Path) -> tuple[int, int]:
 # Feeds whose recordings are trimmed. ThreatFox (~1 MB) and CISA KEV (~1.6 MB)
 # are committed whole: they are single responses of a size git handles fine, and
 # an untrimmed cassette is the stronger artefact where it is affordable.
+# A few VulnCheck entries carry enormous evidence lists -- the largest observed
+# is 215 KB against a 1-6 KB median, and six of those alone took a trimmed
+# recording to 3.35 MB against the 4 MB ceiling. Capping the lists keeps every
+# parser branch exercised (the field is still present and non-empty) while
+# removing bulk that tests nothing: the hundredth XDB URL exercises the same
+# code as the first.
+_MAX_EVIDENCE_ITEMS = 3
+_EVIDENCE_LIST_KEYS = ("vulncheck_xdb", "vulncheck_reported_exploitation")
+
+
+def _cap_evidence_lists(entry: dict) -> dict:
+    """Return the entry with its evidence lists capped, others untouched."""
+    if not isinstance(entry, dict):
+        return entry
+    trimmed = dict(entry)
+    for key in _EVIDENCE_LIST_KEYS:
+        value = trimmed.get(key)
+        if isinstance(value, list) and len(value) > _MAX_EVIDENCE_ITEMS:
+            trimmed[key] = value[:_MAX_EVIDENCE_ITEMS]
+    return trimmed
+
+
 def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
     """Trim VulnCheck response bodies in place. Returns (bytes_before, after).
 
@@ -248,7 +270,7 @@ def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
             if extra is not None and id(extra) not in kept_ids:
                 kept.append(extra)
 
-        parsed["data"] = kept
+        parsed["data"] = [_cap_evidence_lists(e) for e in kept]
         # _meta deliberately untouched -- see above.
         body["string"] = json.dumps(parsed)
     path.write_text(yaml.safe_dump(data, default_flow_style=False, allow_unicode=True))
