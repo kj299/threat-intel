@@ -51,6 +51,14 @@ CACHE_TTL_SECONDS = 1200
 # Q-Feeds paginates at 4,000 records per page.
 PAGE_SIZE = 4000
 
+# Pause between pages. The first live call with a real key took page 1 fine and
+# was rate-limited on page 2 (#205) -- the walk asked for 8,000 records with no
+# gap at all. One second is a deliberate under-guess: Q-Feeds' published limit
+# is not known to this code, and inventing a number is how #203 happened. It is
+# enough to stop an instant second request, and the truncation path below makes
+# a wrong guess degrade honestly instead of failing.
+INTER_PAGE_DELAY_SECONDS = 1.0
+
 
 class QFeedsAdapter:
     """Adapter for Q-Feeds (qfeeds.com) threat intelligence feeds."""
@@ -95,6 +103,11 @@ class QFeedsAdapter:
         t_start = time.monotonic()
         all_iocs: list[dict[str, Any]] = []
         failed: list[str] = []
+        # Truncations are tracked apart from failures on purpose: a truncated
+        # feed_type WAS consulted and did return records, so it belongs in
+        # feed_types_fetched. Folding the two together would report a feed that
+        # gave several thousand indicators as one that gave none.
+        truncations: list[str] = []
         last_exc: Exception | None = None
 
         async with self._make_client() as client:
@@ -104,8 +117,10 @@ class QFeedsAdapter:
             }
             for feed_type, task in tasks.items():
                 try:
-                    iocs = await task
+                    iocs, truncated = await task
                     all_iocs.extend(iocs)
+                    if truncated:
+                        truncations.append(truncated)
                 except Exception as exc:
                     logger.warning(
                         "Q-Feeds feed_type=%s fetch failed: %s", feed_type, exc
@@ -135,8 +150,10 @@ class QFeedsAdapter:
             {"time_range": time_range, "feed_types": requested},
             record_count=len(all_iocs),
             latency_ms=latency_ms,
-            status="partial" if failed else "ok",
-            error=f"failed feed_types: {failed}" if failed else None,
+            status="partial" if (failed or truncations) else "ok",
+            error=(
+                f"failed feed_types: {failed}" if failed else None
+            ) or (truncations[0] if truncations else None),
         )
 
         return FetchResult(
@@ -147,28 +164,50 @@ class QFeedsAdapter:
             record_count=len(all_iocs),
             latency_ms=round(latency_ms, 1),
             feed_types_fetched=fetched,
-            partial_failure=failed,
+            partial_failure=failed + truncations,
         )
 
     async def _fetch_feed(
         self, client: httpx.AsyncClient, feed_type: str
-    ) -> list[dict[str, Any]]:
-        """Fetch all pages of a single feed type, using the in-process cache."""
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """Fetch all pages of a feed type. Returns (iocs, truncation reason).
+
+        A truncation reason is a string when the walk stopped early with
+        records already in hand, and None when it completed.
+
+        An HTTP error on a page after the first STOPS the walk instead of
+        raising. Page 1's indicators were really retrieved and really parsed;
+        discarding them because page 2 was rate-limited reports nothing when
+        several thousand usable records were in hand, and drops the source to
+        `unverified` when `partial` is the true answer (#205).
+
+        The first page still raises. Nothing was retrieved, so there is nothing
+        honest to return, and the caller's circuit breaker should see it.
+
+        A 429 is deliberately NOT retried here. Retrying immediately against a
+        limit just hit spends more quota to learn the same thing, and
+        resilience.py's retry wraps the WHOLE fetch, so it would re-request
+        page 1 as well. Stopping and saying so is both cheaper and truer.
+        """
         now = time.monotonic()
         if feed_type in self._cache:
             cached_iocs, expiry = self._cache[feed_type]
             if now < expiry:
                 logger.debug("Cache hit: feed_type=%s records=%d", feed_type, len(cached_iocs))
-                return cached_iocs
+                return cached_iocs, None
 
         iocs: list[dict[str, Any]] = []
         page = 1
+        truncated: str | None = None
         # Totals across the whole paginated fetch; an empty final page is
         # normal termination, not a format break.
         seen = 0
         understood = 0
 
         while True:
+            if page > 1:
+                await asyncio.sleep(INTER_PAGE_DELAY_SECONDS)
+
             url = _API_BASE
             params = {"feed_type": feed_type, "limit": PAGE_SIZE, "page": page}
             logger.info(
@@ -178,7 +217,17 @@ class QFeedsAdapter:
                 page,
             )
             resp = await client.get(url, params=params)
-            resp.raise_for_status()
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError:
+                if page == 1:
+                    raise
+                truncated = (
+                    f"{feed_type}: stopped at page {page} "
+                    f"(HTTP {resp.status_code}); {len(iocs)} records kept"
+                )
+                logger.warning("Q-Feeds truncated: %s", truncated)
+                break
 
             lines = [
                 ln.strip()
@@ -211,9 +260,13 @@ class QFeedsAdapter:
             items_understood=understood,
         )
 
-        self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
-        logger.info("Q-Feeds cached: feed_type=%s records=%d", feed_type, len(iocs))
-        return iocs
+        # A truncated walk is not cached: caching it would serve an incomplete
+        # blocklist as a complete one for the whole TTL, and the next caller
+        # would have no way to tell.
+        if truncated is None:
+            self._cache[feed_type] = (iocs, now + CACHE_TTL_SECONDS)
+            logger.info("Q-Feeds cached: feed_type=%s records=%d", feed_type, len(iocs))
+        return iocs, truncated
 
 
 # A hostname: dot-separated labels, alphabetic TLD.
