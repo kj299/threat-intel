@@ -62,6 +62,42 @@ def _pulse_name_slug(name: str) -> str:
     return _SLUG_RE.sub("-", name.lower()).strip("-")
 
 
+def _to_rfc3339(raw: Any) -> str | None:
+    """Coerce an OTX timestamp to RFC 3339, or None if unreadable.
+
+    OTX sends naive timestamps -- ``2026-08-07T07:15:32``, no offset. The
+    ``ioc_network`` schema validates ``first_seen`` as ``date-time`` and
+    ``finalize_iocs`` enforces it at runtime, so passing one through verbatim
+    dropped **the whole record**, not just the field. That is how this adapter
+    fetched 960 live indicators and contributed none of them while still being
+    counted ``consulted`` in the Coverage Ledger (#202) -- coverage inflation of
+    exactly the kind R4 exists to prevent.
+
+    A naive value is anchored to UTC. That is a real assumption, not a
+    formatting tweak: OTX documents its timestamps as UTC, and the alternative
+    -- dropping the field -- would discard the only first-seen evidence the
+    feed provides. An unreadable value yields None and the field is omitted,
+    which costs one field rather than the record.
+
+    ``cisa_kev._date_to_rfc3339`` and ``vulncheck._to_rfc3339`` do the same job
+    for their feeds; this is the third copy of a three-line idea, which is
+    cheaper than a shared helper that has to know each feed's quirks.
+    """
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text = raw.strip()
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            dt = datetime.strptime(text, "%Y-%m-%d")
+        except ValueError:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 def _normalize_indicator(ind: dict[str, Any], *, pulse_name: str = "") -> dict[str, Any] | None:
     """Map a single OTX indicator dict to an ioc_network dict, or None if unsupported.
 
@@ -99,8 +135,9 @@ def _normalize_indicator(ind: dict[str, Any], *, pulse_name: str = "") -> dict[s
         "tags": tags,
     }
 
-    # Include first_seen from "created" if present and non-empty.
-    created = ind.get("created", "")
+    # Include first_seen from "created", normalised. Emitting OTX's naive
+    # timestamp verbatim fails schema validation and drops the entire record.
+    created = _to_rfc3339(ind.get("created"))
     if created:
         result["first_seen"] = created
 
