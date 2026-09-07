@@ -203,3 +203,36 @@ def test_env_example_actually_loads_in_a_shell():
     assert len(done.stdout.split()) == 2, (
         f"expected 'API-Key <token>', got {done.stdout!r}"
     )
+
+
+def test_every_credentialed_adapter_has_a_live_check():
+    """The credentialed live checks must cover the server's real feed registry.
+
+    Lives here, not in test_live_feeds.py, because that module carries a
+    module-level ``pytest.mark.live`` and is deselected from PR CI — a
+    non-vacuity guard that only runs in the job it is guarding would guard
+    nothing. This runs on every PR.
+
+    The lists in test_live_feeds.py are hand-written, so a newly added
+    credentialed adapter would silently go unchecked while the weekly run kept
+    reporting a clean bill of health for a feed nobody was calling. That is the
+    exact shape of defect this repository keeps finding in its own checks, so
+    it is asserted rather than assumed.
+    """
+    from threat_intel_mcp import server
+
+    from tests.test_live_feeds import (
+        _CREDENTIALED_CVE_FEEDS,
+        _CREDENTIALED_IOC_FEEDS,
+    )
+
+    registered = {s.name for s in server._FEED_SOURCES + server._VULN_SOURCES}
+    covered = {f[0] for f in _CREDENTIALED_IOC_FEEDS + _CREDENTIALED_CVE_FEEDS}
+    # The keyless three are checked by the TestX classes in that module rather
+    # than the parametrised sweeps, so they are the expected difference.
+    keyless = {"ThreatFox", "CISA KEV", "NVD"}
+
+    assert covered | keyless == registered, (
+        "credentialed live checks are out of step with the server's feed "
+        f"registry; unchecked: {sorted(registered - covered - keyless)}"
+    )
