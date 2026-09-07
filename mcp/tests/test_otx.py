@@ -14,6 +14,7 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
+from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.adapters.otx import OTXAdapter, _normalize_indicator
 
 
@@ -140,15 +141,70 @@ class TestNormalizeIndicator:
         assert result is None
 
     def test_created_field_mapped_to_first_seen(self):
+        """OTX's naive timestamp is anchored to UTC, not passed through.
+
+        This test previously asserted the value came out byte-identical to the
+        input. It passed, and the records it described were then dropped in
+        their entirety by schema validation one layer down (#202).
+        """
         ind = {
             "type": "IPv4",
             "indicator": "9.9.9.9",
             "description": "",
+            # The real shape OTX sends: no offset.
             "created": "2026-01-01T00:00:00",
         }
         result = _normalize_indicator(ind)
         assert result is not None
-        assert result["first_seen"] == "2026-01-01T00:00:00"
+        assert result["first_seen"] == "2026-01-01T00:00:00+00:00"
+
+    def test_records_carrying_a_timestamp_survive_the_pipeline(self):
+        """The assertion whose absence let #202 ship.
+
+        Every OTX test asserted what `_normalize_indicator` *returns*. None
+        pushed the result through `finalize_iocs`, so a record that was built
+        correctly and then discarded by validation looked identical to a
+        correct one. The live check found it only because it called the real
+        API: 960 indicators fetched, every one dropped, while the Coverage
+        Ledger still reported OTX as `consulted`.
+        """
+        ind = {
+            "type": "domain",
+            "indicator": "hub.zoom.com.lv",
+            "description": "",
+            "created": "2026-08-07T07:15:32",  # from the failing live run
+        }
+        record = _normalize_indicator(ind, pulse_name="Fake Zoom Installer")
+        assert record is not None
+
+        kept = finalize_iocs([record])
+        assert kept, "an OTX record with a timestamp must survive validation"
+        assert kept[0]["first_seen"] == "2026-08-07T07:15:32+00:00"
+
+    def test_an_unreadable_timestamp_costs_the_field_not_the_record(self):
+        """Omitting one field beats dropping the indicator it describes."""
+        ind = {
+            "type": "IPv4",
+            "indicator": "9.9.9.9",
+            "description": "",
+            "created": "not a timestamp",
+        }
+        result = _normalize_indicator(ind)
+        assert result is not None
+        assert "first_seen" not in result
+        assert finalize_iocs([result]), "the record itself must still be usable"
+
+    def test_an_already_offset_timestamp_is_preserved(self):
+        """Normalisation must not rewrite a timestamp that was already valid."""
+        ind = {
+            "type": "IPv4",
+            "indicator": "9.9.9.9",
+            "description": "",
+            "created": "2026-01-01T00:00:00+05:00",
+        }
+        result = _normalize_indicator(ind)
+        assert result is not None
+        assert result["first_seen"] == "2026-01-01T00:00:00+05:00"
 
 
 # ---------------------------------------------------------------------------
