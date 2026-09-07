@@ -88,7 +88,15 @@ _SKILL_FILES = (
 # Tool names registered on the FastMCP server.
 _TOOL_DEF_RE = re.compile(r"@mcp\.tool\(\)\s*\nasync def (\w+)")
 # Backticked identifiers in the skill docs that are meant to be MCP tool names.
-_DOC_TOOL_RE = re.compile(r"`(fetch_all_\w+|\w+_fetch_\w+|abuseipdb_fetch_blocklist|list_available_feeds)`")
+# Tool names as they appear in the skill files. `_enrich_` is here because
+# VirusTotal became an enrichment tool (#203) and this pattern silently did
+# not match it -- the guard reported the skill files as complete while a
+# registered tool went undocumented. A hand-written pattern is a
+# maintenance hazard exactly this way; widen it when a naming convention
+# is added.
+_DOC_TOOL_RE = re.compile(
+    r"`(fetch_all_\w+|\w+_fetch_\w+|\w+_enrich_\w+|abuseipdb_fetch_blocklist|list_available_feeds)`"
+)
 
 
 def test_skill_docs_name_exactly_the_registered_tools():
@@ -223,11 +231,20 @@ def test_every_credentialed_adapter_has_a_live_check():
 
     from tests.test_live_feeds import (
         _CREDENTIALED_CVE_FEEDS,
+        _CREDENTIALED_ENRICHMENT,
         _CREDENTIALED_IOC_FEEDS,
     )
 
     registered = {s.name for s in server._FEED_SOURCES + server._VULN_SOURCES}
-    covered = {f[0] for f in _CREDENTIALED_IOC_FEEDS + _CREDENTIALED_CVE_FEEDS}
+    covered = {
+        f[0]
+        for f in _CREDENTIALED_IOC_FEEDS
+        + _CREDENTIALED_CVE_FEEDS
+        + _CREDENTIALED_ENRICHMENT
+    }
+    # Enrichment sources are checked live but are deliberately not in
+    # _FEED_SOURCES, so they are covered-but-not-registered rather than a gap.
+    registered |= {"VirusTotal"}
     # The keyless three are checked by the TestX classes in that module rather
     # than the parametrised sweeps, so they are the expected difference.
     keyless = {"ThreatFox", "CISA KEV", "NVD"}

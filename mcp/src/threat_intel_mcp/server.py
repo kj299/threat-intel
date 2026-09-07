@@ -1,6 +1,6 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
-Exposes Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
+Exposes Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
 Intel 471, Censys, and the free abuse.ch feed ThreatFox as IOC tools, plus
 the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools, that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
@@ -37,7 +37,10 @@ from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_T
 from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_TYPES
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
-from .adapters.virustotal import VirusTotalAdapter, FEED_TYPES as VT_FEED_TYPES
+from .adapters.virustotal import (
+    VirusTotalAdapter,
+    INDICATOR_TYPES as VT_INDICATOR_TYPES,
+)
 from .adapters.vulncheck import (
     VulnCheckAdapter,
     FEED_TYPES as VULNCHECK_FEED_TYPES,
@@ -65,7 +68,7 @@ mcp = MCPServer(
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
-        "VirusTotal Tier 2, AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
+        "AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
         "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus the free abuse.ch "
         "feed ThreatFox Tier 9, no credential needed). "
         "For vulnerabilities, call the Tier 1 CVE feeds: CISA KEV and NVD are "
@@ -133,7 +136,6 @@ def _degraded_tool_result(
 _FEED_SOURCES = [
     FeedSource(_qfeeds, 2, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
     FeedSource(_abuseipdb, 3, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
-    FeedSource(_virustotal, 2, "VirusTotal", CircuitBreaker("VirusTotal"), _CONFIG_ERRORS),
     FeedSource(_otx, 2, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
     FeedSource(_shodan, 3, "Shodan", CircuitBreaker("Shodan"), _CONFIG_ERRORS),
     FeedSource(_greynoise, 3, "GreyNoise", CircuitBreaker("GreyNoise"), _CONFIG_ERRORS),
@@ -326,78 +328,78 @@ async def abuseipdb_fetch_blocklist(
 
 
 @mcp.tool()
-async def virustotal_fetch_iocs(
-    time_range: str = "7d",
-    feed_types: list[str] | None = None,
+async def virustotal_enrich_iocs(
+    indicators: list[str],
+    indicator_type: str = "ip",
 ) -> dict[str, Any]:
-    """Fetch recent malicious IP and domain indicators from VirusTotal (Tier 2 CTI).
+    """Look up indicators you already hold and return VirusTotal's verdict.
 
-    Returns ioc_network objects in the threat-intel output.schema.json shape,
-    ready to incorporate into a threat intelligence report. De-duplicated and
-    schema-validated before return.
+    **This is enrichment, not a feed.** It does not discover indicators, so it
+    is absent from fetch_all_iocs by design. Give it indicators gathered from
+    the feed tools and it returns each one's detection counts, community
+    reputation and (for IPs) network ownership.
 
-    Requires a VirusTotal Intelligence subscription. Set VIRUSTOTAL_API_KEY (env-var mode)
-    or configure the HashiCorp Vault path ``virustotal/api_key``.
+    It replaced a bulk-feed tool that called an endpoint which does not exist
+    and had never returned a single indicator (#203). This account holds a
+    public API key -- 4 lookups/min, 500/day -- and per-indicator lookup is
+    what that key can actually do.
+
+    **Credential required**: VIRUSTOTAL_API_KEY.
 
     Args:
-        time_range: Lookback window from the calling threat-intel skill (e.g. "7d").
-            Informational only — VirusTotal feeds return a rolling window controlled
-            by VT's own retention policy. Recorded in the result for the Coverage Ledger.
-        feed_types: Feed types to fetch. Defaults to all available types.
-            Available: malicious_ips, malicious_domains.
+        indicators: Values to look up. At most 50 per call; a longer list is
+            REJECTED rather than truncated, so a caller is never handed a
+            partial answer it believes is complete.
+        indicator_type: "ip" or "domain".
 
     Returns:
-        dict with keys: iocs, source, tier, retrieved_at, record_count,
-        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+        dict with keys: enrichments, source, tier, retrieved_at, record_count,
+        latency_ms, looked_up, failed.
+
+    Cost warning:
+        Requests are serialised with a 15-second gap to respect 4 lookups/min,
+        so 20 indicators takes about 5 minutes. Enrich the highest-priority
+        indicators, not everything a feed returned.
 
     Usage with the threat-intel skill:
-        1. Call this tool; receive iocs.
-        2. Pass iocs as context to the skill invocation.
-        3. Set skill_input.feed_integrations = [{"name": "VirusTotal", "tier": 2,
-           "access_level": "intelligence"}] so the Coverage Ledger marks it consulted.
+        1. Gather indicators via fetch_all_iocs.
+        2. Enrich the top N by priority with this tool.
+        3. Fold the verdicts into the report as corroboration. VirusTotal is
+           consulted here as an ENRICHMENT source, not a feed, so record it in
+           skill_input.feed_integrations only for the indicators actually
+           looked up -- claiming feed-wide coverage from a sample of lookups
+           would inflate the badge (R4).
     """
     try:
-        result = await _virustotal.fetch(time_range=time_range, feed_types=feed_types)
+        return await _virustotal.enrich(indicators, indicator_type=indicator_type)
+    except ValueError:
+        raise  # caller error -- bad indicator_type, empty list, over the cap
     except (CredentialError, KeyError) as exc:
         logger.warning("VirusTotal credential error: %s", type(exc).__name__)
-        return _degraded_tool_result(
-            "VirusTotal",
-            2,
-            feed_types or list(VT_FEED_TYPES.keys()),
-            "VIRUSTOTAL_API_KEY credential not configured",
-        )
-    except ValueError:
-        raise  # invalid feed_types — a caller error worth surfacing verbatim
-    except Exception as exc:
-        logger.warning("VirusTotal upstream fetch failed: %s", type(exc).__name__)
-        return _degraded_tool_result(
-            "VirusTotal",
-            2,
-            feed_types or list(VT_FEED_TYPES.keys()),
-            f"upstream fetch failed: {type(exc).__name__}",
-        )
-
-    deduped = finalize_iocs(result.iocs)
-
-    status = "consulted"
-    if result.partial_failure:
-        status = "partial" if deduped else "unverified"
-
-    return {
-        "iocs": deduped,
-        "source": result.source,
-        "tier": result.tier,
-        "retrieved_at": result.retrieved_at,
-        "record_count": len(deduped),
-        "latency_ms": result.latency_ms,
-        "feed_types_fetched": result.feed_types_fetched,
-        "partial_failure": result.partial_failure,
-        "coverage_ledger_entry": {
-            "tier": 2,
+        return {
+            "enrichments": [],
             "source": "VirusTotal",
-            "status": status,
-        },
-    }
+            "tier": 2,
+            "retrieved_at": "",
+            "record_count": 0,
+            "latency_ms": 0.0,
+            "looked_up": [],
+            "failed": list(indicators),
+            "error": "VirusTotal credential not configured. Set VIRUSTOTAL_API_KEY.",
+        }
+    except Exception as exc:
+        logger.warning("VirusTotal enrichment failed: %s", type(exc).__name__)
+        return {
+            "enrichments": [],
+            "source": "VirusTotal",
+            "tier": 2,
+            "retrieved_at": "",
+            "record_count": 0,
+            "latency_ms": 0.0,
+            "looked_up": [],
+            "failed": list(indicators),
+            "error": f"upstream lookup failed: {type(exc).__name__}",
+        }
 
 
 @mcp.tool()
@@ -838,7 +840,7 @@ async def threatfox_fetch_iocs(
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
 
-    Queries all configured feeds (Q-Feeds, AbuseIPDB, VirusTotal, AlienVault OTX,
+    Queries all configured feeds (Q-Feeds, AbuseIPDB, AlienVault OTX,
     Shodan, GreyNoise, ANY.RUN, Intel 471, Censys) at the same time,
     schema-validates and deduplicates each source, then merges everything into a
     single deduplicated ioc_network array (cross-source duplicates collapse to the
@@ -1246,15 +1248,6 @@ async def list_available_feeds() -> dict[str, Any]:
                 "tool": "abuseipdb_fetch_blocklist",
             },
             {
-                "name": "VirusTotal",
-                "tier": 2,
-                "domain": "virustotal.com",
-                "description": "VirusTotal Intelligence feeds: recent malicious IPs and domains",
-                "feed_types": list(VT_FEED_TYPES.keys()),
-                "credential_configured": vt_cred_ok,
-                "tool": "virustotal_fetch_iocs",
-            },
-            {
                 "name": "AlienVault OTX",
                 "tier": 2,
                 "domain": "otx.alienvault.com",
@@ -1316,6 +1309,21 @@ async def list_available_feeds() -> dict[str, Any]:
                 "feed_types": list(THREATFOX_FEED_TYPES.keys()),
                 "credential_configured": True,
                 "tool": "threatfox_fetch_iocs",
+            },
+        ],
+        # Enrichment sources score indicators the caller already holds. They are
+        # listed apart from `feeds` because they discover nothing and cannot
+        # participate in fetch_all_iocs -- conflating the two is what let a
+        # non-existent VirusTotal feed sit in the registry unnoticed (#203).
+        "enrichment_sources": [
+            {
+                "name": "VirusTotal",
+                "tier": 2,
+                "domain": "virustotal.com",
+                "description": "Per-indicator lookup: detection counts, community reputation, network ownership (4 lookups/min, 500/day on the public API)",
+                "indicator_types": list(VT_INDICATOR_TYPES.keys()),
+                "credential_configured": vt_cred_ok,
+                "tool": "virustotal_enrich_iocs",
             },
         ],
         "cve_sources": [

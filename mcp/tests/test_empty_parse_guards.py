@@ -91,7 +91,6 @@ _CASES = [
     ("otx", OTXAdapter, {"json": {"results": []}}, {"json": {"unexpected": 1}}),
     ("threatfox", ThreatFoxAdapter, {"text": "# no entries\n"}, {"text": "<html>nope</html>"}),
     ("qfeeds", QFeedsAdapter, {"text": ""}, {"text": "<html>nope</html>\nstill not an ioc\n"}),
-    ("virustotal", VirusTotalAdapter, {"text": ""}, {"text": "<html>nope</html>"}),
 ]
 
 

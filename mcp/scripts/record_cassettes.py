@@ -280,6 +280,20 @@ def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
 _SHRINK = {"nvd": shrink_nvd_cassette, "vulncheck": shrink_vulncheck_cassette}
 
 
+# Adapters whose recording entry point is not `fetch(time_range=...)`.
+# VirusTotal is enrichment: it scores indicators the caller supplies, so a
+# recording has to supply some. 8.8.8.8 (Google Public DNS) and example.com are
+# permanently allocated, certain to have VirusTotal objects, and carry no
+# verdict that is likely to churn -- a fabricated value would record the 404
+# path instead of the parser.
+_RECORD_ACTIONS = {
+    "vulncheck": None,  # explicit: fetch-shaped, listed for readability
+    "virustotal": lambda adapter: adapter.enrich(
+        ["8.8.8.8", "1.1.1.1"], indicator_type="ip"
+    ),
+}
+
+
 async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None, str]:
     factory, _ = FEEDS[name]
     cassette = CASSETTE_DIR / f"{name}.yaml"
@@ -289,8 +303,15 @@ async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None
         # behind any that already exist, and playback then never reaches them.
         fresh_recording(cassette)
         with recorder.use_cassette(str(cassette)):
-            result = await factory(creds).fetch(time_range=time_range)
-        count = result.record_count
+            adapter = factory(creds)
+            action = _RECORD_ACTIONS.get(name)
+            if action is not None:
+                result = await action(adapter)
+                # Enrichment returns a dict, not a FetchResult.
+                count = result["record_count"]
+            else:
+                result = await adapter.fetch(time_range=time_range)
+                count = result.record_count
         if shrink := _SHRINK.get(name):
             before, after = shrink(cassette)
             logger_note = f" (trimmed {before / 1e6:.1f} MB -> {after / 1e6:.1f} MB)"

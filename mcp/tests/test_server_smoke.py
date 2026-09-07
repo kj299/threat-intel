@@ -45,7 +45,6 @@ def _reset_adapter_state():
 _CREDENTIALED_FEED_TOOLS = [
     "qfeeds_fetch_iocs",
     "abuseipdb_fetch_blocklist",
-    "virustotal_fetch_iocs",
     "otx_fetch_iocs",
     "shodan_fetch_iocs",
     "greynoise_fetch_iocs",
@@ -64,14 +63,20 @@ _SINGLE_FEED_TOOLS = _CREDENTIALED_FEED_TOOLS + _PUBLIC_FEED_TOOLS
 _CVE_FEED_TOOLS = ["cisa_kev_fetch_cves", "nvd_fetch_cves", "vulncheck_fetch_cves"]
 # CVE feeds that require a credential (a subset of the above).
 _CREDENTIALED_CVE_TOOLS = ["vulncheck_fetch_cves"]
+# VirusTotal is an ENRICHMENT tool, not a feed: it scores indicators the caller
+# supplies rather than discovering any, so it is absent from _SINGLE_FEED_TOOLS
+# and from fetch_all_iocs. Keeping it in the feed lists is what let a
+# non-existent feed endpoint sit in the registry unnoticed (#203).
+_ENRICHMENT_TOOLS = ["virustotal_enrich_iocs"]
 _ALL_TOOLS = (
     _SINGLE_FEED_TOOLS
     + _CVE_FEED_TOOLS
+    + _ENRICHMENT_TOOLS
     + ["fetch_all_iocs", "fetch_all_cves", "list_available_feeds"]
 )
 
 _EXPECTED_SOURCES = {
-    "Q-Feeds", "AbuseIPDB", "VirusTotal", "AlienVault OTX", "Shodan",
+    "Q-Feeds", "AbuseIPDB", "AlienVault OTX", "Shodan",
     "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox",
 }
 _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
@@ -269,7 +274,6 @@ async def test_malformed_body_is_marked_unverified_not_reported_as_zero(
 # interface compatibility and ignore them, so they are correctly excluded.)
 _FEED_TYPE_VALIDATING_TOOLS = [
     "qfeeds_fetch_iocs",
-    "virustotal_fetch_iocs",
     "shodan_fetch_iocs",
     "greynoise_fetch_iocs",
     "anyrun_fetch_iocs",
@@ -528,7 +532,7 @@ def test_every_registered_tool_is_exposed_by_the_server():
     untouched. This asserts that compatibility rather than assuming it.
     """
     registered = {t.name for t in server.mcp._tool_manager.list_tools()}
-    assert registered == set(_ALL_SINGLE_FEED_TOOLS) | {
+    assert registered == set(_ALL_SINGLE_FEED_TOOLS) | set(_ENRICHMENT_TOOLS) | {
         "fetch_all_iocs",
         "fetch_all_cves",
         "list_available_feeds",

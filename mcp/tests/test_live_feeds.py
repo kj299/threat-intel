@@ -58,7 +58,6 @@ pytestmark = pytest.mark.live
 _IOC_ADAPTERS = {
     "qfeeds": QFeedsAdapter,
     "abuseipdb": AbuseIPDBAdapter,
-    "virustotal": VirusTotalAdapter,
     "otx": OTXAdapter,
     "shodan": ShodanAdapter,
     "greynoise": GreyNoiseAdapter,
@@ -185,7 +184,6 @@ class TestNVD:
 _CREDENTIALED_IOC_FEEDS = [
     ("Q-Feeds", "qfeeds", ("QFEEDS_API_KEY",)),
     ("AbuseIPDB", "abuseipdb", ("ABUSEIPDB_API_KEY",)),
-    ("VirusTotal", "virustotal", ("VIRUSTOTAL_API_KEY",)),
     ("AlienVault OTX", "otx", ("OTX_API_KEY",)),
     ("Shodan", "shodan", ("SHODAN_API_KEY",)),
     ("GreyNoise", "greynoise", ("GREYNOISE_API_KEY",)),
@@ -242,6 +240,41 @@ async def test_credentialed_ioc_feed_answers_its_api(name, adapter_key, env_vars
     assert result.record_count >= 0
     if result.iocs:
         assert finalize_iocs(result.iocs), f"every live {name} record was dropped"
+
+
+_CREDENTIALED_ENRICHMENT = [
+    ("VirusTotal", "virustotal", ("VIRUSTOTAL_API_KEY",)),
+]
+
+
+@pytest.mark.parametrize(
+    "name,adapter_key,env_vars",
+    _CREDENTIALED_ENRICHMENT,
+    ids=[f[1] for f in _CREDENTIALED_ENRICHMENT],
+)
+@pytest.mark.asyncio
+async def test_credentialed_enrichment_answers_its_api(name, adapter_key, env_vars):
+    """Enrichment sources score indicators rather than discovering them, so
+    they need a different live check: give it one stable, well-known indicator
+    and assert the lookup completes.
+
+    8.8.8.8 is Google Public DNS -- a real address, permanently allocated, and
+    certain to have a VirusTotal object. Using a fabricated address would test
+    the 404 path rather than the parser, and using a genuinely malicious one
+    would pin the assertion to a verdict that can change.
+    """
+    _skip_unless_configured(name, env_vars)
+
+    adapter = VirusTotalAdapter(credential_provider_from_env(), _rate_limit_delay=0)
+    result = await adapter.enrich(["8.8.8.8"], indicator_type="ip")
+
+    assert result["record_count"] == 1, "a well-known IP must resolve"
+    record = result["enrichments"][0]
+    assert record["indicator"] == "8.8.8.8"
+    # Detection counts are the whole point; their absence means the attribute
+    # mapping is wrong even though the call succeeded.
+    assert isinstance(record["malicious"], int)
+    assert isinstance(record["harmless"], int)
 
 
 @pytest.mark.parametrize(
