@@ -5,9 +5,11 @@ Fetches recent indicators from the **public** ThreatFox CSV feed
 indicators to ioc_network objects compatible with output.schema.json from
 kj299/threat-intel.
 
-No credential required — this is a free, unauthenticated feed. (Verified against
-the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
-``urllib.request.urlopen`` with no Auth-Key header.)
+No credential **required** — this CSV export answers unauthenticated. (Verified
+against the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
+``urllib.request.urlopen`` with no Auth-Key header.) It is nonetheless *sent*
+when ``ABUSECH_AUTH_KEY`` is configured: abuse.ch gated its APIs on 2025-06-30
+and this export is a grandfathered route, not a promise. See ``_auth_header``.
 
 Feed characteristics (verified from the OpenCTI connector, 2026):
   - GET https://threatfox.abuse.ch/export/csv/recent/
@@ -52,6 +54,7 @@ import httpx
 
 from ..audit import log_tool_call
 from ..netpolicy import egress_event_hooks
+from ..vault.base import CredentialNotFoundError
 from .base import FetchResult
 
 logger = logging.getLogger(__name__)
@@ -180,13 +183,37 @@ class ThreatFoxAdapter:
     requires_credential = False
 
     def __init__(self, credentials: Any = None) -> None:
+        self._credentials = credentials
         self._cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
+
+    def _auth_header(self) -> dict[str, str]:
+        """The shared abuse.ch Auth-Key, if one is configured.
+
+        **Optional, deliberately.** abuse.ch has required authentication on its
+        APIs since 2025-06-30, and this adapter only still works unauthenticated
+        because it reads the CSV *export* path rather than the API. That is a
+        grandfathered route, not a promise, so the key is sent whenever one
+        exists -- but its absence must not break a feed that works today.
+
+        Same shape as NVD's optional key: catch only
+        ``CredentialNotFoundError`` (no key configured, which is fine) and let a
+        provider *outage* -- a plain ``CredentialError`` -- propagate, because
+        that is a different problem and quietly degrading it would hide it.
+        """
+        if self._credentials is None:
+            return {}
+        try:
+            key = self._credentials.get("abusech", "auth_key")
+        except CredentialNotFoundError:
+            return {}
+        return {"Auth-Key": key} if key else {}
 
     def _make_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             headers={
                 "Accept": "text/csv, text/plain",
                 "User-Agent": "threat-intel-mcp/0.12 (kj299/threat-intel)",
+                **self._auth_header(),
             },
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
             event_hooks=egress_event_hooks("threatfox.abuse.ch"),

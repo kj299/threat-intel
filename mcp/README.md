@@ -52,6 +52,9 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | ThreatFox adapter + `threatfox_fetch_iocs` (free public abuse.ch feed, no key) | ✅ Phase 2 |
 | OpenPhish Community adapter + `openphish_fetch_iocs` (free, no key; non-commercial use only) | ✅ #211 |
+| URLhaus adapter + `urlhaus_fetch_iocs` (abuse.ch; **requires** the shared `ABUSECH_AUTH_KEY`) | ✅ #212 |
+| Feodo Tracker adapter + `feodo_fetch_iocs` (abuse.ch botnet C2 IPs; same key, optional) | ✅ #212 |
+| ThreatFox sends the abuse.ch `Auth-Key` when configured — abuse.ch has required auth since 2025-06-30 and the CSV export route is grandfathered, not promised | ✅ #212 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -132,7 +135,7 @@ set -a; . ./.env; set +a
 
 Whichever you choose, **Actions secrets are not one of them**: they exist only inside a running workflow, and `scheduled-report.yml` — the one that runs the prompt — is deliberately denied feed credentials, with CI enforcing it. See [why feed keys are isolated](../docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow).
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **Six sources need no key at all** and are therefore always `consulted`: the IOC feeds ThreatFox and OpenPhish, the CVE feed CISA KEV, and the CVE enrichments EPSS and OSV.dev; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **One `ABUSECH_AUTH_KEY` covers four abuse.ch sources** (URLhaus, Feodo Tracker, ThreatFox, MalwareBazaar) — free from https://auth.abuse.ch/. **Seven sources need no key at all** and are therefore always `consulted`: the IOC feeds ThreatFox and OpenPhish, the CVE feed CISA KEV, and the CVE enrichments EPSS and OSV.dev; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 

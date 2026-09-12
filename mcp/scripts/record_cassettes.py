@@ -48,6 +48,8 @@ from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter  # noqa: E402
 from threat_intel_mcp.adapters.shodan import ShodanAdapter  # noqa: E402
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
+from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter  # noqa: E402
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter  # noqa: E402
@@ -80,6 +82,10 @@ FEEDS = {
     # from a response anyone has seen. This recording is what turns it from
     # belief into verified -- see the warning in adapters/vulncheck.py.
     "vulncheck": (lambda c: VulnCheckAdapter(c), True),
+    # abuse.ch: one Auth-Key. URLhaus requires it, so it is keyed; Feodo
+    # answers without one, so it records like any keyless feed.
+    "urlhaus": (lambda c: URLhausAdapter(c), True),
+    "feodo": (lambda c: FeodoTrackerAdapter(c), False),
 }
 
 # Credential-bearing header names and query parameters. These are checked
@@ -285,7 +291,65 @@ def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
     return before, path.stat().st_size
 
 
-_SHRINK = {"nvd": shrink_nvd_cassette, "vulncheck": shrink_vulncheck_cassette}
+def shrink_threatfox_cassette(path: pathlib.Path) -> tuple[int, int]:
+    """Trim the ThreatFox CSV body to stay under the size ceiling.
+
+    Operates on **raw text lines**, never through ``csv.writer``. That is not a
+    style preference: the whole reason this cassette is valuable is the feed's
+    ``"a", "b"`` dialect -- comma-then-space -- which needs
+    ``skipinitialspace=True`` to parse and which silently yielded 0 IOCs from a
+    1 MB HTTP 200 when it did not (#100). Re-serialising would normalise that
+    spacing away and the recording would stop testing the one thing it is here
+    for.
+
+    Every comment line is kept, and at least one data row per ``ioc_type``, so
+    the trimmed cassette still exercises each branch of the type mapping.
+    """
+    import yaml as _yaml
+
+    before = path.stat().st_size
+    doc = _yaml.safe_load(path.read_text(encoding="utf-8"))
+    for interaction in doc.get("interactions", []):
+        body = interaction["response"]["body"].get("string")
+        if not isinstance(body, str):
+            continue
+        lines = body.splitlines(keepends=True)
+        comments = [ln for ln in lines if ln.lstrip().startswith("#")]
+        rows = [ln for ln in lines if not ln.lstrip().startswith("#") and ln.strip()]
+
+        kept: list[str] = []
+        seen_types: set[str] = set()
+        # First pass: one row per distinct ioc_type (column 3), so no branch of
+        # the type mapping loses its only example.
+        for row in rows:
+            parts = [f.strip().strip('"') for f in row.split('", "')]
+            ioc_type = parts[3] if len(parts) > 3 else ""
+            if ioc_type and ioc_type not in seen_types:
+                seen_types.add(ioc_type)
+                kept.append(row)
+        # Then fill up to the row budget in feed order.
+        for row in rows:
+            if len(kept) >= _THREATFOX_MAX_ROWS:
+                break
+            if row not in kept:
+                kept.append(row)
+
+        interaction["response"]["body"]["string"] = "".join(comments + kept)
+
+    path.write_text(_yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+    return before, path.stat().st_size
+
+
+# ~2,000 rows keeps the recording comfortably inside the 4 MB ceiling while
+# leaving thousands of real indicators to parse. The two-thousandth row
+# exercises the same code as the first.
+_THREATFOX_MAX_ROWS = 2000
+
+_SHRINK = {
+    "nvd": shrink_nvd_cassette,
+    "vulncheck": shrink_vulncheck_cassette,
+    "threatfox": shrink_threatfox_cassette,
+}
 
 
 # Adapters whose recording entry point is not `fetch(time_range=...)`.
