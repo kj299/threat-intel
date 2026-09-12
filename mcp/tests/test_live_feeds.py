@@ -48,6 +48,9 @@ from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter
 from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.epss import EPSSAdapter
+from threat_intel_mcp.adapters.osv import OSVAdapter
 from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.vault.factory import credential_provider_from_env
 from threat_intel_mcp.vulns import finalize_vulns
@@ -294,3 +297,114 @@ async def test_credentialed_cve_feed_answers_its_api(name, adapter_key, env_vars
     assert result.record_count >= 0
     if result.vulns:
         assert finalize_vulns(result.vulns), f"every live {name} record was dropped"
+
+
+# ─── Keyless sources (#211) ──────────────────────────────────────────────────
+#
+# These three need no credential, so unlike the parametrised sweeps above there
+# is no "skip if unconfigured" branch: they either work or the weekly run says
+# so. That is the point of adding them — a keyless source cannot silently
+# degrade to `unverified` because a subscription lapsed.
+
+
+class TestOpenPhish:
+    @pytest.mark.asyncio
+    async def test_returns_records(self):
+        """The Community feed publishes the 300 most recent phishing URLs.
+
+        A zero means the plain-text layout moved or the canonical URL now
+        serves something else. Since #106 a format break raises rather than
+        returning zero, so reaching this assertion with 0 means the feed really
+        was empty — which for a rolling 300-entry feed would be remarkable.
+        """
+        result = await OpenPhishAdapter().fetch(time_range="7d")
+        assert result.record_count > 0, (
+            "OpenPhish returned 0 records from the live feed — either the feed "
+            "is genuinely empty or openphish.com/feed.txt no longer serves one "
+            "URL per line."
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_canonical_url_matches_the_vendors_mirror(self):
+        """The adapter was written against github.com/openphish/public_feed
+        because openphish.com is unreachable from the dev sandbox. This is the
+        assertion that the two really are the same feed — the one thing the
+        mirror could not establish."""
+        result = await OpenPhishAdapter().fetch(time_range="7d")
+        assert all(i["type"] == "URL" for i in result.iocs)
+        assert all(
+            i["value"].startswith(("http://", "https://")) for i in result.iocs
+        ), "a record whose value is not an absolute URL means the layout changed"
+
+    @pytest.mark.asyncio
+    async def test_records_survive_the_pipeline(self):
+        result = await OpenPhishAdapter().fetch(time_range="7d")
+        finalized = finalize_iocs(result.iocs)
+        assert finalized, "every live OpenPhish IOC was dropped by finalize_iocs"
+        assert len(finalized) >= len(result.iocs) * 0.5, (
+            f"finalize_iocs dropped {len(result.iocs) - len(finalized)} of "
+            f"{len(result.iocs)} live OpenPhish IOCs — more loss than dedup and "
+            "sanitising should account for"
+        )
+
+
+class TestEPSS:
+    # Log4Shell: published 2021, universally scored, and certain to stay in the
+    # dataset. A CVE chosen for recency would make this test fail for a reason
+    # that is not a fault.
+    _KNOWN_SCORED_CVE = "CVE-2021-44228"
+
+    @pytest.mark.asyncio
+    async def test_a_known_cve_is_scored(self):
+        result = await EPSSAdapter().enrich([self._KNOWN_SCORED_CVE])
+        assert result["record_count"] == 1, (
+            f"EPSS returned no score for {self._KNOWN_SCORED_CVE}, which has "
+            "been scored since 2021 — the response shape has probably changed."
+        )
+        record = result["enrichments"][0]
+        assert 0.0 <= record["epss"] <= 1.0, (
+            f"epss={record['epss']!r} is not a probability — the field is "
+            "string-serialised upstream and may have stopped parsing."
+        )
+        assert record["priority"] in ("high", "medium", "low")
+
+    @pytest.mark.asyncio
+    async def test_an_unscored_cve_is_not_reported_as_a_failure(self):
+        """A reserved identifier has no EPSS score. That must come back as
+        `not_scored`, not as an error — otherwise every run reports an outage
+        for an API that is working."""
+        result = await EPSSAdapter().enrich(["CVE-1999-99999"])
+        assert result["not_scored"] == ["CVE-1999-99999"]
+
+
+class TestOSV:
+    _KNOWN_CVE = "CVE-2021-44228"
+
+    @pytest.mark.asyncio
+    async def test_a_cve_id_resolves(self):
+        """**This is the assertion the OSV adapter was built to be settled by.**
+
+        Whether ``/v1/vulns/{id}`` accepts a CVE identifier is documented one
+        way in OSV's FAQ and reported the other way in an issue on the same
+        repository, and no code here could reach the API to find out. If this
+        fails, the endpoint is wrong and the adapter needs re-targeting — the
+        same lesson as #203, learned on first contact this time rather than
+        months later.
+        """
+        result = await OSVAdapter().enrich([self._KNOWN_CVE])
+        assert result["record_count"] == 1, (
+            f"OSV returned no record for {self._KNOWN_CVE} (Log4Shell), which "
+            "is in every ecosystem database. /v1/vulns/ probably does not "
+            "accept CVE identifiers — re-target the adapter."
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_record_names_affected_packages(self):
+        """Resolving is not enough: the affected-package mapping is the only
+        reason to call OSV rather than NVD."""
+        result = await OSVAdapter().enrich([self._KNOWN_CVE])
+        record = result["enrichments"][0]
+        assert record.get("affected_packages"), (
+            "OSV record carried no affected_packages — the schema mapping is "
+            "wrong, so the tool returns records that answer nothing."
+        )

@@ -1,8 +1,10 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
 Exposes Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
-Intel 471, Censys, and the free abuse.ch feed ThreatFox as IOC tools, plus
-the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools, that Claude can call to
+Intel 471, Censys, and the two keyless feeds ThreatFox and OpenPhish as IOC
+tools; the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools;
+and three enrichment tools (VirusTotal for indicators, EPSS and OSV.dev for
+CVEs -- the latter two keyless), that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
 reports using the threat-intel skill (kj299/threat-intel).
 
@@ -35,6 +37,9 @@ from .adapters.anyrun import AnyRunAdapter, FEED_TYPES as ANYRUN_FEED_TYPES
 from .adapters.censys import CensysAdapter, FEED_TYPES as CENSYS_FEED_TYPES
 from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
 from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_TYPES
+from .adapters.openphish import OpenPhishAdapter, FEED_TYPES as OPENPHISH_FEED_TYPES
+from .adapters.epss import EPSSAdapter
+from .adapters.osv import OSVAdapter
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
 from .adapters.shodan import ShodanAdapter, FEED_TYPES as SHODAN_FEED_TYPES
 from .adapters.virustotal import (
@@ -69,14 +74,20 @@ mcp = MCPServer(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
         "AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
-        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus the free abuse.ch "
-        "feed ThreatFox Tier 9, no credential needed). "
+        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus two feeds needing "
+        "no credential at all: the abuse.ch feed ThreatFox Tier 9 and the "
+        "OpenPhish Community phishing feed Tier 6). "
         "For vulnerabilities, call the Tier 1 CVE feeds: CISA KEV and NVD are "
         "government sources needing no credential (NVD accepts an optional key "
         "for a higher rate limit), and VulnCheck KEV is a vendor catalogue that "
         "requires one. Use cisa_kev_fetch_cves / nvd_fetch_cves / "
         "vulncheck_fetch_cves, or fetch_all_cves for all three at once — these "
         "return CVE-keyed vulnerability records, not IOCs. "
+        "To triage those CVEs, call the two KEYLESS enrichment tools: "
+        "epss_enrich_cves ranks them by exploitation probability, and "
+        "osv_enrich_cves names the open-source packages affected and the "
+        "versions that fix them. Neither discovers CVEs, so neither is part of "
+        "fetch_all_cves. "
         "Use fetch_all_iocs to query every configured IOC feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
@@ -96,6 +107,9 @@ _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
 _threatfox = ThreatFoxAdapter()  # public feed, no credential
+_openphish = OpenPhishAdapter()  # public feed, no credential
+_epss = EPSSAdapter()  # public API, no credential (enrichment, not a feed)
+_osv = OSVAdapter()  # public API, no credential (enrichment, not a feed)
 _anyrun = AnyRunAdapter(_credentials)
 _intel471 = Intel471Adapter(_credentials)
 _censys = CensysAdapter(_credentials)
@@ -143,6 +157,7 @@ _FEED_SOURCES = [
     FeedSource(_intel471, 2, "Intel 471", CircuitBreaker("Intel 471"), _CONFIG_ERRORS),
     FeedSource(_censys, 3, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
     FeedSource(_threatfox, 9, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
+    FeedSource(_openphish, 6, "OpenPhish", CircuitBreaker("OpenPhish"), _CONFIG_ERRORS),
 ]
 
 # Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
@@ -400,6 +415,98 @@ async def virustotal_enrich_iocs(
             "failed": list(indicators),
             "error": f"upstream lookup failed: {type(exc).__name__}",
         }
+
+
+@mcp.tool()
+async def epss_enrich_cves(
+    cves: list[str],
+    date: str | None = None,
+) -> dict[str, Any]:
+    """Rank CVEs you already hold by EPSS exploitation probability (Tier 1).
+
+    **This is enrichment, not a feed.** It discovers nothing, so it is absent
+    from fetch_all_cves by design. Give it CVE ids gathered from the CVE feed
+    tools and it returns FIRST.org's published probability that each will be
+    exploited in the wild within 30 days. **No credential required.**
+
+    Use it to triage what the feeds return. CISA KEV says "already exploited"
+    and NVD says "severe"; neither ranks the rest, and a weekly NVD window is
+    routinely hundreds of CVSS-9+ CVEs with no known exploitation.
+
+    Args:
+        cves: CVE ids, e.g. ["CVE-2021-44228"]. One request per 100.
+        date: Optional YYYY-MM-DD for a historical score (data from 2021-04-14).
+
+    Returns:
+        dict with keys: enrichments, source, tier, retrieved_at, record_count,
+        latency_ms, scored, not_scored. Each enrichment carries cve, epss
+        (0-1), percentile, priority (high/medium/low) and scored_on.
+
+        `not_scored` is NOT a failure list: EPSS only scores CVEs published in
+        NVD, so a reserved or brand-new id legitimately has no score.
+    """
+    try:
+        result = await _epss.enrich(cves, date=date)
+    except ValueError:
+        raise  # caller error — surfaced verbatim
+    except Exception as exc:
+        logger.warning("EPSS upstream lookup failed: %s", type(exc).__name__)
+        return {
+            "enrichments": [],
+            "source": "EPSS",
+            "tier": 1,
+            "retrieved_at": "",
+            "record_count": 0,
+            "latency_ms": 0.0,
+            "scored": [],
+            "not_scored": [],
+            "error": f"upstream lookup failed: {type(exc).__name__}",
+        }
+    return result
+
+
+@mcp.tool()
+async def osv_enrich_cves(cves: list[str]) -> dict[str, Any]:
+    """Find which open-source packages a CVE affects, and what fixes it (Tier 1).
+
+    **This is enrichment, not a feed.** OSV's API is keyed by package or
+    vulnerability id and has no time-windowed endpoint, so it cannot discover a
+    weekly CVE set and is absent from fetch_all_cves. **No credential required.**
+
+    Give it CVE ids from the CVE feed tools and it returns OSV.dev's record for
+    each: affected ecosystems and package names, the versions that fix them,
+    severity, aliases and upstream advisories — aggregated from GHSA, PyPA, Go,
+    RustSec and the distro trackers.
+
+    Args:
+        cves: CVE ids, e.g. ["CVE-2021-44228"]. Capped at 200 per call.
+
+    Returns:
+        dict with keys: enrichments, source, tier, retrieved_at, record_count,
+        latency_ms, found, not_found, failed.
+
+        `not_found` is NOT a failure list: OSV covers open-source ecosystems, so
+        a CVE in proprietary software legitimately has no record.
+    """
+    try:
+        result = await _osv.enrich(cves)
+    except ValueError:
+        raise  # caller error — surfaced verbatim
+    except Exception as exc:
+        logger.warning("OSV upstream lookup failed: %s", type(exc).__name__)
+        return {
+            "enrichments": [],
+            "source": "OSV",
+            "tier": 1,
+            "retrieved_at": "",
+            "record_count": 0,
+            "latency_ms": 0.0,
+            "found": [],
+            "not_found": [],
+            "failed": list(cves),
+            "error": f"upstream lookup failed: {type(exc).__name__}",
+        }
+    return result
 
 
 @mcp.tool()
@@ -831,6 +938,71 @@ async def threatfox_fetch_iocs(
         "coverage_ledger_entry": {
             "tier": 9,
             "source": "ThreatFox",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
+async def openphish_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch phishing URLs from the free OpenPhish Community feed (Tier 6 CTI).
+
+    The 300 most recent confirmed phishing URLs, refreshed by OpenPhish every 12
+    hours. Returns ioc_network objects (type URL, action=block) in the
+    threat-intel output.schema.json shape, de-duplicated and schema-validated
+    before return. **No credential required** — this is a public feed.
+
+    Licence note: the Community feed is **non-commercial use only**
+    (https://openphish.com/terms.html). Indicators are emitted TLP:GREEN rather
+    than WHITE for that reason — do not redistribute them as unrestricted.
+
+    Args:
+        time_range: Lookback window; informational only (the feed is a fixed
+            "most recent 300" window). Recorded for the Coverage Ledger.
+        feed_types: Defaults to all available. Available: phishing_urls.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+
+    Usage with the threat-intel skill:
+        1. Call this tool; receive iocs.
+        2. Pass iocs as context to the skill invocation.
+        3. Set skill_input.feed_integrations = [{"name": "OpenPhish", "tier": 6,
+           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+    """
+    try:
+        result = await _openphish.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("OpenPhish upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "OpenPhish",
+            6,
+            feed_types or list(OPENPHISH_FEED_TYPES),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 6,
+            "source": "OpenPhish",
             "status": status,
         },
     }
@@ -1310,6 +1482,15 @@ async def list_available_feeds() -> dict[str, Any]:
                 "credential_configured": True,
                 "tool": "threatfox_fetch_iocs",
             },
+            {
+                "name": "OpenPhish",
+                "tier": 6,
+                "domain": "openphish.com",
+                "description": "Free Community feed of the 300 most recent confirmed phishing URLs, refreshed every 12h (no credential required; non-commercial use only)",
+                "feed_types": list(OPENPHISH_FEED_TYPES),
+                "credential_configured": True,
+                "tool": "openphish_fetch_iocs",
+            },
         ],
         # Enrichment sources score indicators the caller already holds. They are
         # listed apart from `feeds` because they discover nothing and cannot
@@ -1324,6 +1505,24 @@ async def list_available_feeds() -> dict[str, Any]:
                 "indicator_types": list(VT_INDICATOR_TYPES.keys()),
                 "credential_configured": vt_cred_ok,
                 "tool": "virustotal_enrich_iocs",
+            },
+            {
+                "name": "EPSS",
+                "tier": 1,
+                "domain": "first.org",
+                "description": "Per-CVE exploitation probability (0-1) and percentile from FIRST.org, batched 100 per request (no credential required)",
+                "indicator_types": ["cve"],
+                "credential_configured": True,
+                "tool": "epss_enrich_cves",
+            },
+            {
+                "name": "OSV",
+                "tier": 1,
+                "domain": "osv.dev",
+                "description": "Per-CVE affected open-source packages, fixed versions and upstream advisories from Google/OpenSSF (no credential required)",
+                "indicator_types": ["cve"],
+                "credential_configured": True,
+                "tool": "osv_enrich_cves",
             },
         ],
         "cve_sources": [

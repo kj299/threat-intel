@@ -172,3 +172,100 @@ def test_sources_come_from_the_server_not_a_restated_list():
 
     assert prefetch_feeds._FEED_SOURCES is server._FEED_SOURCES
     assert prefetch_feeds._VULN_SOURCES is server._VULN_SOURCES
+
+
+# ─── EPSS ranking in the prefetch (#211) ─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_epss_scores_the_cves_the_fan_out_produced(monkeypatch):
+    """The wiring, asserted rather than assumed.
+
+    `_score_with_epss` reads `vulns["vulns"][*]["cve_id"]`. If either key is
+    wrong it hands EPSS an empty list, EPSS returns nothing, and the payload
+    ships without ranking — silently, and looking exactly like a week in which
+    no CVE had a score. That is the same shape as the OTX bug (#204): a
+    pipeline stage that does nothing and says nothing.
+    """
+    from scripts import prefetch_feeds
+
+    captured: dict = {}
+
+    class FakeEPSS:
+        async def enrich(self, cves, **kwargs):
+            captured["cves"] = list(cves)
+            return {
+                "enrichments": [
+                    {"cve": cves[0], "epss": 0.9, "priority": "high"}
+                ],
+                "source": "EPSS",
+                "record_count": 1,
+                "scored": [cves[0]],
+                "not_scored": list(cves[1:]),
+            }
+
+    monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", FakeEPSS)
+
+    vulns = {
+        "vulns": [{"cve_id": "CVE-2021-44228"}, {"cve_id": "CVE-2022-22965"}],
+        "record_count": 2,
+    }
+    result = await prefetch_feeds._score_with_epss(vulns)
+
+    assert captured["cves"] == ["CVE-2021-44228", "CVE-2022-22965"], (
+        "the CVE ids never reached EPSS — check the key names in _score_with_epss"
+    )
+    assert result["record_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_no_cves_means_no_epss_call(monkeypatch):
+    """A quiet CVE week must not produce a pointless request, and must not
+    produce an `epss` block implying zero scores were a finding."""
+    from scripts import prefetch_feeds
+
+    class ExplodingEPSS:
+        async def enrich(self, cves, **kwargs):  # pragma: no cover
+            raise AssertionError("EPSS must not be called with no CVEs")
+
+    monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", ExplodingEPSS)
+
+    assert await prefetch_feeds._score_with_epss({"vulns": []}) is None
+
+
+@pytest.mark.asyncio
+async def test_an_epss_outage_degrades_rather_than_losing_the_cves(monkeypatch):
+    """The CVE records are already in hand. Failing the prefetch because the
+    ranking step broke would throw away the feeds that did work."""
+    from scripts import prefetch_feeds
+
+    class BrokenEPSS:
+        async def enrich(self, cves, **kwargs):
+            raise RuntimeError("upstream is down")
+
+    monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", BrokenEPSS)
+
+    result = await prefetch_feeds._score_with_epss({"vulns": [{"cve_id": "CVE-2021-44228"}]})
+
+    assert result["record_count"] == 0
+    assert "upstream is down" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_the_per_run_cve_cap_is_enforced(monkeypatch):
+    from scripts import prefetch_feeds
+
+    captured: dict = {}
+
+    class CountingEPSS:
+        async def enrich(self, cves, **kwargs):
+            captured["n"] = len(cves)
+            return {"enrichments": [], "source": "EPSS", "record_count": 0,
+                    "scored": [], "not_scored": []}
+
+    monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", CountingEPSS)
+    vulns = {"vulns": [{"cve_id": f"CVE-2024-{i:05d}"} for i in range(600)]}
+
+    await prefetch_feeds._score_with_epss(vulns)
+
+    assert captured["n"] == prefetch_feeds._MAX_CVES_TO_SCORE

@@ -178,7 +178,7 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.15.0):** 9 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and the free public abuse.ch feed ThreatFox; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 1 **enrichment** source, VirusTotal, which scores indicators you already hold rather than discovering any (so it is deliberately not part of `fetch_all_iocs`). 16 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 12 single-feed tools, `virustotal_enrich_iocs`, and `list_available_feeds`.
+**Current (v0.15.0):** 10 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and two that need **no key at all**: the abuse.ch feed ThreatFox and the OpenPhish Community phishing feed; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 19 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 13 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
 
 Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
@@ -224,7 +224,7 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
 }
 ```
 
-Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD + VulnCheck KEV, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`; enrichment: `virustotal_enrich_iocs` (per-indicator lookup — takes indicators, returns verdicts); plus `list_available_feeds`.
+Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD + VulnCheck KEV, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`; enrichment — these take what you already hold and score it, so none of them discovers anything or joins a fan-out: `virustotal_enrich_iocs` (indicators → verdicts), `epss_enrich_cves` (CVEs → exploitation probability), `osv_enrich_cves` (CVEs → affected packages and fixed versions); plus `list_available_feeds`.
 
 See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter), with a table of subscription sources and their official API-documentation portals.
 
@@ -232,7 +232,7 @@ See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed
 
 ## Setting up credentials
 
-**Nothing here needs a key to start.** The skill itself takes none, and three feeds work unauthenticated: ThreatFox (IOCs), CISA KEV and NVD (CVEs). Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
+**Nothing here needs a key to start.** The skill itself takes none, and six sources work unauthenticated: ThreatFox and OpenPhish (IOCs), CISA KEV and NVD (CVEs), and the EPSS and OSV.dev CVE enrichments. Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
 
 There are **two kinds of credential**, and they do not go in the same place:
 
@@ -294,7 +294,7 @@ How they're generated, how to run one (including wiring the MCP server for live-
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox; CVE feeds CISA KEV, NVD, VulnCheck KEV; enrichment VirusTotal) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, OpenPhish; CVE feeds CISA KEV, NVD, VulnCheck KEV; enrichment VirusTotal, EPSS, OSV) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
 
 ---
 
