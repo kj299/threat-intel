@@ -38,6 +38,8 @@ from .adapters.censys import CensysAdapter, FEED_TYPES as CENSYS_FEED_TYPES
 from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
 from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_TYPES
 from .adapters.openphish import OpenPhishAdapter, FEED_TYPES as OPENPHISH_FEED_TYPES
+from .adapters.urlhaus import URLhausAdapter, FEED_TYPES as URLHAUS_FEED_TYPES
+from .adapters.feodo import FeodoTrackerAdapter, FEED_TYPES as FEODO_FEED_TYPES
 from .adapters.epss import EPSSAdapter
 from .adapters.osv import OSVAdapter
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
@@ -108,6 +110,11 @@ _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
 _threatfox = ThreatFoxAdapter()  # public feed, no credential
 _openphish = OpenPhishAdapter()  # public feed, no credential
+# abuse.ch: one Auth-Key covers all of them. URLhaus REQUIRES it (its v1 API
+# has enforced auth since 2025-06-30); ThreatFox and Feodo read grandfathered
+# download paths, so for them the same key is optional.
+_urlhaus = URLhausAdapter(_credentials)
+_feodo = FeodoTrackerAdapter(_credentials)
 _epss = EPSSAdapter()  # public API, no credential (enrichment, not a feed)
 _osv = OSVAdapter()  # public API, no credential (enrichment, not a feed)
 _anyrun = AnyRunAdapter(_credentials)
@@ -158,6 +165,8 @@ _FEED_SOURCES = [
     FeedSource(_censys, 3, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
     FeedSource(_threatfox, 9, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
     FeedSource(_openphish, 6, "OpenPhish", CircuitBreaker("OpenPhish"), _CONFIG_ERRORS),
+    FeedSource(_urlhaus, 9, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
+    FeedSource(_feodo, 9, "Feodo Tracker", CircuitBreaker("Feodo Tracker"), _CONFIG_ERRORS),
 ]
 
 # Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
@@ -1009,6 +1018,119 @@ async def openphish_fetch_iocs(
 
 
 @mcp.tool()
+async def urlhaus_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch recently submitted malware-distribution URLs from URLhaus (Tier 9, abuse.ch).
+
+    Returns ioc_network objects (type URL) in the threat-intel
+    output.schema.json shape, de-duplicated and schema-validated. **Requires
+    the shared `ABUSECH_AUTH_KEY`** — abuse.ch made authentication mandatory
+    on its APIs in June 2025. Live URLs come back `action: block`; offline
+    ones are real history and come back `action: alert` at lower confidence.
+
+    Args:
+        time_range: Lookback window; informational only (the feed is a fixed
+            current window). Recorded for the Coverage Ledger.
+        feed_types: Defaults to all available.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _urlhaus.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("URLhaus upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "URLhaus",
+            9,
+            feed_types or list(URLHAUS_FEED_TYPES),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 9,
+            "source": "URLhaus",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
+async def feodo_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch confirmed botnet C2 IPs from Feodo Tracker (Tier 9, abuse.ch).
+
+    Every entry is a *confirmed* command-and-control server for a named
+    malware family (Emotet, QakBot, Dridex, TrickBot), not a heuristic
+    detection — the highest-confidence IOC class abuse.ch publishes.
+    Returns ioc_network objects (IPv4/IPv6, `action: block`) with the C2
+    port and malware family attached. The shared `ABUSECH_AUTH_KEY` is sent
+    when configured but is **not required** for this download path.
+
+    Args:
+        time_range: Lookback window; informational only (the feed is a fixed
+            current window). Recorded for the Coverage Ledger.
+        feed_types: Defaults to all available.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _feodo.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("Feodo Tracker upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Feodo Tracker",
+            9,
+            feed_types or list(FEODO_FEED_TYPES),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    status = "consulted"
+    if result.partial_failure:
+        status = "partial" if deduped else "unverified"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 9,
+            "source": "Feodo Tracker",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
 
@@ -1332,6 +1454,14 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         qfeeds_cred_ok = False
 
+    # One key, three feeds: URLhaus requires it, ThreatFox and Feodo Tracker
+    # send it when present and still answer without it.
+    abusech_cred_ok = True
+    try:
+        _credentials.get("abusech", "auth_key")
+    except (KeyError, CredentialError):
+        abusech_cred_ok = False
+
     abuseipdb_cred_ok = True
     try:
         _credentials.get("abuseipdb", "api_key")
@@ -1490,6 +1620,24 @@ async def list_available_feeds() -> dict[str, Any]:
                 "feed_types": list(OPENPHISH_FEED_TYPES),
                 "credential_configured": True,
                 "tool": "openphish_fetch_iocs",
+            },
+            {
+                "name": "URLhaus",
+                "tier": 9,
+                "domain": "urlhaus.abuse.ch",
+                "description": "Recently submitted malware-distribution URLs (abuse.ch; requires the shared ABUSECH_AUTH_KEY)",
+                "feed_types": list(URLHAUS_FEED_TYPES),
+                "credential_configured": abusech_cred_ok,
+                "tool": "urlhaus_fetch_iocs",
+            },
+            {
+                "name": "Feodo Tracker",
+                "tier": 9,
+                "domain": "feodotracker.abuse.ch",
+                "description": "Confirmed botnet C2 IPs for named malware families — Emotet, QakBot, Dridex (abuse.ch; key optional)",
+                "feed_types": list(FEODO_FEED_TYPES),
+                "credential_configured": True,
+                "tool": "feodo_fetch_iocs",
             },
         ],
         # Enrichment sources score indicators the caller already holds. They are

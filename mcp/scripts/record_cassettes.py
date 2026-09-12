@@ -48,6 +48,8 @@ from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter  # noqa: E402
 from threat_intel_mcp.adapters.shodan import ShodanAdapter  # noqa: E402
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
+from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter  # noqa: E402
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter  # noqa: E402
@@ -80,6 +82,10 @@ FEEDS = {
     # from a response anyone has seen. This recording is what turns it from
     # belief into verified -- see the warning in adapters/vulncheck.py.
     "vulncheck": (lambda c: VulnCheckAdapter(c), True),
+    # abuse.ch: one Auth-Key. URLhaus requires it, so it is keyed; Feodo
+    # answers without one, so it records like any keyless feed.
+    "urlhaus": (lambda c: URLhausAdapter(c), True),
+    "feodo": (lambda c: FeodoTrackerAdapter(c), False),
 }
 
 # Credential-bearing header names and query parameters. These are checked
