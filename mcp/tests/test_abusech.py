@@ -19,7 +19,7 @@ from pytest_httpx import HTTPXMock
 
 from threat_intel_mcp.adapters.base import UpstreamFormatError
 from threat_intel_mcp.adapters.feodo import (
-    _IP_KEYS,
+    _IP_KEY,
     FeodoTrackerAdapter,
     _normalize_entry as feodo_entry,
 )
@@ -190,24 +190,38 @@ async def test_feodo_an_empty_blocklist_is_not_an_error(httpx_mock: HTTPXMock):
     assert result.record_count == 0
 
 
-@pytest.mark.parametrize("ip_key", _IP_KEYS)
-def test_feodo_accepts_either_documented_ip_key(ip_key):
-    """A closed pair, not open-ended permissiveness.
+def test_feodo_reads_the_ip_field_the_recording_settled_on():
+    """`ip_address`, not the CSV flavour's `dst_ip`.
 
-    abuse.ch's CSV flavour of this list calls the field `dst_ip`; the JSON
-    documentation calls it `ip_address`. One of the two is right and this code
-    cannot reach the API to find out, so both are read and the pair is pinned
-    here. If a cassette later shows which, this test is what makes narrowing it
-    a deliberate edit.
+    This adapter read both while it could not reach the API — one of two
+    published names had to be right and guessing wrong would have silently
+    zeroed the feed. The recording settled it, so the hedge is gone: an alias
+    that never matches is dead code wearing the costume of robustness.
     """
-    record = feodo_entry({ip_key: "203.0.113.9", "malware": "Emotet"})
+    assert _IP_KEY == "ip_address"
+    record = feodo_entry({_IP_KEY: "203.0.113.9", "malware": "Emotet"})
     assert record is not None and record["value"] == "203.0.113.9"
+    assert feodo_entry({"dst_ip": "203.0.113.9"}) is None
 
 
-def test_feodo_ip_keys_stay_a_closed_pair():
-    assert _IP_KEYS == ("ip_address", "dst_ip"), (
-        "the accepted IP field names changed — if a recording settled which one "
-        "is real, narrow to it and say so in the adapter docstring"
+def test_feodo_an_offline_c2_is_not_reported_as_blockable():
+    """The defect the first recording exposed.
+
+    Four of the five entries in the first real response were `offline`, one
+    dark since February. Marking those `block` at High confidence tells a SOC
+    to block a cloud IP that may well have been reassigned to an innocent
+    tenant months ago — the over-claim R3/R4 exist to prevent. They are kept,
+    because they are real history, at a confidence that says so.
+    """
+    live = feodo_entry({_IP_KEY: "203.0.113.9", "status": "online", "malware": "QakBot"})
+    dead = feodo_entry({_IP_KEY: "203.0.113.10", "status": "offline", "malware": "Emotet",
+                        "last_online": "2026-03-07"})
+
+    assert (live["action"], live["confidence"]) == ("block", "High")
+    assert (dead["action"], dead["confidence"]) == ("alert", "Medium")
+    assert "offline_c2" in dead["tags"]
+    assert dead["last_seen"] == "2026-03-07T00:00:00+00:00", (
+        "last_online must be carried so the reader can judge staleness"
     )
 
 
@@ -248,7 +262,7 @@ async def test_feodo_records_survive_the_validation_pipeline(httpx_mock: HTTPXMo
     httpx_mock.add_response(
         url=_FEODO,
         json=[{"ip_address": "203.0.113.9", "port": 443, "malware": "Emotet",
-               "first_seen": "2026-09-01 10:00:00"}],
+               "status": "online", "first_seen": "2026-09-01 10:00:00"}],
     )
 
     result = await FeodoTrackerAdapter(FakeCredentials()).fetch()

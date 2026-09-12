@@ -21,22 +21,26 @@ Feed contract
   - Auth: ``Auth-Key: <auth_key>`` when configured
   - Response: a **top-level JSON array** -- no envelope object.
 
-.. warning::
+Confirmed against a real response (``tests/cassettes/feodo.yaml``, recorded
+2026-09-12). Each entry carries ``ip_address``, ``port``, ``status``,
+``hostname``, ``as_number``, ``as_name``, ``country``, ``first_seen``,
+``last_online`` and ``malware``.
 
-   **The per-entry field names are the unverified part of this adapter.** Every
-   abuse.ch host is unreachable from the development sandbox, so the names
-   below come from abuse.ch's published blocklist documentation rather than
-   from a response anyone has seen. The CSV flavour of the same list uses
-   ``dst_ip`` / ``dst_port`` / ``first_seen_utc``, so it is entirely possible
-   the JSON differs from what is mapped here.
+Two things that recording changed:
 
-   That is why ``_ip_of`` accepts the documented JSON name **and** the CSV
-   spelling: this is a case where one of two published names is right and
-   guessing wrong would silently zero the feed. It is not open-ended
-   permissiveness -- the pair is closed, named, and asserted in a test, and
-   ``guard_parsed`` still raises if neither appears.
+**The field names were a coin-flip and are now settled.** abuse.ch's CSV
+flavour of this same list uses ``dst_ip``; the JSON documentation says
+``ip_address``. This adapter read both while it could not reach the API. The
+JSON uses ``ip_address``, so the hedge is gone.
 
-   **Record a cassette before trusting the rest of the mapping.**
+**Entries carry their own liveness, and most are not live.** ``status`` is
+``online`` or ``offline``, and the first real response was **four offline out
+of five** -- one last seen six months earlier. The first draft of this adapter
+marked every entry ``action: block`` at ``High`` confidence, which is an
+over-claim on a dead C2: a cloud IP dark since February has quite possibly been
+reassigned to an innocent tenant. Offline entries are kept -- they are real
+history -- but as ``alert`` at ``Medium``, tagged ``offline_c2``, with
+``last_seen`` carried so the reader can judge staleness themselves.
 """
 
 from __future__ import annotations
@@ -64,18 +68,19 @@ _CACHE_KEY = "feodo_ipblocklist"
 
 FEED_TYPES = ["botnet_c2"]
 
-# The documented JSON name first, then the CSV spelling of the same field.
-# Closed pair, not a wildcard -- see the module warning.
-_IP_KEYS = ("ip_address", "dst_ip")
-_PORT_KEYS = ("port", "dst_port")
-_FIRST_SEEN_KEYS = ("first_seen", "first_seen_utc")
+# Settled by the recording (2026-09-12): the JSON uses ``ip_address`` /
+# ``port`` / ``first_seen``. The CSV flavour's ``dst_ip`` spelling was carried
+# as a hedge while this code could not reach the API; it is dropped now that it
+# is known not to appear, because an alias that never matches is dead code
+# wearing the costume of robustness. ``guard_parsed`` raises if these names
+# ever stop appearing.
+_IP_KEY = "ip_address"
+_PORT_KEY = "port"
+_FIRST_SEEN_KEY = "first_seen"
 
-
-def _first_present(entry: dict[str, Any], keys: tuple[str, ...]) -> Any:
-    for key in keys:
-        if key in entry:
-            return entry[key]
-    return None
+# Entries carry their own liveness. 4 of the 5 in the first real recording were
+# offline, one dark since February -- see _normalize_entry on why that matters.
+_ONLINE = "online"
 
 
 def _to_rfc3339(raw: Any) -> str | None:
@@ -101,7 +106,7 @@ def _normalize_entry(entry: Any) -> dict[str, Any] | None:
     if not isinstance(entry, dict):
         return None
 
-    raw_ip = _first_present(entry, _IP_KEYS)
+    raw_ip = entry.get(_IP_KEY)
     if not isinstance(raw_ip, str) or not raw_ip.strip():
         return None
     try:
@@ -114,27 +119,43 @@ def _normalize_entry(entry: Any) -> dict[str, Any] | None:
     malware = entry.get("malware")
     malware = malware.strip() if isinstance(malware, str) and malware.strip() else None
 
+    status = entry.get("status")
+    online = isinstance(status, str) and status.strip().lower() == _ONLINE
+
     ioc: dict[str, Any] = {
         "type": "IPv4" if addr.version == 4 else "IPv6",
         "value": str(addr),
-        # A tracked C2 is confirmed infrastructure for a named family, which is
-        # as strong as this repository's feeds get.
-        "confidence": "High",
+        # A *live* tracked C2 is confirmed infrastructure for a named family,
+        # which is as strong as this repository's feeds get. A dead one is not
+        # the same claim: the blocklist keeps entries after the C2 goes dark,
+        # and the first real recording was 4 offline out of 5, one last seen
+        # six months earlier. Telling a SOC to block a host that has not served
+        # Emotet since February -- by then quite possibly reassigned to an
+        # innocent tenant of the same cloud provider -- is exactly the
+        # over-claim R3/R4 exist to prevent. Offline entries are still real
+        # history and are kept, at a confidence that says so.
+        "confidence": "High" if online else "Medium",
         "source": "Feodo Tracker",
-        "action": "block",
+        "action": "block" if online else "alert",
         "tlp": "WHITE",
         "tags": ["feodo", "abuse.ch", "botnet_c2"]
-        + ([malware.lower()] if malware else []),
+        + ([malware.lower()] if malware else [])
+        + ([] if online else ["offline_c2"]),
         "associated_threat": malware or "botnet_c2",
     }
 
-    port = _first_present(entry, _PORT_KEYS)
+    port = entry.get(_PORT_KEY)
     if isinstance(port, int) and 0 < port < 65536:
         ioc["port"] = port
 
-    first_seen = _to_rfc3339(_first_present(entry, _FIRST_SEEN_KEYS))
+    first_seen = _to_rfc3339(entry.get(_FIRST_SEEN_KEY))
     if first_seen:
         ioc["first_seen"] = first_seen
+
+    # Staleness is the reader's to judge, so it is carried rather than summarised.
+    last_online = _to_rfc3339(entry.get("last_online"))
+    if last_online:
+        ioc["last_seen"] = last_online
 
     return ioc
 
