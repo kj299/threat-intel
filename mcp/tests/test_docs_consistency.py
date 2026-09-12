@@ -26,6 +26,21 @@ _README = _MCP_DIR / "README.md"
 _CRED_RE = re.compile(r'credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"')
 
 
+def _adapter_modules() -> set[str]:
+    """Every adapter module, which is the honest denominator for cassettes.
+
+    It used to be the credential count. That conflated two different things and
+    broke the moment keyless adapters were added (#211): three new adapters,
+    zero new credentials, so "N of 13" stayed 13 while the real denominator
+    moved to 16.
+    """
+    return {
+        p.stem
+        for p in _ADAPTERS_DIR.glob("*.py")
+        if p.stem not in ("__init__", "base")
+    }
+
+
 def _code_credentials() -> set[tuple[str, str]]:
     creds: set[tuple[str, str]] = set()
     for py in _ADAPTERS_DIR.glob("*.py"):
@@ -350,7 +365,7 @@ def test_documented_counts_match_the_server_registry():
         r"\*\*(\d+) tools\*\*": len(registered),
         r"(\d+) single-feed tools": len(registered - non_feed_tools),
         r"(\d+) adapter credentials": len(_code_credentials()),
-        r"Recorded for \d+ of (\d+)": len(_code_credentials()),
+        r"Recorded for \d+ of (\d+)": len(_adapter_modules()),
     }
 
     docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD)
