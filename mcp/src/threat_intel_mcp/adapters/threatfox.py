@@ -5,9 +5,11 @@ Fetches recent indicators from the **public** ThreatFox CSV feed
 indicators to ioc_network objects compatible with output.schema.json from
 kj299/threat-intel.
 
-No credential required — this is a free, unauthenticated feed. (Verified against
-the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
-``urllib.request.urlopen`` with no Auth-Key header.)
+No credential **required** — this CSV export answers unauthenticated. (Verified
+against the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
+``urllib.request.urlopen`` with no Auth-Key header.) It is nonetheless *sent*
+when ``ABUSECH_AUTH_KEY`` is configured: abuse.ch gated its APIs on 2025-06-30
+and this export is a grandfathered route, not a promise. See ``_auth_header``.
 
 Feed characteristics (verified from the OpenCTI connector, 2026):
   - GET https://threatfox.abuse.ch/export/csv/recent/
