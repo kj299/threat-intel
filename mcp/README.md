@@ -51,6 +51,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | ThreatFox adapter + `threatfox_fetch_iocs` (free public abuse.ch feed, no key) | ✅ Phase 2 |
+| OpenPhish Community adapter + `openphish_fetch_iocs` (free, no key; non-commercial use only) | ✅ #211 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -58,6 +59,8 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | CISA KEV adapter + `cisa_kev_fetch_cves` (public, no key) | ✅ Phase 5 |
 | NVD 2.0 adapter + `nvd_fetch_cves` (key optional) | ✅ Phase 5 |
 | VulnCheck KEV adapter + `vulncheck_fetch_cves` (key required) | ✅ #198 |
+| EPSS CVE enrichment + `epss_enrich_cves` (free, no key — exploitation probability) | ✅ #211 |
+| OSV.dev CVE enrichment + `osv_enrich_cves` (free, no key — affected packages, fixed versions) | ✅ #211 |
 | Vulnerability-output path (`vulns.py`) + `fetch_all_cves` fan-out | ✅ Phase 5 |
 | Concurrent fan-out (`fetch_all_iocs`) | ✅ Phase 4 |
 | Circuit breakers + backoff retry per source | ✅ Phase 4 |
@@ -71,6 +74,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Empty-parse guard (`guard_parsed` / `UpstreamFormatError`) on every adapter | ✅ #106 |
 | Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, VulnCheck KEV, VirusTotal | ✅ #105, #199, #208 |
 | Cassettes for the remaining eight credentialed adapters | blocked on feed credentials (#169) |
+| Cassettes for OpenPhish / EPSS / OSV | needs a runner with egress (#211) — all three hosts are blocked from the dev sandbox |
 | Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start
@@ -128,7 +132,7 @@ set -a; . ./.env; set +a
 
 Whichever you choose, **Actions secrets are not one of them**: they exist only inside a running workflow, and `scheduled-report.yml` — the one that runs the prompt — is deliberately denied feed credentials, with CI enforcing it. See [why feed keys are isolated](../docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow).
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **ThreatFox and CISA KEV need no key** (free public feeds) and are always available; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **Six sources need no key at all** and are therefore always `consulted`: the IOC feeds ThreatFox and OpenPhish, the CVE feed CISA KEV, and the CVE enrichments EPSS and OSV.dev; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 

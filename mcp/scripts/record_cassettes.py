@@ -46,7 +46,10 @@ from threat_intel_mcp.adapters.nvd import NVDAdapter  # noqa: E402
 from threat_intel_mcp.adapters.otx import OTXAdapter  # noqa: E402
 from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter  # noqa: E402
 from threat_intel_mcp.adapters.shodan import ShodanAdapter  # noqa: E402
-from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter  # noqa: E402
+from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.epss import EPSSAdapter
+from threat_intel_mcp.adapters.osv import OSVAdapter  # noqa: E402
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter  # noqa: E402
 from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter  # noqa: E402
 from threat_intel_mcp.vault.factory import credential_provider_from_env  # noqa: E402
@@ -57,6 +60,11 @@ FEEDS = {
     "threatfox": (lambda c: ThreatFoxAdapter(), False),
     "cisa_kev": (lambda c: CISAKEVAdapter(), False),
     "nvd": (lambda c: NVDAdapter(c), False),  # key optional; works unauthenticated
+    "openphish": (lambda c: OpenPhishAdapter(), False),
+    # EPSS and OSV are enrichment, not feeds -- see _RECORD_ACTIONS below for
+    # the CVEs they are recorded against.
+    "epss": (lambda c: EPSSAdapter(), False),
+    "osv": (lambda c: OSVAdapter(_request_delay=0), False),
     # Keyed — opt in with --all, and only with credentials in the environment.
     "qfeeds": (lambda c: QFeedsAdapter(c), True),
     "abuseipdb": (lambda c: AbuseIPDBAdapter(c), True),
@@ -286,10 +294,25 @@ _SHRINK = {"nvd": shrink_nvd_cassette, "vulncheck": shrink_vulncheck_cassette}
 # permanently allocated, certain to have VirusTotal objects, and carry no
 # verdict that is likely to churn -- a fabricated value would record the 404
 # path instead of the parser.
+#
+# EPSS and OSV are recorded against Log4Shell and Spring4Shell: both are years
+# old, universally catalogued, and certain to stay in every dataset, so the
+# recording exercises the parser rather than a 404 path. A recent CVE would
+# make the cassette expire.
 _RECORD_ACTIONS = {
     "vulncheck": None,  # explicit: fetch-shaped, listed for readability
+    "openphish": None,  # fetch-shaped
     "virustotal": lambda adapter: adapter.enrich(
         ["8.8.8.8", "1.1.1.1"], indicator_type="ip"
+    ),
+    "epss": lambda adapter: adapter.enrich(
+        ["CVE-2021-44228", "CVE-2022-22965"]
+    ),
+    # The recording that settles whether /v1/vulns/ accepts a CVE id at all --
+    # see the warning in adapters/osv.py. If this records two 404s, the
+    # endpoint is wrong and the adapter needs re-targeting.
+    "osv": lambda adapter: adapter.enrich(
+        ["CVE-2021-44228", "CVE-2022-22965"]
     ),
 }
 

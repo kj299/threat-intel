@@ -26,6 +26,21 @@ _README = _MCP_DIR / "README.md"
 _CRED_RE = re.compile(r'credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"')
 
 
+def _adapter_modules() -> set[str]:
+    """Every adapter module, which is the honest denominator for cassettes.
+
+    It used to be the credential count. That conflated two different things and
+    broke the moment keyless adapters were added (#211): three new adapters,
+    zero new credentials, so "N of 13" stayed 13 while the real denominator
+    moved to 16.
+    """
+    return {
+        p.stem
+        for p in _ADAPTERS_DIR.glob("*.py")
+        if p.stem not in ("__init__", "base")
+    }
+
+
 def _code_credentials() -> set[tuple[str, str]]:
     creds: set[tuple[str, str]] = set()
     for py in _ADAPTERS_DIR.glob("*.py"):
@@ -229,6 +244,9 @@ def test_every_credentialed_adapter_has_a_live_check():
     """
     from threat_intel_mcp import server
 
+    import asyncio
+
+    from tests import test_live_feeds as live_module
     from tests.test_live_feeds import (
         _CREDENTIALED_CVE_FEEDS,
         _CREDENTIALED_ENRICHMENT,
@@ -236,22 +254,38 @@ def test_every_credentialed_adapter_has_a_live_check():
     )
 
     registered = {s.name for s in server._FEED_SOURCES + server._VULN_SOURCES}
+    # Enrichment adapters are checked live but are deliberately absent from
+    # _FEED_SOURCES/_VULN_SOURCES, so they are pulled from the registry the
+    # server actually advertises rather than hand-listed here.
+    registered |= {
+        s["name"]
+        for s in asyncio.run(server.list_available_feeds())["enrichment_sources"]
+    }
+
     covered = {
         f[0]
         for f in _CREDENTIALED_IOC_FEEDS
         + _CREDENTIALED_CVE_FEEDS
         + _CREDENTIALED_ENRICHMENT
     }
-    # Enrichment sources are checked live but are deliberately not in
-    # _FEED_SOURCES, so they are covered-but-not-registered rather than a gap.
-    registered |= {"VirusTotal"}
-    # The keyless three are checked by the TestX classes in that module rather
-    # than the parametrised sweeps, so they are the expected difference.
-    keyless = {"ThreatFox", "CISA KEV", "NVD"}
+    # Keyless sources have no "skip if unconfigured" branch, so they are checked
+    # by a TestX class rather than a parametrised sweep. Derived from the class
+    # names, not written out: the hand-written version of this set is exactly
+    # what would go stale when a keyless source is added, and it would go stale
+    # by silently declaring an unchecked feed covered.
+    covered |= {
+        name[len("Test") :]
+        for name in dir(live_module)
+        if name.startswith("Test") and isinstance(getattr(live_module, name), type)
+    }
+    # Class names cannot carry spaces or dots, so the few multi-word sources
+    # are mapped back to their registry names.
+    _CLASS_ALIASES = {"CISAKEV": "CISA KEV", "ThreatFox": "ThreatFox"}
+    covered = {_CLASS_ALIASES.get(name, name) for name in covered}
 
-    assert covered | keyless == registered, (
-        "credentialed live checks are out of step with the server's feed "
-        f"registry; unchecked: {sorted(registered - covered - keyless)}"
+    assert not registered - covered, (
+        "the live check is out of step with the server's source registry; "
+        f"unchecked: {sorted(registered - covered)}"
     )
 
 
@@ -308,16 +342,20 @@ def test_documented_counts_match_the_server_registry():
     from threat_intel_mcp import server
 
     registered = _registered_tools()
-    # A single-feed tool is anything that is not a fan-out, the enrichment
-    # tool, or the registry listing.
-    non_feed_tools = {
-        "fetch_all_iocs",
-        "fetch_all_cves",
-        "virustotal_enrich_iocs",
-        "list_available_feeds",
-    }
-    assert non_feed_tools <= registered, (
-        f"tool renamed out from under this check: {sorted(non_feed_tools - registered)}"
+    # A single-feed tool is anything that is not a fan-out, an enrichment tool,
+    # or the registry listing. The enrichment half is derived from the naming
+    # convention rather than listed, because the hand-written version of this
+    # set went stale the moment a second enrichment tool landed -- and it went
+    # stale by silently inflating the count it was supposed to be checking.
+    fixed_non_feed = {"fetch_all_iocs", "fetch_all_cves", "list_available_feeds"}
+    enrichment_tools = {name for name in registered if "_enrich_" in name}
+    non_feed_tools = fixed_non_feed | enrichment_tools
+    assert fixed_non_feed <= registered, (
+        f"tool renamed out from under this check: {sorted(fixed_non_feed - registered)}"
+    )
+    assert enrichment_tools, (
+        "no *_enrich_* tools found -- the naming convention changed and this "
+        "check is now counting enrichment tools as single-feed tools"
     )
 
     expected: dict[str, int] = {
@@ -327,7 +365,7 @@ def test_documented_counts_match_the_server_registry():
         r"\*\*(\d+) tools\*\*": len(registered),
         r"(\d+) single-feed tools": len(registered - non_feed_tools),
         r"(\d+) adapter credentials": len(_code_credentials()),
-        r"Recorded for \d+ of (\d+)": len(_code_credentials()),
+        r"Recorded for \d+ of (\d+)": len(_adapter_modules()),
     }
 
     docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD)

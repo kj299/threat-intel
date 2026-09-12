@@ -30,6 +30,9 @@ from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter
 from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
+from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.epss import EPSSAdapter
+from threat_intel_mcp.adapters.osv import OSVAdapter
 from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.vault.base import CredentialNotFoundError
 from threat_intel_mcp.vulns import finalize_vulns
@@ -277,3 +280,94 @@ def test_cassette_directory_exists():
     silently and coverage would quietly drop to nothing.
     """
     assert cassette_path("anything").parent.is_dir()
+
+
+# ─── The keyless three (#211) ────────────────────────────────────────────────
+
+
+@_requires("openphish")
+@pytest.mark.asyncio
+async def test_openphish_parses_the_real_feed():
+    """Also proves the redirect is handled.
+
+    The recording contains two interactions: a 302 from openphish.com and the
+    200 from the vendor's GitHub mirror it points at. The first recording
+    attempt failed here — the egress allowlist refused the hop — so replaying
+    both is what keeps that fix honest.
+    """
+    with build_vcr().use_cassette(str(cassette_path("openphish"))):
+        result = await OpenPhishAdapter().fetch(time_range="7d")
+
+    assert result.record_count > 0
+    assert all(i["type"] == "URL" for i in result.iocs)
+    assert all(i["value"].startswith(("http://", "https://")) for i in result.iocs)
+    assert all(i["tlp"] == "GREEN" for i in result.iocs), "non-commercial licence"
+
+
+@_requires("openphish")
+@pytest.mark.asyncio
+async def test_openphish_records_survive_the_pipeline():
+    with build_vcr().use_cassette(str(cassette_path("openphish"))):
+        result = await OpenPhishAdapter().fetch(time_range="7d")
+
+    finalized = finalize_iocs(result.iocs)
+    assert finalized, "every real OpenPhish IOC was dropped by finalize_iocs"
+    assert len(finalized) >= len(result.iocs) * 0.9
+
+
+@_requires("epss")
+@pytest.mark.asyncio
+async def test_epss_parses_the_real_scores():
+    """The probabilities are string-serialised upstream (`"0.996380000"`).
+
+    Confirmed present in the recording, which is the only thing separating
+    `_as_float` from a guess about the wire format.
+    """
+    with build_vcr().use_cassette(str(cassette_path("epss"))):
+        result = await EPSSAdapter().enrich(["CVE-2021-44228", "CVE-2022-22965"])
+
+    assert result["record_count"] == 2
+    for record in result["enrichments"]:
+        assert isinstance(record["epss"], float)
+        assert 0.0 <= record["epss"] <= 1.0
+        assert isinstance(record["percentile"], float)
+        assert record["priority"] in ("high", "medium", "low")
+        assert record["scored_on"]
+
+
+@_requires("osv")
+@pytest.mark.asyncio
+async def test_osv_resolves_a_cve_id():
+    """Settles the FAQ-vs-issue-tracker disagreement with real bytes."""
+    with build_vcr().use_cassette(str(cassette_path("osv"))):
+        result = await OSVAdapter(_request_delay=0).enrich(
+            ["CVE-2021-44228", "CVE-2022-22965"]
+        )
+
+    assert result["record_count"] == 2
+    assert result["not_found"] == []
+
+
+@_requires("osv")
+@pytest.mark.asyncio
+async def test_osv_finds_packages_despite_the_cve_record_having_none():
+    """The regression test for the defect this cassette exposed.
+
+    `/v1/vulns/{CVE}` returns the CVE-derived record, whose `affected` entries
+    carry GIT commit ranges and no `package` object. The single-hop parser
+    returned records with no `affected_packages` at all — well-formed, valid,
+    and useless — so the adapter now follows the alias.
+
+    If this cassette is ever re-recorded and OSV has started returning packages
+    on the CVE record directly, this still passes: it asserts the packages are
+    *there*, not how they were reached.
+    """
+    with build_vcr().use_cassette(str(cassette_path("osv"))):
+        result = await OSVAdapter(_request_delay=0).enrich(["CVE-2021-44228"])
+
+    record = result["enrichments"][0]
+    assert record.get("affected_packages"), (
+        "no affected_packages from a real OSV response — the only reason to "
+        "call OSV rather than NVD. Check whether alias-following still works."
+    )
+    assert all(p.get("ecosystem") for p in record["affected_packages"])

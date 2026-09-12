@@ -43,6 +43,7 @@ import sys
 # The server's own source lists, imported rather than restated: a feed added to
 # the tool surface is then prefetched automatically, and the two cannot drift.
 from threat_intel_mcp.fanout import fan_out
+from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.server import _FEED_SOURCES, _VULN_SOURCES
 from threat_intel_mcp.vulns import fan_out_vulns
 
@@ -84,18 +85,65 @@ def assert_no_credentials(payload: str) -> None:
         )
 
 
+# EPSS scores are capped per run so a pathological CVE week cannot turn the
+# prefetch into a long sweep. 500 is roughly three times a normal weekly window.
+_MAX_CVES_TO_SCORE = 500
+
+
+async def _score_with_epss(vulns: dict) -> dict | None:
+    """Rank the fetched CVEs by exploitation probability.
+
+    This runs in the prefetch rather than being left to the agent because the
+    `generate` job holds no MCP server at all -- that is the whole point of the
+    two-job split (#169). An enrichment nobody calls is an enrichment that does
+    not exist, which is where `virustotal_enrich_iocs` still sits.
+
+    EPSS is the one enrichment that can be wired in without a cost decision:
+    it is keyless, free, and batched 100 CVEs per request, so scoring a whole
+    weekly window is a handful of requests against no quota. (VirusTotal is
+    one lookup per indicator against 500/day, which is why it is still not
+    here.)
+
+    A failure here degrades rather than fails: the CVE records are already in
+    hand and are worth delivering unranked.
+    """
+    ids = [v["cve_id"] for v in vulns.get("vulns", []) if v.get("cve_id")]
+    if not ids:
+        return None
+    if len(ids) > _MAX_CVES_TO_SCORE:
+        ids = ids[:_MAX_CVES_TO_SCORE]
+
+    try:
+        return await EPSSAdapter().enrich(ids)
+    except Exception as exc:  # noqa: BLE001 - an unranked report still ships
+        print(f"EPSS enrichment degraded: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return {
+            "enrichments": [],
+            "source": "EPSS",
+            "record_count": 0,
+            "scored": [],
+            "not_scored": [],
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 async def collect(time_range: str) -> dict:
     """Fetch IOC and CVE feeds concurrently and return one combined payload."""
     iocs, vulns = await asyncio.gather(
         fan_out(_FEED_SOURCES, time_range=time_range),
         fan_out_vulns(_VULN_SOURCES, time_range=time_range),
     )
-    return {
+    # Sequential, not gathered: it needs the CVE ids the fan-out just produced.
+    epss = await _score_with_epss(vulns)
+    payload = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "time_range": time_range,
         "iocs": iocs,
         "vulns": vulns,
     }
+    if epss is not None:
+        payload["cve_enrichment"] = {"epss": epss}
+    return payload
 
 
 def summarise(payload: dict) -> str:
@@ -114,6 +162,15 @@ def summarise(payload: dict) -> str:
         )
         for degraded in block["sources_degraded"]:
             lines.append(f"  degraded: {degraded['source']} — {degraded.get('error', '?')}")
+    epss = payload.get("cve_enrichment", {}).get("epss")
+    if epss is not None:
+        if epss.get("error"):
+            lines.append(f"epss: degraded — {epss['error']}")
+        else:
+            lines.append(
+                f"epss: {epss['record_count']} of "
+                f"{epss['record_count'] + len(epss['not_scored'])} CVEs scored"
+            )
     return "\n".join(lines)
 
 

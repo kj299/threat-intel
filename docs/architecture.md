@@ -20,7 +20,7 @@ flowchart TD
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
-        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       list_available_feeds"]
+        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       openphish_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       epss_enrich_cves\n       osv_enrich_cves\n       list_available_feeds"]
 
         FanOut["fetch_all_iocs fan-out\nfanout.py\nasyncio.gather over all sources\nmerge + cross-source dedup"]
         VulnFanOut["fetch_all_cves fan-out\nvulns.py\nfan_out_vulns over CVE sources\nmerge + dedup by CVE ID"]
@@ -34,11 +34,14 @@ flowchart TD
         subgraph Adapters["Adapters"]
             QFeeds["QFeedsAdapter\nadapters/qfeeds.py\nHTTP Basic auth\n20-min cache"]
             AbuseIPDB["AbuseIPDBAdapter\nadapters/abuseipdb.py\nHeader Key auth\n60-min cache"]
-            VT["VirusTotalAdapter\nadapters/virustotal.py\nx-apikey header\n15-min cache\n15s rate limit"]
+            VT["VirusTotalAdapter\nadapters/virustotal.py\nENRICHMENT, not a feed\nx-apikey header\n15-min cache\n15s rate limit"]
             OTX["OTXAdapter\nadapters/otx.py\nX-OTX-API-KEY header\n60-min cache"]
             Shodan["ShodanAdapter\nadapters/shodan.py\nkey query param (log-redacted)\n60-min cache"]
             GreyNoise["GreyNoiseAdapter\nadapters/greynoise.py\nkey header\nGNQL classification:malicious\n60-min cache"]
             ThreatFox["ThreatFoxAdapter\nadapters/threatfox.py\npublic CSV (no key)\n15-min cache"]
+            OpenPhish["OpenPhishAdapter\nadapters/openphish.py\npublic text (no key)\n12-hour cache"]
+            EPSS["EPSSAdapter\nadapters/epss.py\nCVE ENRICHMENT, no key\nbatched 100/request\n60-min cache"]
+            OSV["OSVAdapter\nadapters/osv.py\nCVE ENRICHMENT, no key\n60-min cache"]
             AnyRun["AnyRunAdapter\nadapters/anyrun.py\nTAXII2 STIX\n60-min cache"]
             Intel471["Intel471Adapter\nadapters/intel471.py\nHTTP Basic\nindicators/stream\n60-min cache"]
             Censys["CensysAdapter\nadapters/censys.py\nHTTP Basic\nhosts/search labels:malware\n60-min cache"]
@@ -60,11 +63,14 @@ flowchart TD
     subgraph Ext["External Feeds"]
         QFeedsAPI["Q-Feeds API\nhttps://api.qfeeds.com/api\npaginated · malware_ip · malware_domains"]
         AbuseIPDB_API["AbuseIPDB API\nhttps://api.abuseipdb.com/api/v2/blacklist\nsingle request · up to 10,000 IPs"]
-        VT_API["VirusTotal API v3\nhttps://www.virustotal.com/api/v3\nfeeds/malicious_ips · feeds/malicious_domains\nnewline-delimited JSON"]
+        VT_API["VirusTotal API v3\nhttps://www.virustotal.com/api/v3\nGET /ip_addresses/{ip} · /domains/{d}\nper-indicator lookup (the bulk feeds\npath was removed in #203 — it 404d)"]
         OTX_API["AlienVault OTX API\nhttps://otx.alienvault.com/api/v1\nGET /pulses/subscribed · paginated"]
         Shodan_API["Shodan API\nhttps://api.shodan.io\nGET /shodan/host/search · category:malware · paginated"]
         GreyNoise_API["GreyNoise API\nhttps://api.greynoise.io\nGET /v3/gnql · classification:malicious · scroll paginated"]
         ThreatFox_API["ThreatFox feed\nhttps://threatfox.abuse.ch/export/csv/recent/\npublic CSV"]
+        OpenPhish_API["OpenPhish Community feed\nhttps://openphish.com/feed.txt\npublic text · 300 URLs · 12h refresh"]
+        EPSS_API["FIRST.org EPSS API\nhttps://api.first.org/data/v1/epss\nGET ?cve=a,b,c · no auth"]
+        OSV_API["OSV.dev API\nhttps://api.osv.dev/v1\nGET /vulns/{id} · no auth"]
         AnyRun_API["ANY.RUN API\nhttps://api.any.run/v1\nGET /feeds/taxii2/... · STIX"]
         Intel471_API["Intel 471 API\nhttps://api.intel471.com/v1\nGET /indicators/stream · cursor"]
         Censys_API["Censys API v2\nhttps://search.censys.io/api/v2\nGET /hosts/search · labels:malware"]
@@ -86,6 +92,7 @@ flowchart TD
     Resilience -->|"guarded_fetch"| Shodan
     Resilience -->|"guarded_fetch"| GreyNoise
     Resilience -->|"guarded_fetch"| ThreatFox
+    Resilience -->|"guarded_fetch"| OpenPhish
     Resilience -->|"guarded_fetch"| AnyRun
     Resilience -->|"guarded_fetch"| Intel471
     Resilience -->|"guarded_fetch"| Censys
@@ -129,6 +136,12 @@ flowchart TD
     GreyNoise_API -->|"JSON data records"| GreyNoise
     ThreatFox -->|"GET /export/csv/recent/ (no auth)"| ThreatFox_API
     ThreatFox_API -->|"CSV rows"| ThreatFox
+    OpenPhish -->|"GET /feed.txt (no auth)"| OpenPhish_API
+    OpenPhish_API -->|"one URL per line"| OpenPhish
+    EPSS -->|"GET ?cve=... (no auth)"| EPSS_API
+    EPSS_API -->|"data[] cve · epss · percentile"| EPSS
+    OSV -->|"GET /vulns/{cve} (no auth)"| OSV_API
+    OSV_API -->|"OSV record · affected[] · fixed"| OSV
     AnyRun -->|"GET /feeds/taxii2/.../objects"| AnyRun_API
     AnyRun_API -->|"STIX objects"| AnyRun
     Intel471 -->|"GET /indicators/stream"| Intel471_API
@@ -146,6 +159,7 @@ flowchart TD
     Shodan -->|"raw ioc_network objects"| Normalize
     GreyNoise -->|"raw ioc_network objects"| Normalize
     ThreatFox -->|"raw ioc_network objects"| Normalize
+    OpenPhish -->|"raw ioc_network objects"| Normalize
     AnyRun -->|"raw ioc_network objects"| Normalize
     Intel471 -->|"raw ioc_network objects"| Normalize
     Censys -->|"raw ioc_network objects"| Normalize

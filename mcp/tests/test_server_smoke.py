@@ -52,8 +52,8 @@ _CREDENTIALED_FEED_TOOLS = [
     "intel471_fetch_iocs",
     "censys_fetch_iocs",
 ]
-# Free public abuse.ch feeds: no credential, so they always attempt the network.
-_PUBLIC_FEED_TOOLS = ["threatfox_fetch_iocs"]
+# Keyless public feeds: no credential, so they always attempt the network.
+_PUBLIC_FEED_TOOLS = ["threatfox_fetch_iocs", "openphish_fetch_iocs"]
 _SINGLE_FEED_TOOLS = _CREDENTIALED_FEED_TOOLS + _PUBLIC_FEED_TOOLS
 # CVE feeds: emit CVE-keyed vuln records via a separate fan-out path.
 # CISA KEV needs no credential and NVD's key is optional, so both always attempt
@@ -67,7 +67,10 @@ _CREDENTIALED_CVE_TOOLS = ["vulncheck_fetch_cves"]
 # supplies rather than discovering any, so it is absent from _SINGLE_FEED_TOOLS
 # and from fetch_all_iocs. Keeping it in the feed lists is what let a
 # non-existent feed endpoint sit in the registry unnoticed (#203).
-_ENRICHMENT_TOOLS = ["virustotal_enrich_iocs"]
+# EPSS and OSV are CVE enrichment: they score/annotate CVEs the caller
+# supplies, so they are absent from _CVE_FEED_TOOLS and from fetch_all_cves
+# for exactly the reason VirusTotal is absent from the IOC feed lists.
+_ENRICHMENT_TOOLS = ["virustotal_enrich_iocs", "epss_enrich_cves", "osv_enrich_cves"]
 _ALL_TOOLS = (
     _SINGLE_FEED_TOOLS
     + _CVE_FEED_TOOLS
@@ -77,13 +80,14 @@ _ALL_TOOLS = (
 
 _EXPECTED_SOURCES = {
     "Q-Feeds", "AbuseIPDB", "AlienVault OTX", "Shodan",
-    "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox",
+    "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox", "OpenPhish",
 }
 _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 
 # abuse.ch public feed URLs (mocked so the public tools fail gracefully offline).
 _PUBLIC_FEED_URLS = {
     "threatfox_fetch_iocs": "https://threatfox.abuse.ch/export/csv/recent/",
+    "openphish_fetch_iocs": "https://openphish.com/feed.txt",
 }
 # Government CVE feed URL patterns (mocked so the CVE tools fail offline). NVD
 # carries a query string, so both are matched as regexes on the endpoint prefix.
@@ -280,6 +284,7 @@ _FEED_TYPE_VALIDATING_TOOLS = [
     "intel471_fetch_iocs",
     "censys_fetch_iocs",
     "threatfox_fetch_iocs",
+    "openphish_fetch_iocs",
     "cisa_kev_fetch_cves",
     "nvd_fetch_cves",
     "vulncheck_fetch_cves",
@@ -413,9 +418,9 @@ async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
 async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeypatch):
     """fetch_all_iocs fans out across every source and returns a coherent result
     without crashing. With no credentials, the nine credentialed sources degrade
-    to 'unverified' (no network); the public feed needs no key, so — served
-    an empty feed here — it comes back 'consulted' with zero records. Every
-    source appears in the Coverage Ledger exactly once."""
+    to 'unverified' (no network); the two keyless feeds need no key, so —
+    served an empty feed here — they come back 'consulted' with zero records.
+    Every source appears in the Coverage Ledger exactly once."""
     for var in _CRED_VARS:
         monkeypatch.delenv(var, raising=False)
     for url in _PUBLIC_FEED_URLS.values():
@@ -424,9 +429,9 @@ async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
     result = await server.fetch_all_iocs()
 
     assert result["record_count"] == 0
-    assert set(result["sources_consulted"]) == {"ThreatFox"}
+    assert set(result["sources_consulted"]) == {"ThreatFox", "OpenPhish"}
     degraded = {d["source"] for d in result["sources_degraded"]}
-    assert degraded == _EXPECTED_SOURCES - {"ThreatFox"}
+    assert degraded == _EXPECTED_SOURCES - {"ThreatFox", "OpenPhish"}
     assert {e["source"] for e in result["coverage_ledger"]} == _EXPECTED_SOURCES
 
 
