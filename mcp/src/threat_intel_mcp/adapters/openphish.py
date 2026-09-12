@@ -22,13 +22,21 @@ directly (2026-09-12):
   - 300 entries -- the Community feed is capped at the most recent 300, so a
     full body is ~17 KB. Nothing is paginated.
 
-.. note::
+**``openphish.com/feed.txt`` redirects to that GitHub mirror.** Learned from a
+recording run, not from the docs: the first real request 30x'd to
+``raw.githubusercontent.com`` and the egress allowlist -- correctly -- refused
+the hop, because the allowlist names the host you *asked for*, not the host you
+end up at. So the two sources are not merely consistent, they are the same
+bytes, and the mirror this adapter's format was read from is the canonical
+feed.
 
-   Those bytes came from the GitHub mirror because ``openphish.com`` is
-   unreachable from the development sandbox. The mirror is published by
-   OpenPhish under their own GitHub organisation, so it is the vendor's copy
-   rather than a third party's -- but the canonical URL is what this adapter
-   requests, and only a recorded cassette proves the two agree.
+Both hosts are therefore allowlisted. Widening an egress allowlist is not free
+-- ``raw.githubusercontent.com`` serves every public file on GitHub, so a
+compromised adapter could address far more of it than one pinned host -- but
+the alternative is worse: dropping ``follow_redirects`` makes the adapter
+depend on OpenPhish never changing where the canonical URL points, and
+requesting the mirror directly abandons the canonical URL for a path that is an
+implementation detail OpenPhish can change without notice.
 
 Terms of use
 ------------
@@ -127,7 +135,11 @@ class OpenPhishAdapter:
         return httpx.AsyncClient(
             headers={"User-Agent": "threat-intel-mcp (kj299/threat-intel)"},
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
-            event_hooks=egress_event_hooks("openphish.com"),
+            # openphish.com 302s to the vendor's own GitHub mirror; the
+            # allowlist is checked per hop, so both must be named.
+            event_hooks=egress_event_hooks(
+                "openphish.com", "raw.githubusercontent.com"
+            ),
             follow_redirects=True,
         )
 

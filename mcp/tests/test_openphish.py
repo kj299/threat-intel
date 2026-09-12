@@ -104,13 +104,38 @@ async def test_an_unknown_feed_type_is_a_caller_error(adapter):
 
 
 @pytest.mark.asyncio
-async def test_egress_is_restricted_to_openphish(adapter):
+async def test_egress_is_restricted_to_openphish_and_its_mirror(adapter):
+    """Two hosts, and exactly two.
+
+    ``openphish.com`` 302s to the vendor's GitHub mirror and the allowlist is
+    checked per hop, so the redirect target has to be named too — a fact this
+    repository learned from a recording run, when the guard refused the hop and
+    the record failed. ``raw.githubusercontent.com`` is a broad host to admit,
+    so the pair is pinned here: widening it again should take a deliberate edit
+    to a test, not a quiet edit to a constructor.
+    """
     client = adapter._make_client()
     try:
         with pytest.raises(Exception):
             await client.get("https://evil.example.com/")
+        # github.com is NOT raw.githubusercontent.com — a prefix/suffix match
+        # would wave this through.
+        with pytest.raises(Exception):
+            await client.get("https://github.com/openphish/public_feed")
+        with pytest.raises(Exception):
+            await client.get("https://notopenphish.com/feed.txt")
     finally:
         await client.aclose()
+
+
+def test_the_allowlist_names_exactly_the_two_expected_hosts():
+    import inspect
+
+    source = inspect.getsource(OpenPhishAdapter._make_client)
+    assert 'egress_event_hooks(\n                "openphish.com", "raw.githubusercontent.com"\n            )' in source, (
+        "the egress allowlist changed — if that is deliberate, say why in the "
+        "adapter docstring and update this test"
+    )
 
 
 @pytest.mark.asyncio

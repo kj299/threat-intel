@@ -27,24 +27,21 @@ Feed contract
     ``aliases``, ``summary``, ``details``, ``severity``, ``affected``,
     ``references``.
 
-.. warning::
+**``/v1/vulns/`` does accept CVE identifiers.** That was the open question this
+adapter was built around -- OSV's FAQ said yes, a 2023 issue in the same
+repository reported "Bug not found" -- and ``api.osv.dev`` is unreachable from
+the development sandbox, so no amount of reading settled it. A recording run on
+2026-09-12 did: ``CVE-2021-44228`` and ``CVE-2022-22965`` both resolved and both
+parsed. See ``tests/cassettes/osv.yaml``.
 
-   **Whether ``/v1/vulns/`` accepts a CVE id is the unverified part of this
-   adapter, and it is the part everything else rests on.** OSV's own FAQ says
-   CVE ids are accepted there; a 2023 issue in the same repository reports
-   "Bug not found" for exactly that. ``api.osv.dev`` is unreachable from the
-   development sandbox, so this code cannot settle it.
-
-   That is precisely the situation that produced #203 -- an endpoint assembled
-   from belief, mock-tested against a fixture written from the same belief,
-   404ing on the first real call. The difference here is
-   ``_ALL_MISSING_IS_A_FORMAT_ERROR`` below: a 404 for one CVE is an ordinary
-   "OSV has no record", but a 404 for **every** CVE in a batch is
-   indistinguishable from an endpoint that does not accept CVE ids, so it
-   raises instead of reporting a confident zero. A wrong guess here fails
-   loudly on first contact rather than quietly forever.
-
-   Record a cassette before trusting the field mapping.
+``_ALL_MISSING_IS_A_FORMAT_ERROR`` below stays anyway. It was written for the
+case where the endpoint was wrong, but it guards the same failure if OSV ever
+*stops* accepting CVE ids: a 404 for one CVE is an ordinary "OSV has no record"
+-- it only covers open-source ecosystems -- while a 404 for **every** CVE in a
+batch is indistinguishable from an endpoint that no longer takes these
+identifiers, so it raises rather than reporting a confident zero. That is the
+#203 failure mode, and the guard is what makes it loud on first contact instead
+of silent forever.
 """
 
 from __future__ import annotations

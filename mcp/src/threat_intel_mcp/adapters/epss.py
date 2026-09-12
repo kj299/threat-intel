@@ -20,9 +20,11 @@ handful likely to be attacked from the rest.
 
 Feed contract
 -------------
-Taken from FIRST.org's published API reference. **Not yet confirmed against a
-real response** -- ``api.first.org`` is unreachable from the development
-sandbox, so record a cassette before trusting the field mapping.
+Taken from FIRST.org's published API reference, then confirmed against a real
+response on 2026-09-12 (``tests/cassettes/epss.yaml``): ``CVE-2021-44228`` and
+``CVE-2022-22965`` both came back scored and parsed. ``api.first.org`` is
+unreachable from the development sandbox, so that recording is the only thing
+standing between this mapping and belief.
 
   - ``GET https://api.first.org/data/v1/epss?cve=CVE-2021-44228,CVE-2021-45046``
   - No auth, no key.
