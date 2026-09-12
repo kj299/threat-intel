@@ -186,6 +186,17 @@ described or ran it.
    > sandboxes may block these (proxy `CONNECT 403`) — verified blocked in the
    > default cloud environment on 2026-07-24. Run from an environment with
    > open egress, or accept a no-live-data report that says so.
+   >
+   > **This is per-environment and it changes — check, don't assume.** On
+   > 2026-09-12 a Claude Code on the web session reached every keyless feed
+   > through the agent proxy and completed a full 7d prefetch: ThreatFox 8,024
+   > records, OpenPhish 300, CISA KEV 1,709, NVD 7,126, EPSS 499 scored, OSV
+   > queried. The 2026-07-24 result above was real when recorded and is not
+   > retracted; it is simply no longer a reason to skip the attempt. Probe
+   > first — `curl -s -o /dev/null -w '%{http_code}'` against
+   > `https://threatfox.abuse.ch/export/csv/recent/` and
+   > `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`
+   > costs seconds and settles it.
 
 2. **Invoke** the skill (`/cyber-threat-intel`), defaults or a chosen persona
    and time range.
