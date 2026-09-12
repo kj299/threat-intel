@@ -225,3 +225,134 @@ async def test_a_repeated_cve_is_served_from_cache(adapter, httpx_mock: HTTPXMoc
     await adapter.enrich(["CVE-2021-44228"])
 
     assert len(httpx_mock.get_requests()) == 1
+
+
+# ─── Alias-following: the defect the recording found ─────────────────────────
+
+
+def _cve_derived_record(cve="CVE-2021-44228", alias="GHSA-jfh8-c2jp-5v3q"):
+    """The shape `/v1/vulns/{CVE}` actually returns.
+
+    Copied from tests/cassettes/osv.yaml: `affected` carries GIT commit ranges
+    and `versions`, and **no `package` object**. Written out here rather than
+    only in the cassette because this is the shape every assertion below turns
+    on, and a reader should not have to open a 65 KB YAML to see it.
+    """
+    return {
+        "id": cve,
+        "aliases": [alias],
+        "modified": "2026-01-02T03:04:05Z",
+        "published": "2021-12-10T00:00:00Z",
+        "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N"}],
+        "affected": [
+            {
+                "ranges": [
+                    {
+                        "type": "GIT",
+                        "repo": "https://github.com/apache/logging-log4j2",
+                        "events": [{"introduced": "0"}, {"fixed": "38513a7d"}],
+                    }
+                ],
+                "versions": ["rel/2.3", "log4j-2.12.1"],
+                "database_specific": {"osv_generated_from": "cvelistV5"},
+            }
+        ],
+        "references": [{"type": "ADVISORY", "url": "https://example.test/a"}],
+    }
+
+
+def _ghsa_record(alias="GHSA-jfh8-c2jp-5v3q"):
+    """The aliased ecosystem advisory — this is where the packages live."""
+    return {
+        "id": alias,
+        "affected": [
+            {
+                "package": {
+                    "ecosystem": "Maven",
+                    "name": "org.apache.logging.log4j:log4j-core",
+                },
+                "ranges": [{"events": [{"introduced": "2.0"}, {"fixed": "2.15.0"}]}],
+            }
+        ],
+    }
+
+
+def test_a_cve_derived_record_yields_no_packages_on_its_own():
+    """The defect, stated as a fact about the data.
+
+    Every `/v1/vulns/{CVE}` record looks like this. A parser that stops here
+    returns a well-formed record whose most useful field is simply absent —
+    and it would look healthy forever, because nothing about it is malformed.
+    """
+    record = _normalize_record("CVE-2021-44228", _cve_derived_record())
+
+    assert "affected_packages" not in record
+    assert record["severity"], "the rest of the record is fine — that is the trap"
+
+
+@pytest.mark.asyncio
+async def test_packages_are_taken_from_the_alias(adapter, httpx_mock: HTTPXMock):
+    httpx_mock.add_response(url=f"{_API}/CVE-2021-44228", json=_cve_derived_record())
+    httpx_mock.add_response(url=f"{_API}/GHSA-jfh8-c2jp-5v3q", json=_ghsa_record())
+
+    result = await adapter.enrich(["CVE-2021-44228"])
+    record = result["enrichments"][0]
+
+    assert record["affected_packages"] == [
+        {
+            "ecosystem": "Maven",
+            "name": "org.apache.logging.log4j:log4j-core",
+            "fixed": ["2.15.0"],
+        }
+    ]
+    assert record["packages_from"] == "GHSA-jfh8-c2jp-5v3q", (
+        "provenance must say which record the packages came from — they are not "
+        "from the CVE record the caller asked about"
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_alias_hop_when_the_record_already_has_packages(
+    adapter, httpx_mock: HTTPXMock
+):
+    """Don't spend a second request against a free public service for nothing."""
+    httpx_mock.add_response(url=f"{_API}/CVE-2021-44228", json=_record())
+
+    await adapter.enrich(["CVE-2021-44228"])
+
+    assert len(httpx_mock.get_requests()) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unresolvable_alias_degrades_to_no_packages(
+    adapter, httpx_mock: HTTPXMock
+):
+    """A missing alias must not sink the record: severity, references and
+    aliases are still worth returning unranked by package."""
+    httpx_mock.add_response(url=f"{_API}/CVE-2021-44228", json=_cve_derived_record())
+    httpx_mock.add_response(url=f"{_API}/GHSA-jfh8-c2jp-5v3q", status_code=404)
+
+    result = await adapter.enrich(["CVE-2021-44228"])
+    record = result["enrichments"][0]
+
+    assert result["found"] == ["CVE-2021-44228"]
+    assert "affected_packages" not in record
+    assert "packages_from" not in record
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+async def test_alias_hops_are_capped(adapter, httpx_mock: HTTPXMock):
+    """A CVE with a long alias list must not turn one lookup into a sweep."""
+    from threat_intel_mcp.adapters.osv import _MAX_ALIAS_HOPS
+
+    body = _cve_derived_record()
+    body["aliases"] = [f"GHSA-{i:04d}-xxxx-yyyy" for i in range(10)]
+    httpx_mock.add_response(url=f"{_API}/CVE-2021-44228", json=body)
+    for alias in body["aliases"]:
+        httpx_mock.add_response(url=f"{_API}/{alias}", status_code=404)
+
+    await adapter.enrich(["CVE-2021-44228"])
+
+    # 1 CVE lookup + at most _MAX_ALIAS_HOPS alias lookups
+    assert len(httpx_mock.get_requests()) == 1 + _MAX_ALIAS_HOPS

@@ -27,12 +27,26 @@ Feed contract
     ``aliases``, ``summary``, ``details``, ``severity``, ``affected``,
     ``references``.
 
-**``/v1/vulns/`` does accept CVE identifiers.** That was the open question this
-adapter was built around -- OSV's FAQ said yes, a 2023 issue in the same
-repository reported "Bug not found" -- and ``api.osv.dev`` is unreachable from
-the development sandbox, so no amount of reading settled it. A recording run on
-2026-09-12 did: ``CVE-2021-44228`` and ``CVE-2022-22965`` both resolved and both
-parsed. See ``tests/cassettes/osv.yaml``.
+**``/v1/vulns/`` accepts CVE identifiers, but the record it returns is not the
+one with the packages in it.** Both halves were learned from a recording run on
+2026-09-12, and the second half was a defect.
+
+The FAQ said CVE ids work, a 2023 issue on the same repository said "Bug not
+found", and ``api.osv.dev`` is unreachable from the development sandbox, so
+reading could not settle it. The recording did: ``CVE-2021-44228`` and
+``CVE-2022-22965`` both resolved. What they resolved *to* was the surprise --
+the **CVE-derived** record (``database_specific.osv_generated_from`` names
+CVEProject/cvelistV5), whose ``affected`` entries carry ``GIT`` commit ranges
+and **no ``package`` object at all**. The ecosystem and package data lives in
+the GHSA record named in ``aliases``.
+
+So a single-hop adapter returned records that parsed cleanly, validated
+cleanly, and carried nothing under ``affected_packages`` -- which is the only
+reason to call OSV rather than NVD. It would have looked healthy forever. This
+adapter therefore **follows the alias**: when the CVE record names no packages,
+it fetches up to ``_MAX_ALIAS_HOPS`` of its aliases and takes the packages from
+there, recording which alias supplied them in ``packages_from`` so the
+provenance is never guessed at.
 
 ``_ALL_MISSING_IS_A_FORMAT_ERROR`` below stays anyway. It was written for the
 case where the endpoint was wrong, but it guards the same failure if OSV ever
@@ -66,6 +80,11 @@ _API_BASE = "https://api.osv.dev/v1"
 CACHE_TTL_SECONDS = 3600
 
 MAX_CVES_PER_CALL = 200
+
+# How many aliases to try when the CVE record names no packages. Log4Shell has
+# one (its GHSA); the cap exists so a CVE with a long alias list cannot turn one
+# lookup into a sweep.
+_MAX_ALIAS_HOPS = 3
 
 # See the module warning: every id missing is treated as a format error rather
 # than an empty result. Named so the reason survives a refactor.
@@ -108,28 +127,7 @@ def _normalize_record(cve: str, body: Any) -> dict[str, Any]:
         if cleaned:
             record["aliases"] = cleaned
 
-    # Affected packages: the reason to call OSV at all. Ecosystem/name pairs and
-    # the fixed versions, copied verbatim -- never inferred.
-    affected = body.get("affected")
-    packages: list[dict[str, Any]] = []
-    if isinstance(affected, list):
-        for item in affected:
-            if not isinstance(item, dict):
-                continue
-            pkg = item.get("package")
-            if not isinstance(pkg, dict):
-                continue
-            entry: dict[str, Any] = {}
-            for key in ("ecosystem", "name", "purl"):
-                value = _text(pkg.get(key))
-                if value:
-                    entry[key] = value
-            if not entry:
-                continue
-            fixed = _fixed_versions(item.get("ranges"))
-            if fixed:
-                entry["fixed"] = fixed
-            packages.append(entry)
+    packages = extract_packages(body)
     if packages:
         record["affected_packages"] = packages
 
@@ -154,6 +152,38 @@ def _normalize_record(cve: str, body: Any) -> dict[str, Any]:
             record["references"] = urls
 
     return record
+
+
+def extract_packages(body: Any) -> list[dict[str, Any]]:
+    """Pull ecosystem/package entries out of an OSV record's ``affected`` list.
+
+    Returns ``[]`` for a record whose ``affected`` entries carry only GIT commit
+    ranges -- which is what every CVE-keyed record does. That empty return is
+    the signal the adapter uses to go and ask an alias instead; it is not an
+    error, and it must not be mistaken for "this CVE affects nothing".
+    """
+    affected = body.get("affected") if isinstance(body, dict) else None
+    packages: list[dict[str, Any]] = []
+    if not isinstance(affected, list):
+        return packages
+    for item in affected:
+        if not isinstance(item, dict):
+            continue
+        pkg = item.get("package")
+        if not isinstance(pkg, dict):
+            continue
+        entry: dict[str, Any] = {}
+        for key in ("ecosystem", "name", "purl"):
+            value = _text(pkg.get(key))
+            if value:
+                entry[key] = value
+        if not entry:
+            continue
+        fixed = _fixed_versions(item.get("ranges"))
+        if fixed:
+            entry["fixed"] = fixed
+        packages.append(entry)
+    return packages
 
 
 def _fixed_versions(ranges: Any) -> list[str]:
@@ -291,13 +321,49 @@ class OSVAdapter:
         }
 
     async def _lookup(self, client: httpx.AsyncClient, cve: str) -> dict[str, Any]:
-        url = f"{_API_BASE}/vulns/{cve}"
+        body = await self._fetch(client, cve)
+        record = _normalize_record(cve, body)
+        if "affected_packages" not in record:
+            await self._follow_aliases(client, body, record)
+        return record
+
+    async def _follow_aliases(
+        self, client: httpx.AsyncClient, body: dict[str, Any], record: dict[str, Any]
+    ) -> None:
+        """Take packages from an alias when the CVE record has none.
+
+        A CVE-keyed OSV record carries GIT commit ranges, not packages; the
+        ecosystem advisory it aliases carries the packages. Without this the
+        adapter returns a well-formed record with its most useful field simply
+        absent -- see the module docstring.
+        """
+        aliases = [a for a in (body.get("aliases") or []) if isinstance(a, str) and a.strip()]
+        for alias in aliases[:_MAX_ALIAS_HOPS]:
+            await asyncio.sleep(self._request_delay)
+            try:
+                alias_body = await self._fetch(client, alias.strip())
+            except Exception as exc:  # noqa: BLE001 - an alias miss is not fatal
+                logger.debug("OSV alias %s not usable: %s", alias, type(exc).__name__)
+                continue
+            packages = extract_packages(alias_body)
+            if packages:
+                record["affected_packages"] = packages
+                # Provenance, never inferred: the packages came from this
+                # record, not from the CVE the caller asked about.
+                record["packages_from"] = alias.strip()
+                return
+
+    async def _fetch(self, client: httpx.AsyncClient, identifier: str) -> dict[str, Any]:
+        url = f"{_API_BASE}/vulns/{identifier}"
         logger.info("OSV request: url=%s", redact_url(url))
         resp = await client.get(url)
         if resp.status_code == 404:
-            raise _NotFound(cve)
+            raise _NotFound(identifier)
         resp.raise_for_status()
-        return _normalize_record(cve, resp.json())
+        body = resp.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("OSV response was not a JSON object")
+        return body
 
 
 class _NotFound(Exception):

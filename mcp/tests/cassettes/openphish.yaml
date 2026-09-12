@@ -1,0 +1,725 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - openphish.com
+      user-agent:
+      - threat-intel-mcp (kj299/threat-intel)
+    method: GET
+    uri: https://openphish.com/feed.txt
+  response:
+    body:
+      string: "<html>\r\n<head><title>302 Found</title></head>\r\n<body>\r\n<center><h1>302
+        Found</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
+    headers:
+      allow:
+      - GET, POST, HEAD
+      connection:
+      - keep-alive
+      content-security-policy:
+      - 'default-src ''self''; script-src ''self'' https://maxcdn.bootstrapcdn.com
+        https://code.jquery.com ''sha256-fMDYxelQcRuKSdHM3jFPHL0jk0/BvUY5DF2PHm4Yhvs=''
+        ''sha256-g/Jn0ABr8qkpJnXWCjjw1UFwSPmwY8oukIJ46lNOxyI=''; style-src ''self''
+        ''unsafe-inline'' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com;
+        font-src ''self'' data: https://fonts.gstatic.com; img-src ''self'' data:
+        https:; connect-src ''self''; object-src ''none''; frame-ancestors ''self'';
+        base-uri ''self''; form-action ''self''; upgrade-insecure-requests;'
+      content-type:
+      - text/html
+      date:
+      - Sat, 12 Sep 2026 02:14:17 GMT
+      location:
+      - https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt
+      server:
+      - nginx
+      strict-transport-security:
+      - max-age=31536000; includeSubdomains;
+      transfer-encoding:
+      - chunked
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - DENY
+    status:
+      code: 302
+      message: Moved Temporarily
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - raw.githubusercontent.com
+      user-agent:
+      - threat-intel-mcp (kj299/threat-intel)
+    method: GET
+    uri: https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt
+  response:
+    body:
+      string: 'https://www.metuamssk-logiye.godaddysites.com/
+
+        http://staging.dtbf2az168uk3.amplifyapp.com/
+
+        http://www.wqqdjddjjddd.weebly.com/
+
+        https://3ib64a1sok-k9t7f7se-evaygbgad7dueuhq.z02.azurefd.net/
+
+        https://wordpress-203685-icloudjp.cloudclusters.net/wp-content/accptw/index.php
+
+        http://counter-offer-access-letter.authorizationsso.help/
+
+        https://m3tamsklogen.gitbook.io/us
+
+        http://m3tamsklogen.gitbook.io/
+
+        http://lktvr057nhw-ghfcyfyn-1w8v9g-pz611a.pages.dev/
+
+        https://inicio-2026aunthentication365.yzz.me/
+
+        http://www.17vip07.com/
+
+        http://tiny.cc/g3ba101
+
+        https://netflix-two-mu.vercel.app/signin
+
+        http://security-server-landing-page--manostelee.replit.app/
+
+        https://www.fyshur.com/
+
+        https://s4w.in/roblox-com-user-382073395-profile
+
+        https://phantom1-wallet.godaddysites.com/
+
+        https://www.phantom1-wallet.godaddysites.com/
+
+        http://shopeeid220.blogspot.com/?m=1
+
+        https://shopeetbk7272.blogspot.com/
+
+        http://fast-report-968025.framer.app/
+
+        http://undianshopee151.blogspot.com/
+
+        http://shopeeid209.blogspot.com/
+
+        https://hadiahshopee512.blogspot.com/?m=1
+
+        http://hadiah-shopee116.blogspot.com/
+
+        http://hadiah-shopee823.blogspot.com/
+
+        http://hadiah-shopee246.blogspot.com/
+
+        http://ondp.finance/
+
+        https://androshchuknastya.github.io/right-phone-sms/
+
+        https://danakagetrsm.vercel.app/
+
+        http://www.danakagetrsm.vercel.app/
+
+        https://gift-community.beer/id=5947221648
+
+        https://tinyurl.com/2banr4fn
+
+        https://www.financesantanderm.tu.lahmtm.com/
+
+        https://bridge-docs-trezar-auth.webflow.io/
+
+        https://www.roblox.ly/communities/3109493600/LYchurchill
+
+        https://tlknan.net/
+
+        https://alto-norte-comercial.onrender.com/
+
+        http://lively-field-d81c.rudofopelomi.workers.dev/
+
+        https://trustwallet-neon.vercel.app/
+
+        https://lntermaticopacifico.online/
+
+        https://aw3749333-coder.github.io/express-dhl
+
+        https://cancelsecurealfa.vercel.app/
+
+        https://bgtgdtferu.lat/
+
+        http://sp15ct-munex-biz-zorak-qavel.pages.dev/
+
+        https://companypolicy.com.au/?r=ae7fc135-43ca-46ba-83a1-d0c556b0e4ae&rg=us
+
+        https://aerditee-hub.github.io/Netflix-Clone
+
+        https://ledger-live-get-desktop-coz.pages.dev/
+
+        https://apple-verify.us/help?fGK
+
+        http://apple-verify.us/fGK
+
+        https://creditscolombia.com/
+
+        http://palm-night.pages.dev/
+
+        https://illimited.updatemybilling.app/YUBpCClmwZER/?redirection=login
+
+        https://illimited.updatemybilling.app/
+
+        http://booking.jh-print.com/1102053484/
+
+        http://roblox.com.mu/communities/3442332532/MLCloths
+
+        https://394532.xyz/
+
+        https://lkntansr.net/
+
+        http://tiny.cc/uoaa101
+
+        http://pay.emag.ro/pay/v2/
+
+        https://connectivity.freesite.host/
+
+        https://conquistadoresultra.s3.us-east-005.backblazeb2.com/aumento.html
+
+        http://bantuan-malay.biz.id/0011
+
+        https://rbcode.net/v/be0df98b2556f66af05021af8b40df24
+
+        https://aedialer.com/_/?error=login_required&error_description=AADSTS50058:+A+silent+sign-in+request+was+sent+but+no+user+is+signed+in.+The+cookies+used+to+represent+the+user''s+session+were+not+sent+in+the+request+to+Azure+AD.+This+can+happen+if+the+user+is+using+Internet+Explorer+or+Edge
+
+        http://www.parahivanaalawiasu.blogspot.com/
+
+        https://portabilidadefreerodovia.online/
+
+        https://www.conibuseporloggi.godaddysites.com/
+
+        http://www.site-n3y2yebuq.godaddysites.com/
+
+        http://www.qzqlhd-7uyfrle3.vercel.app/
+
+        http://www.dhjcf.weebly.com/
+
+        http://counter-offer-a273728932h-sso.singlesso.help/
+
+        http://kuccqocinlogson.webflow.io/
+
+        https://fernandolopes665681-oss.github.io/Roblox.com.br
+
+        https://parametroevolucao.s3.us-east-005.backblazeb2.com/aumento.html
+
+        https://www.roblox.com.bi/games/5133040469/New-Update-Beat-up-simulator?privateServerLinkCode=12705384620754238429951024266760
+
+        https://g5.lu/wa3kz
+
+        http://walletconnectportal.onrender.com/
+
+        http://apple-radar.pages.dev/
+
+        http://desktop-ledgrre.pages.dev/
+
+        http://help-ledgers-lliv-deskp.pages.dev/
+
+        http://keryx-demo.github.io/
+
+        http://robinhood-on-cloudflare.pages.dev/
+
+        http://coinsquuuarelogin.webflow.io/
+
+        http://xmsnilia.tegav2.com/
+
+        https://www.roblox.com.hr/users/8626011643/profile
+
+        https://u.to/y3OvIg
+
+        https://d2cx10dsi4ptcz.cloudfront.net/feed
+
+        https://ecapi.org/m/te/aw/l.php
+
+        https://d2cx10dsi4ptcz.cloudfront.net/fdd46ec9eabff656c2ce157034058fd07013fd5bfe1d3c0ea079130f119542f6
+
+        https://ivybridge-11.pages.dev/?app_vl=ZoNwlWpnbWKEmLqxy5qmnnx0YsC2wa-TpaiVYsBxj2phmqOgnLFwrYw&dd=SyguNyQsMSUoOixkIiIrIQ&e=Wiwoji8033%2540iteradev.com&sui=%257Bsui%257D&fn=Emma&ln=Hunt&p=41714517492&z=clk02...
+
+        https://jaciiwaopp.vercel.app/
+
+        https://phant-tomiowalet.gitbook.io/usa
+
+        https://phant-tomiowalet.gitbook.io/
+
+        http://www.avd-wix.vercel.app/
+
+        http://www.myface-bktech.vercel.app/
+
+        http://www.metamaklugennn.godaddysites.com/
+
+        https://uphsdlo-lofhon.godaddysites.com/
+
+        https://www.uphsdlo-lofhon.godaddysites.com/
+
+        http://m.icrosoft.org/concluded.php?k=5575cb1cda347d4f5634ab133308824aeaa3c7de
+
+        http://view-coinsquarr.zapier.app/
+
+        https://plomeros24horasbogota-sas.com/outerlawr/preload-centered-backup.html
+
+        http://www.ehay.item.com.login.secures-wr8wcvzo.thechennaistores.com/
+
+        https://www.1securitymentresignin245verifymyir.blogspot.com/
+
+        http://www.parceldashboardclientstationopacketofficeshipmentdelivery.artkiyotomotiv.com/LUFERONG/
+
+        http://www.parceldashboardclientstationopacketofficeshipmentdelivery.artkiyotomotiv.com/
+
+        https://io-blockfilogin.weebly.com/
+
+        http://www.io-blockfilogin.weebly.com/
+
+        https://ze-delivery-entrega-81u.pages.dev/
+
+        http://www.metabmasklokgi.godaddysites.com/
+
+        https://authentication.ms/E.x6rlcDMwYht3xgA?/VGhlIG5leHQgZ2VuZXJhdGlvbiBvZiBzZWN1cml0eSBhd2FyZW5lc3MgaXMgZGVzaWduZWQgZm9yIGVtcGxveWVlcyBhbmQgYnVpbHQgZm9yIGVudGVycHJpc2VzLiBPdXIgaW5kdXN0cnktbGVhZGluZyByZXN1bHRzIGFyZSBwb3dlcmVkIGJ5IGNvZ25pdGl2ZSBhdXRvbWF0aW9uLg
+
+        https://netflix.tailbe60c2.ts.net/
+
+        https://www.free-5464113.webadorsite.com/
+
+        https://www.site-00rqnl2r5.godaddysites.com/
+
+        http://purplenest.hostel.town/
+
+        https://signinattcomdynamicilriaploginh9smbgnf01.mailserverrelease.workers.dev/home.php?usrid=ILQgEQSyKs4Ak2zw0kvwGRFkZ0oWmjopNw10chqqRfb24LH9uSvW9q8khE5LXXUwYlGtZblUc1qqzzPg93ZoIq06C4PDVz9fQrFb8YBnVRbkF78PVOQLibSOaGFtbW9uZDAzQGJlbGxzb3V0aC5uZXQ=3UPjbuT8CCO0TfhUyAMwntrnwWJ1SjvFCuYfIu5i0bzGa606kZ
+
+        https://signinattcomdynamicilriaploginwsyz91507j.mailserverupdatealpha.workers.dev/home.php?usrid=eQtTjtzgmZzTGUEgawqEcZ8GYRSbqWY8ZW9hwkct4MfmbLkD9bY8NAH3JCzMu6UrqNHl4KabopuXxJ411aK4LGR5FQZ2B1yJ7husq0HoN5PmJ2YPAVygOEQpa2lkZGx6QGFtZXJpdGVjaC5uZXQ=gpIjD7EbfwcwlH1bkQM8WrPrnwGvOL9wnliJCHOvjMbiJj8wF7
+
+        https://signinattcomdynamicilriaploginsz7ew7iwqh.mailserverrelease.workers.dev/home.php?usrid=mTlxNjHCJAg6zdhDPdFLXVWdqFZ7UGmji1axkbwSQJfKj52ehjHWHDcj7n94arLa07sMXG9PZ1t3GmGM6QW69DUPorhVHUfXf4i2PArzgjYR6BVtCGQWag39Z2phcmFiZWtAc2JjZ2xvYmFsLm5ldA==Ifl2b3ZFsP3CzhliWTtDAMT0JFpVtqkWvsOZ5aPiky58ngz9PU
+
+        https://signinattcomdynamicilriaplogin7i05yvw4nt.mailserversslverify.workers.dev/home.php?usrid=imAKypPpqLY5iRWM4GSJTKJm5iil8YHsjQIEB6OLe6WwhaEXLzWBnT37TClP0XKFQb4aKmTOXLGAj6hHD2PRHma4uxIkagPTRzRvfPIuTdvvNkuDzUrFqDvTY29sbGluc3JvQGF0dC5uZXQ=IQtlw8yNCUCsuiYNPhDL2V34r4cqwE2avco5tD16mOrXkGLBox
+
+        https://signinattcomdynamicilriaploginnxutc5pz56.mailserverapi.workers.dev/home.php?usrid=S4UOsNBSTr3hJsT9zGLmtpOxaz7gCNsthqAafJHbqmQreoi8ErmNfR3yKEZJPFrzG2p9YFt44MPoj9TsmEsWoYx4INvk45dU2R2RZsAM4WfZDw5b93KbGzqIZnJlZXRpbnliaXJkQGF0dC5uZXQ=zNXWOCgrqqOOzPpfz71ZHwSNZgPZE00yCAFt55v2Not8FFocwp
+
+        https://signinattcomdynamicilriaploginf7vo1qro5f.mailserversslverify.workers.dev/home.php?usrid=1tPPeus2cxer41Irijc46ccX2Z0wvdXza0vShH1Kx898aTUARttCcyVpugY7v2fg2hKsyAqSk0rlNNF9EuTzVJsOEYLeKRu1EapV5BJDtFbA3Nmnd4elwHZAZGFuYS5zdGFuZHJpY2hAYXR0Lm5ldA==YRTrSyHApju3wvXC9obgQ0UTxIdE4cJUoi9UhrLpm6HvXn3uXu
+
+        https://signinattcomdynamicilriaploginw63evw78wb.mailserverapi.workers.dev/home.php?usrid=OWCYXCiFiwsm7tiCSrDeK1eYZR6pC6xRvV7ul1KEk86yhSB7oH1nNM6w0BhjMDKkFpiAZc7hCrg6NhjHyKgJoefcnX8HpZnPybiTTGfM7i96CtPqnMIQQRIEbXJwb3dlbGwxQGF0dC5uZXQ=lhixLBsVOVVtupeXhWryCDhxEENEyfvzbwOBImNxgbYevDWxrD
+
+        https://signinattcomdynamicilriaplogin311z157us8.mailserversslverify.workers.dev/home.php?usrid=v6yWeWks2c6wzN0v1j1JQTBcvXWGNXvvDoKaBa13LyEH32jFDFniRIBIiqS0xupJMjX1MCXmBrT5lRAINJV1NZhUYlrxhE8ljxPisdr13qYVh8igLS7zfGfTYmVja211bmtAc2JjZ2xvYmFsLm5ldA==y166XXCNuHjREb8SXznuYzQhs5MnvXvI630b32ScULrsTAZCjE
+
+        https://signinattcomdynamicilriaploginsr90sj3fzj.mailserverapi.workers.dev/home.php?usrid=KAenN0InyddG7kRe1lxVPALfhRESllAVQLkbbIZ4OSAC7JkCyC8hrJzybe2sEOPzJhCH83mAUxcE8sT2JnxbVXySYn0nv6msCdeYYqrePCm4GUn7j8Ccgp17cmpyYm5AYmVsbHNvdXRoLm5ldA==1TalkFErURY59lytzkoP6EHlrk7YM8HOBXTstSK3nZn3w5YT4T
+
+        https://www.marketplacemrecado.com.br/produto.php?produto=1802635541788967771
+
+        http://connect4payment.com/
+
+        https://wp.pl-zadluzenie-informacja.cfd.vh13647.vh.net.pl/
+
+        http://rbxxxxx-1.blogspot.com/
+
+        https://site-49i2nketi.godaddysites.com/
+
+        http://www.site-49i2nketi.godaddysites.com/
+
+        https://www.roblox.com.bi/users/632899504086/profile
+
+        https://www.roblox.com.gr/games/379736082/Starting-Place?privateServerLinkCode=48141280241813537734673147528874
+
+        http://loop1979.pages.dev/
+
+        https://statistical-plum-qw6rhrm1.edgeone.dev/home
+
+        https://intermaticopersonasecu.onrender.com/
+
+        http://www.iman158.com/
+
+        https://implicit-purple-58wmi6wx.edgeone.dev/home
+
+        https://www.roblox.com.gr/games/76838459031868/just-an-innocent-game?privateServerLinkCode=48141280241813537734673147528874
+
+        https://pub-f2ac015889f04e90a018cc9204a198d0.r2.dev/index.html
+
+        https://tinyurl.com/mryaw46n
+
+        https://deviniciusgith.github.io/projeto-spotify
+
+        https://tinyurl.com/drk5yzf8
+
+        https://setting-bluetick-ai.vercel.app/verified
+
+        https://secure-link-c96a.amcobisolutions.workers.dev/share/UC7pwjtQK9Q
+
+        https://www.roblox.et/users/2520474661/profile
+
+        https://tienda.airis.es/js/de/misangros.html
+
+        https://tienda.airis.es/js/de/chiwhsd.html
+
+        https://tienda.airis.es/js/de
+
+        https://bnb-to-transfer.vercel.app/
+
+        https://garantasuafelicidade.s3.us-east-005.backblazeb2.com/aumento.html
+
+        https://santhividyalayaicse.com/spoop/pages/login.php/
+
+        https://secure-portal-email.edgeone.dev/?naps/
+
+        http://home-coinsquarr.zapier.app/
+
+        https://home-page-coinsqure.zapier.app/
+
+        https://scrawny-gray-o5qhe5o0.edgeone.dev/home
+
+        https://aishwarya-rathore.github.io/javascript-amazon-project-main-main/checkout.html
+
+        http://roblox.com.hr/users/5964150097/profile
+
+        https://aethel-obscura.pages.dev/
+
+        https://counntktwalt.gitbook.io/us
+
+        https://counntktwalt.gitbook.io/
+
+        https://www.zimupdate-portal.vercel.app/
+
+        https://lntermatico-personas.online/
+
+        https://roblox.com.ms/games/2753915549/Blox-Fruits?privateServerLinkCode=94564024427641845824979200086142
+
+        https://humanres.co.uk/?r=94bf59fd-66e6-40d1-9c0f-ac83c8c74fb0&rg=eu
+
+        http://imtokencom.top/
+
+        http://coinsquare-loginas.typedream.app/
+
+        http://www.robiinhood_liogn.godaddysites.com/
+
+        http://www.moz-extensionkeplrr-pudgbhnp-avds-projects-gnhfnp-avds-projects.vercel.app/
+
+        https://sp30ct-madok-biz-qurik-zavel.pages.dev/
+
+        http://robiinhood_liogn.godaddysites.com/
+
+        https://vodafoneelevation.de/frankfurt/elevation
+
+        https://infocitypinamar.com/pass/login.php
+
+        https://kundenportal-online.com/
+
+        https://polaris-astraeus.pages.dev/
+
+        https://docusigns.info/
+
+        https://www.roblox.ly/users/7960726845/profile
+
+        http://kuc0in-log.godaddysites.com/
+
+        http://34x34x3-a9f.pages.dev/
+
+        https://secoupon.com/ko/store/at-t-business
+
+        http://meta-verified-blueticks-fb8.vercel.app/privacy-centers.html
+
+        https://leutumn-shadow-c659.eugeniebenoits397.workers.dev/
+
+        https://habitasip.cl/login/www/
+
+        http://contactnewfacebook.com/
+
+        http://743867.xyz/
+
+        https://www.roblox.com.am/users/386681976516/profile
+
+        https://wetransferswiftserverr.edgeone.dev/
+
+        https://bcclub.tk/
+
+        https://procedimiento.creditscolombia.com/
+
+        https://tramite.creditscolombia.com/
+
+        http://gamer.mobileaccesx-events.com/
+
+        https://virtaulahinicoo.it.com/434234/
+
+        http://drainit.vercel.app/
+
+        https://www.secure-imtoken.com.cn/
+
+        https://booking.howdaresjouls.com/1243909446
+
+        https://accountsecurityhub.vercel.app/
+
+        https://lnk.ink/vxLz7
+
+        https://www.roblox.com.bi/users/204040694256/profile
+
+        http://kakak1333.on-forge.com/
+
+        http://lilaccape.pages.dev/
+
+        http://ledger-livee-us-desktop.pages.dev/
+
+        http://name-ledgare-en.pages.dev/
+
+        https://verified-platform-fb2171.vercel.app/
+
+        https://verificationbluebadgeacquisitioncenters.vercel.app/ads
+
+        https://www.roblox.com.hr/communities/7720581830/Blade-Ball-Community-Support
+
+        https://suport-coinsquare.zapier.app/
+
+        https://rieckerstattnugc79.site/success-login/sw1ssap5r3s/a63t2s1x5a2c1a3.php
+
+        https://site-omfetdydl.godaddysites.com/
+
+        https://started-coin-square.zapier.app/
+
+        https://apoyo.creditscolombia.com/
+
+        https://public-coinsqure-ca.zapier.app/
+
+        https://public-coinsqure-ca.zapier.app/en-us
+
+        https://www.roblox.com.bi/games/9812728028/Sword-Fight-Box?privateServerLinkCode=12705384620754238429951024266760
+
+        https://coinsquar-io.zapier.app/
+
+        http://app-----y-coinsquare-cdn.typedream.app/
+
+        https://niels-meyer.de/kebchax/xcin1qe/jqiknbw/id.handel.mobile.de/login/?email=corus8@f8e0c44cb736ef6c379c91446f03128fb38e.com
+
+        https://www.roblox.et/users/4584565485/profile
+
+        https://u.to/9oWuIg
+
+        https://suport-coinsquare.zapier.app/portal
+
+        https://view-coisquared.zapier.app/started
+
+        http://protecpackonlinedocument-ymafg.ondigitalocean.app/
+
+        https://view-coisquared.zapier.app/
+
+        https://tavzavo-kxt-qelmora-r9t1hk63.pages.dev/home.html
+
+        https://df0-3.gitbook.io/vf/
+
+        https://kucoins-signin.com/
+
+        https://sessionhttps-counter-offer-a273728932h-sso-singlesso.fallbacksso.help/
+
+        https://allegro.2390as92358.pics/lokalnie/?id=9B6d8L9t1R9F3O6x5r3T4L2L3Z2B5U6e
+
+        https://bringjp37.icu/JeremyTemple
+
+        https://u7o2i.icu/JeremyTemple/
+
+        http://sp26ct-teski-biz-pelun-varka.pages.dev/
+
+        https://abhay-gupta-dev.github.io/spotify-clone-frontend
+
+        http://ehay.item.com.login.secures-wr8wcvzo.thechennaistores.com/
+
+        https://f7q2mx.lat/o/ix118/7328234650763264#selectedbank9
+
+        https://c3w9rp.lat/o/ix118/7328234650763264#selectedbank9
+
+        https://www.roblox.com.mu/communities/161870138/Cheesy-Games-Studios-OriginalsTM
+
+        https://z8n4vk.lat/o/ix118/7328234650763264#selectedbank9
+
+        https://i1kkbr.sbs/o/ix118/7328234650763264#selectedbank9
+
+        https://parceldashboardclientstationopacketofficeshipmentdelivery.artkiyotomotiv.com/LUFERONG
+
+        https://heh7nq8nz.shop/o/ix118/7328234650763264#selectedbank9
+
+        https://zg7wnt.casa/o/ix118/7328234650763264#selectedbank9
+
+        https://momoloansrwf.vercel.app/
+
+        https://www.wegiveyouinstagramfollowers.blogspot.com/
+
+        https://farle-bet365.com.cn/
+
+        http://financesantanderm.tu.lahmtm.com/
+
+        https://smoggy-amber-2pqb6nvv.edgeone.dev/home
+
+        https://netflix.tailbe60c2.ts.net/login.html
+
+        http://roblox.com.hr/
+
+        http://bugahomes.com/reds/
+
+        https://akaruvicha.com/test
+
+        https://www--roblox.co/users/1728363450/profile
+
+        https://rbcode.net/v/04d0a7a68cdb5d8a5b7a970bf27a15bc
+
+        https://site-jueevn42m.godaddysites.com/
+
+        https://servicenow-ticket7762.com/login
+
+        http://servicenow-ticket7762.com/
+
+        http://www.kuc0in-log.godaddysites.com/
+
+        https://kolekisyon.com/cviengrabcvbqkR4v5ggT3eZNwLwyCwA6jcbnhb/5GEsqasdnnAQdQ689xgw63uNCpVbvcxz8l/8fGGrabcvbnmfgxCEZgzvSg78jiypcoe6Zdbvxc.html
+
+        http://qzqlhd-7uyfrle3.vercel.app/
+
+        http://fortnitecalculator.lol/
+
+        https://jagriti-mishra.github.io/SpotifyClone
+
+        http://msglock109334.square.site/
+
+        https://135461223.site/404/07ed86da-82d2-4197-af03-720b3be4638b/756852/x
+
+        https://135461223.site/404/07ed86da-82d2-4197-af03-720b3be4638b/756852
+
+        http://www.meta-verified-blueticks-fb5.vercel.app/
+
+        https://meta-verified-blueticks-fb5.vercel.app/
+
+        https://sdshrjy.com/zrkfeno/oxpu/vfljmc/tjkkwr/cyv/zdmdh/mflyts
+
+        https://sp30ct-madok-biz-qurik-zavel.pages.dev/rtyu-iopj-qewr-thjm
+
+        https://apps--coinsquare-login.typedream.app/
+
+        https://ca---coinsqure----cdn-auth.webflow.io/
+
+        http://112232sigincomcastnow.weebly.com/
+
+        https://qelzavi-kxt-belmavi-r7t5hq63.pages.dev/appeals/submit-appeal-form/return/
+
+        https://security-server-landing-page--shippingrool.replit.app/
+
+        http://moz-extensionkeplrr-pudgbhnp-avds-projects-gnhfnp-avds-projects.vercel.app/
+
+        https://wqqdjddjjddd.weebly.com/
+
+        http://www.roblox.ly/users/3580475176/profile/
+
+        https://www.eubsglobal.com/
+
+        https://s4w.in/www-roblox-com-users-314198988346-profile
+
+        https://site-zy57nxxnc.godaddysites.com/
+
+        http://worker-blue-sun-a05a.nojitam138.workers.dev/
+
+        https://site-00rqnl2r5.godaddysites.com/
+
+        https://www.roblox.com.hr/communities/1273987547/Robux-Giveaway-Group
+
+        https://myface-bktech.vercel.app/
+
+        https://startapps-trxor-io.readme.io/
+
+        https://startapps-trxor-io.readme.io/docs
+
+        https://wegiveyouinstagramfollowers.blogspot.com/
+
+        https://instagramcheck.blogspot.com/
+
+        https://www.instagramcheck.blogspot.com/
+
+        https://www.roblox.com.hr/games/2753915549/Blox-Fruits?privateServerLinkCode=61024928472619690307568216656047
+
+        http://nl2.hypervpn.cc/signin/login.html
+
+        http://pl-zim.netlify.app/
+
+        http://www.robinhoodus.news/
+
+        http://helpingtowers.com/rest-api-test/val.php
+
+        https://kishan814.github.io/ecommerce-website-UI
+
+        https://xelvora-gld-belxeta-a4x7dw86.pages.dev/appeals/
+
+        https://prachi-mote.github.io/Amazon-clone
+
+        https://1securitymentresignin245verifymyir.blogspot.com/
+
+        http://microsoft-advertising-authentification.sgn-1.com/signin/login.html
+
+        https://hira-jahangir.github.io/amazon-clone-project
+
+        http://es-ibercaja.blamedame.com/signin/login.html
+
+        https://www.roblox.com.ml/users/271510514013/profile
+
+        http://media.valvewizard.uk/signin/login.html
+
+        https://site-n3y2yebuq.godaddysites.com/
+
+        '
+    headers:
+      accept-ranges:
+      - bytes
+      access-control-allow-origin:
+      - '*'
+      cache-control:
+      - max-age=300
+      connection:
+      - keep-alive
+      content-length:
+      - '16897'
+      content-security-policy:
+      - default-src 'none'; style-src 'unsafe-inline'; sandbox
+      content-type:
+      - text/plain; charset=utf-8
+      cross-origin-resource-policy:
+      - cross-origin
+      date:
+      - Sat, 12 Sep 2026 02:14:17 GMT
+      etag:
+      - W/"ebc94fc19a676ec159937c41c8feb2d5272ec309961db6cfff8aee4052c6717e"
+      expires:
+      - Sat, 12 Sep 2026 02:19:17 GMT
+      source-age:
+      - '268'
+      strict-transport-security:
+      - max-age=31536000
+      vary:
+      - Authorization,Accept-Encoding
+      via:
+      - 1.1 varnish
+      x-cache:
+      - HIT
+      x-cache-hits:
+      - '1'
+      x-content-type-options:
+      - nosniff
+      x-fastly-request-id:
+      - e8d4038d9868ff7805727d0bc9cad90892ddfab2
+      x-frame-options:
+      - deny
+      x-github-edge-region:
+      - iad
+      x-github-request-id:
+      - 7E0E:12DB14:21FF88:29BD6B:6AA49703
+      x-served-by:
+      - cache-chi-kmdw8640039-CHI
+      x-timer:
+      - S1789179258.861856,VS0,VE2
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+version: 1
