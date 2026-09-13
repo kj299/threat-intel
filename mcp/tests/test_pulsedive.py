@@ -278,3 +278,58 @@ def test_unreadable_timestamps_are_omitted_not_passed_through():
     assert _to_rfc3339("2026-09-01 10:00:00") == "2026-09-01T10:00:00+00:00"
     assert _to_rfc3339("last tuesday") is None
     assert _to_rfc3339(None) is None
+
+
+# ─── What the first real call actually returned ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_429_names_quota_or_plan_rather_than_a_bare_http_error(
+    adapter, httpx_mock: HTTPXMock
+):
+    """The first real call returned 429 on request one of one (2026-09-13).
+
+    Left as a generic `HTTPStatusError`, the weekly live check reports
+    "Pulsedive: HTTPStatusError" — which reads like an outage. On a 50/day
+    budget the difference between "quota spent" and "Pulsedive is down"
+    decides whether an operator waits or investigates, and this adapter makes
+    exactly one request per fetch, so a 429 here is never self-inflicted.
+    """
+    httpx_mock.add_response(url=_EXPLORE_RE, status_code=429)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        await adapter.fetch()
+
+    message = str(excinfo.value)
+    assert "429" in message
+    assert "quota" in message.lower()
+    assert "plan" in message.lower()
+    assert "Retrying will not help" in message, (
+        "the message must say retrying is pointless — otherwise the obvious "
+        "response to a 429 is a retry that spends more of a spent budget"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+async def test_a_quota_condition_degrades_rather_than_crashing(
+    adapter, httpx_mock: HTTPXMock
+):
+    """Per the taxonomy in adapters/base.py, a RuntimeError is case 3: the tool
+    degrades to `unverified` rather than crashing. A quota condition must not
+    take the whole fan-out down with it.
+
+    The server singleton has no key in the test environment, so it degrades on
+    the credential path before reaching the network — which is the same
+    outcome by the other non-retryable route, and exactly what a run with no
+    Pulsedive key should do.
+    """
+    from threat_intel_mcp import server
+
+    httpx_mock.add_response(url=_EXPLORE_RE, status_code=429, is_reusable=True)
+
+    result = await server.pulsedive_fetch_iocs()
+
+    assert result["coverage_ledger_entry"]["status"] == "unverified"
+    assert result["record_count"] == 0
+    assert "error" in result

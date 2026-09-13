@@ -48,15 +48,28 @@ unreachable from the development sandbox.
 
 .. warning::
 
-   **``_QUERY`` is the least certain part of this adapter.** Pulsedive's Explore
-   syntax is its own small language, and the exact spelling below comes from
-   documentation and client libraries rather than from a response anyone has
-   seen. A malformed query is the likely first failure, and it will surface as
-   an ``error`` in the body or as zero results -- both of which raise here
-   rather than reporting a confident empty feed.
+   **The first real call returned HTTP 429, on request one of one**
+   (recording attempt, 2026-09-13). The configured key was present and the URL
+   was well-formed, so this is not a malformed request and not self-inflicted
+   rate-limiting -- this adapter makes a single request per fetch. It means one
+   of:
 
-   **Record a cassette before trusting this.** One recording costs 1 of the 50
-   daily requests.
+   - the account's quota is already spent (50/day, 500/month), or
+   - the free plan does not include the **Explore** endpoint at all, and
+     Pulsedive signals that with 429 rather than 403.
+
+   Only the account holder can tell those apart, from the usage and plan pages
+   at https://pulsedive.com/. **Until that is settled this adapter is
+   unverified against a real response**, and if Explore turns out to be
+   paid-only it needs re-targeting to ``info.php`` -- per-indicator lookup,
+   which would make it an *enrichment* of at most 50 indicators a day rather
+   than a feed.
+
+   ``_QUERY`` remains unverified for the same reason: Pulsedive's Explore
+   syntax is its own small language, and no response has yet been seen to check
+   the spelling against. A malformed query would surface as an in-band
+   ``error`` or as zero parseable results -- both of which raise here rather
+   than reporting a confident empty feed.
 """
 
 from __future__ import annotations
@@ -247,6 +260,20 @@ class PulsediveAdapter:
                         "key": api_key,
                     },
                 )
+                if resp.status_code == 429:
+                    # Named, not left as a generic HTTPStatusError. On a 50/day
+                    # budget the difference between "quota spent" and
+                    # "Pulsedive is down" decides whether an operator waits or
+                    # investigates, and the weekly live check should say which.
+                    raise RuntimeError(
+                        "Pulsedive returned HTTP 429 on the first request of "
+                        "this fetch. This adapter makes exactly one request per "
+                        "fetch. Either the account's quota is already spent "
+                        "(50/day, 500/month on the free tier) or the plan does "
+                        "not include the Explore endpoint. "
+                        "Check API usage and plan at https://pulsedive.com/. "
+                        "Retrying will not help until one of those changes."
+                    )
                 resp.raise_for_status()
                 body = resp.json()
 
