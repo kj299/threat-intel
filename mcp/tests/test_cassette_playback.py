@@ -33,6 +33,8 @@ from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter
+from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
+from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
 from threat_intel_mcp.normalize import finalize_iocs
 from threat_intel_mcp.vault.base import CredentialNotFoundError
 from threat_intel_mcp.vulns import finalize_vulns
@@ -371,3 +373,90 @@ async def test_osv_finds_packages_despite_the_cve_record_having_none():
         "call OSV rather than NVD. Check whether alias-following still works."
     )
     assert all(p.get("ecosystem") for p in record["affected_packages"])
+
+
+# ─── abuse.ch (#212) ─────────────────────────────────────────────────────────
+
+
+class _AbuseChKey:
+    """Only the shared abuse.ch key; the cassette scrubs it on write."""
+
+    def get(self, adapter: str, key: str) -> str:
+        return "scrubbed-by-the-recorder"
+
+
+@_requires("urlhaus")
+@pytest.mark.asyncio
+async def test_urlhaus_parses_the_real_feed():
+    with build_vcr().use_cassette(str(cassette_path("urlhaus"))):
+        result = await URLhausAdapter(_AbuseChKey()).fetch()
+
+    assert result.record_count > 0
+    assert all(i["type"] == "URL" for i in result.iocs)
+    # The timestamp format is the #204 trap: "2026-09-12 11:45:28 UTC".
+    dated = [i for i in result.iocs if "first_seen" in i]
+    assert dated, "no record carried first_seen — date_added stopped parsing"
+    assert dated[0]["first_seen"].endswith("+00:00")
+
+
+@_requires("urlhaus")
+@pytest.mark.asyncio
+async def test_urlhaus_records_survive_the_pipeline():
+    with build_vcr().use_cassette(str(cassette_path("urlhaus"))):
+        result = await URLhausAdapter(_AbuseChKey()).fetch()
+
+    finalized = finalize_iocs(result.iocs)
+    assert finalized, "every real URLhaus IOC was dropped by finalize_iocs"
+    assert len(finalized) >= len(result.iocs) * 0.9
+
+
+@_requires("feodo")
+@pytest.mark.asyncio
+async def test_feodo_parses_the_real_blocklist():
+    with build_vcr().use_cassette(str(cassette_path("feodo"))):
+        result = await FeodoTrackerAdapter(_AbuseChKey()).fetch()
+
+    assert result.record_count > 0
+    assert all(i["type"] in ("IPv4", "IPv6") for i in result.iocs)
+
+
+@_requires("feodo")
+@pytest.mark.asyncio
+async def test_feodo_does_not_mark_offline_c2s_blockable():
+    """Regression test for the defect this cassette exposed.
+
+    Four of the five entries in the first real recording were offline, one dark
+    since February, and the adapter called all five `block`/High. If a future
+    recording is all-online this still holds — it asserts the *mapping*, not a
+    particular mix.
+    """
+    with build_vcr().use_cassette(str(cassette_path("feodo"))):
+        result = await FeodoTrackerAdapter(_AbuseChKey()).fetch()
+
+    offline = [i for i in result.iocs if "offline_c2" in i["tags"]]
+    assert offline, (
+        "no offline entries in a real Feodo blocklist — if abuse.ch now "
+        "publishes only live C2s, simplify the adapter rather than keeping "
+        "dead branches"
+    )
+    for ioc in offline:
+        assert ioc["action"] == "alert" and ioc["confidence"] == "Medium"
+    for ioc in result.iocs:
+        if "offline_c2" not in ioc["tags"]:
+            assert ioc["action"] == "block" and ioc["confidence"] == "High"
+
+
+@_requires("threatfox")
+@pytest.mark.asyncio
+async def test_threatfox_still_answers_with_the_auth_key_attached():
+    """The point of sending the key at all.
+
+    abuse.ch gated its APIs in June 2025 and this adapter only kept working
+    because it reads the CSV export. Adding an Auth-Key to a request that did
+    not previously carry one is the kind of change that can break what it meant
+    to protect — this replays a recording taken *with* the header attached.
+    """
+    with build_vcr().use_cassette(str(cassette_path("threatfox"))):
+        result = await ThreatFoxAdapter(_AbuseChKey()).fetch(time_range="7d")
+
+    assert result.record_count > 0

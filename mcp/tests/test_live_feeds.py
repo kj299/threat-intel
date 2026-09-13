@@ -49,6 +49,8 @@ from threat_intel_mcp.adapters.vulncheck import VulnCheckAdapter
 from threat_intel_mcp.adapters.nvd import NVDAdapter
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
+from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
+from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter
 from threat_intel_mcp.normalize import finalize_iocs
@@ -67,6 +69,9 @@ _IOC_ADAPTERS = {
     "anyrun": AnyRunAdapter,
     "intel471": Intel471Adapter,
     "censys": CensysAdapter,
+    # Shares the abuse.ch Auth-Key with ThreatFox and Feodo Tracker, but is the
+    # only one of the three that REQUIRES it.
+    "abusech": URLhausAdapter,
 }
 _CVE_ADAPTERS = {"vulncheck": VulnCheckAdapter}
 
@@ -193,6 +198,7 @@ _CREDENTIALED_IOC_FEEDS = [
     ("ANY.RUN", "anyrun", ("ANYRUN_API_KEY",)),
     ("Intel 471", "intel471", ("INTEL471_EMAIL", "INTEL471_API_KEY")),
     ("Censys", "censys", ("CENSYS_API_ID", "CENSYS_API_SECRET")),
+    ("URLhaus", "abusech", ("ABUSECH_AUTH_KEY",)),
 ]
 
 _CREDENTIALED_CVE_FEEDS = [
@@ -408,3 +414,53 @@ class TestOSV:
             "OSV record carried no affected_packages — the schema mapping is "
             "wrong, so the tool returns records that answer nothing."
         )
+
+
+class TestFeodoTracker:
+    """Feodo Tracker's Auth-Key is optional, so this runs unconditionally.
+
+    It is checked by a class rather than the credentialed sweep for the same
+    reason ThreatFox is: a feed that answers without a key has no
+    skip-if-unconfigured branch, so there is nothing to skip.
+    """
+
+    @pytest.mark.asyncio
+    async def test_returns_records(self):
+        result = await FeodoTrackerAdapter(credential_provider_from_env()).fetch()
+        assert result.record_count > 0, (
+            "Feodo Tracker returned 0 C2 IPs. The blocklist is never empty in "
+            "practice, so this means the JSON layout changed — most likely the "
+            "per-entry field names, which are the unverified part of that "
+            "adapter (see its module warning)."
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_documented_ip_field_name_is_the_real_one(self):
+        """Settles the `ip_address` vs `dst_ip` question the adapter hedges on.
+
+        The adapter reads either because abuse.ch documents one and its CSV
+        flavour uses the other, and no code here could reach the API to find
+        out. This asserts against the live body: if it passes, the hedge can be
+        narrowed to whichever key the recording shows.
+        """
+        import httpx
+
+        from threat_intel_mcp.adapters.feodo import _FEED_URL, _IP_KEYS
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            body = (await client.get(_FEED_URL)).json()
+
+        assert isinstance(body, list) and body, "blocklist was not a non-empty array"
+        present = {key for key in _IP_KEYS if key in body[0]}
+        assert present, (
+            f"live Feodo entry carries neither of {_IP_KEYS}; keys are "
+            f"{sorted(body[0])} — the adapter's IP mapping is wrong"
+        )
+        print(f"Feodo live IP field name(s): {sorted(present)}")
+
+    @pytest.mark.asyncio
+    async def test_records_survive_the_pipeline(self):
+        result = await FeodoTrackerAdapter(credential_provider_from_env()).fetch()
+        finalized = finalize_iocs(result.iocs)
+        assert finalized, "every live Feodo IOC was dropped by finalize_iocs"
+        assert len(finalized) >= len(result.iocs) * 0.5

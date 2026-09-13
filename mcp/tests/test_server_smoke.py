@@ -51,9 +51,16 @@ _CREDENTIALED_FEED_TOOLS = [
     "anyrun_fetch_iocs",
     "intel471_fetch_iocs",
     "censys_fetch_iocs",
+    # URLhaus REQUIRES the shared abuse.ch Auth-Key; ThreatFox and Feodo send
+    # the same key only when it exists, so they stay in _PUBLIC_FEED_TOOLS.
+    "urlhaus_fetch_iocs",
 ]
 # Keyless public feeds: no credential, so they always attempt the network.
-_PUBLIC_FEED_TOOLS = ["threatfox_fetch_iocs", "openphish_fetch_iocs"]
+_PUBLIC_FEED_TOOLS = [
+    "threatfox_fetch_iocs",
+    "openphish_fetch_iocs",
+    "feodo_fetch_iocs",
+]
 _SINGLE_FEED_TOOLS = _CREDENTIALED_FEED_TOOLS + _PUBLIC_FEED_TOOLS
 # CVE feeds: emit CVE-keyed vuln records via a separate fan-out path.
 # CISA KEV needs no credential and NVD's key is optional, so both always attempt
@@ -81,6 +88,7 @@ _ALL_TOOLS = (
 _EXPECTED_SOURCES = {
     "Q-Feeds", "AbuseIPDB", "AlienVault OTX", "Shodan",
     "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox", "OpenPhish",
+    "URLhaus", "Feodo Tracker",
 }
 _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 
@@ -88,6 +96,7 @@ _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 _PUBLIC_FEED_URLS = {
     "threatfox_fetch_iocs": "https://threatfox.abuse.ch/export/csv/recent/",
     "openphish_fetch_iocs": "https://openphish.com/feed.txt",
+    "feodo_fetch_iocs": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
 }
 # Government CVE feed URL patterns (mocked so the CVE tools fail offline). NVD
 # carries a query string, so both are matched as regexes on the endpoint prefix.
@@ -108,6 +117,9 @@ _CRED_VARS = (
     "QFEEDS_API_KEY", "ABUSEIPDB_API_KEY", "VIRUSTOTAL_API_KEY", "OTX_API_KEY",
     "SHODAN_API_KEY", "GREYNOISE_API_KEY", "ANYRUN_API_KEY",
     "INTEL471_API_KEY", "INTEL471_EMAIL", "CENSYS_API_ID", "CENSYS_API_SECRET",
+    # One key, three abuse.ch feeds — URLhaus requires it, ThreatFox and Feodo
+    # Tracker send it when present and still answer without it.
+    "ABUSECH_AUTH_KEY",
 )
 
 
@@ -285,6 +297,8 @@ _FEED_TYPE_VALIDATING_TOOLS = [
     "censys_fetch_iocs",
     "threatfox_fetch_iocs",
     "openphish_fetch_iocs",
+    "urlhaus_fetch_iocs",
+    "feodo_fetch_iocs",
     "cisa_kev_fetch_cves",
     "nvd_fetch_cves",
     "vulncheck_fetch_cves",

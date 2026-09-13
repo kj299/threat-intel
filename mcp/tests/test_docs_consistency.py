@@ -280,7 +280,10 @@ def test_every_credentialed_adapter_has_a_live_check():
     }
     # Class names cannot carry spaces or dots, so the few multi-word sources
     # are mapped back to their registry names.
-    _CLASS_ALIASES = {"CISAKEV": "CISA KEV", "ThreatFox": "ThreatFox"}
+    _CLASS_ALIASES = {
+        "CISAKEV": "CISA KEV",
+        "FeodoTracker": "Feodo Tracker",
+    }
     covered = {_CLASS_ALIASES.get(name, name) for name in covered}
 
     assert not registered - covered, (

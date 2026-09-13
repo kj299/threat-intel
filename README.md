@@ -178,7 +178,7 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.15.0):** 10 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, and two that need **no key at all**: the abuse.ch feed ThreatFox and the OpenPhish Community phishing feed; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 19 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 13 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
+**Current (v0.15.0):** 12 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, Feodo Tracker, and two that need **no key at all**: the abuse.ch feed ThreatFox and the OpenPhish Community phishing feed. The four abuse.ch sources — ThreatFox, URLhaus, Feodo Tracker and (for ThreatFox's export path) the same token — share **one free `ABUSECH_AUTH_KEY`**; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 21 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 15 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
 
 Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
@@ -224,7 +224,7 @@ Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
 }
 ```
 
-Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD + VulnCheck KEV, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`; enrichment — these take what you already hold and score it, so none of them discovers anything or joins a fan-out: `virustotal_enrich_iocs` (indicators → verdicts), `epss_enrich_cves` (CVEs → exploitation probability), `osv_enrich_cves` (CVEs → affected packages and fixed versions); plus `list_available_feeds`.
+Tools exposed — IOC feeds: `fetch_all_iocs` (all IOC feeds concurrently, merged + deduplicated), `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`; CVE feeds: `fetch_all_cves` (CISA KEV + NVD + VulnCheck KEV, merged + deduplicated by CVE ID), `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`; enrichment — these take what you already hold and score it, so none of them discovers anything or joins a fan-out: `virustotal_enrich_iocs` (indicators → verdicts), `epss_enrich_cves` (CVEs → exploitation probability), `osv_enrich_cves` (CVEs → affected packages and fixed versions); plus `list_available_feeds`.
 
 See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed-specific details — including a step-by-step [worked example of implementing a paid-subscription feed adapter](mcp/README.md#implementing-a-paid-subscription-feed-adapter), with a table of subscription sources and their official API-documentation portals.
 
@@ -238,7 +238,7 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 | | What | Where it goes |
 |---|---|---|
-| **Feed keys** | The 13 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, and `scheduled-report`'s `prefetch` job |
+| **Feed keys** | The 14 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, `ABUSECH_AUTH_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, and `scheduled-report`'s `prefetch` job |
 | **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
 
 **Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
@@ -294,7 +294,7 @@ How they're generated, how to run one (including wiring the MCP server for live-
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, OpenPhish; CVE feeds CISA KEV, NVD, VulnCheck KEV; enrichment VirusTotal, EPSS, OSV) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
+See [docs/architecture.md](docs/architecture.md) for a Mermaid flowchart showing the full data flow: User → Skill → MCP Server → CredentialProvider → Adapters (IOC feeds Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, OpenPhish, URLhaus, Feodo Tracker; CVE feeds CISA KEV, NVD, VulnCheck KEV; enrichment VirusTotal, EPSS, OSV) → external feed APIs → normalize.py / vulns.py → FetchResult / VulnFetchResult → report output.
 
 ---
 
