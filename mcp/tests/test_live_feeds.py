@@ -51,6 +51,7 @@ from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
 from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
 from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
+from threat_intel_mcp.adapters.pulsedive import PulsediveAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter
 from threat_intel_mcp.normalize import finalize_iocs
@@ -72,6 +73,7 @@ _IOC_ADAPTERS = {
     # Shares the abuse.ch Auth-Key with ThreatFox and Feodo Tracker, but is the
     # only one of the three that REQUIRES it.
     "abusech": URLhausAdapter,
+    "pulsedive": PulsediveAdapter,
 }
 _CVE_ADAPTERS = {"vulncheck": VulnCheckAdapter}
 
@@ -199,6 +201,7 @@ _CREDENTIALED_IOC_FEEDS = [
     ("Intel 471", "intel471", ("INTEL471_EMAIL", "INTEL471_API_KEY")),
     ("Censys", "censys", ("CENSYS_API_ID", "CENSYS_API_SECRET")),
     ("URLhaus", "abusech", ("ABUSECH_AUTH_KEY",)),
+    ("Pulsedive", "pulsedive", ("PULSEDIVE_API_KEY",)),
 ]
 
 _CREDENTIALED_CVE_FEEDS = [
