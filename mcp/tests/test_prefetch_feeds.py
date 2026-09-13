@@ -269,3 +269,216 @@ async def test_the_per_run_cve_cap_is_enforced(monkeypatch):
     await prefetch_feeds._score_with_epss(vulns)
 
     assert captured["n"] == prefetch_feeds._MAX_CVES_TO_SCORE
+
+
+# ─── VirusTotal enrichment in the prefetch (#214) ────────────────────────────
+
+
+def _ioc(value, type_="IPv4", confidence="High", corroborated=False):
+    tags = ["feed"] + (["corroborated-by:ThreatFox"] if corroborated else [])
+    return {"type": type_, "value": value, "confidence": confidence, "tags": tags}
+
+
+def test_unsupported_indicator_types_are_never_selected():
+    """VirusTotal's per-indicator endpoints cover IPs and domains only.
+
+    Selecting a URL or a CIDR range spends one of 500 daily lookups, and 15
+    seconds, on a request that cannot succeed. The adapter would reject it, so
+    the cost is pure waste.
+    """
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [
+        _ioc("http://evil.test/a", type_="URL"),
+        _ioc("10.0.0.0/8", type_="CIDR_Range"),
+        _ioc("203.0.113.1"),
+        _ioc("evil.test", type_="Domain"),
+    ]
+
+    selected = _select_for_enrichment(iocs, 10)
+
+    assert selected == {"ip": ["203.0.113.1"], "domain": ["evil.test"]}
+
+
+def test_corroborated_indicators_are_selected_first():
+    """The selection rule, and the reason this is not "the first N".
+
+    At 15 seconds each there is room for tens of indicators out of thousands.
+    Taking them in list order means the choice is made by whichever feed sorted
+    first. An indicator two independent feeds both reported is the one a report
+    foregrounds, and a verdict is worth most where a claim is about to be made.
+    """
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [_ioc(f"203.0.113.{i}", confidence="Low") for i in range(20)]
+    iocs.append(_ioc("198.51.100.1", confidence="Low", corroborated=True))
+
+    selected = _select_for_enrichment(iocs, 3)
+
+    assert selected["ip"][0] == "198.51.100.1", (
+        "the corroborated indicator was not picked first — selection fell back "
+        "to list order"
+    )
+
+
+def test_confidence_breaks_ties_among_uncorroborated():
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [
+        _ioc("203.0.113.1", confidence="Low"),
+        _ioc("203.0.113.2", confidence="Medium"),
+        _ioc("203.0.113.3", confidence="High"),
+    ]
+
+    selected = _select_for_enrichment(iocs, 2)
+
+    assert selected["ip"] == ["203.0.113.3", "203.0.113.2"]
+
+
+def test_the_total_limit_is_respected_across_both_types():
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [_ioc(f"203.0.113.{i}") for i in range(50)]
+    iocs += [_ioc(f"d{i}.test", type_="Domain") for i in range(50)]
+
+    selected = _select_for_enrichment(iocs, 7)
+
+    assert sum(len(v) for v in selected.values()) == 7
+
+
+def test_a_type_never_exceeds_the_adapters_per_call_cap():
+    """The adapter REJECTS an over-long list rather than truncating it, so a
+    selection larger than the cap would raise and lose the whole type."""
+    from threat_intel_mcp.adapters.virustotal import MAX_INDICATORS_PER_CALL
+
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [_ioc(f"203.0.113.{i // 256}.{i % 256}") for i in range(500)]
+    for i, ioc in enumerate(iocs):
+        ioc["value"] = f"10.{i // 65536}.{(i // 256) % 256}.{i % 256}"
+
+    selected = _select_for_enrichment(iocs, 10_000)
+
+    assert len(selected["ip"]) <= MAX_INDICATORS_PER_CALL
+
+
+def test_duplicate_values_are_not_looked_up_twice():
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [_ioc("203.0.113.1"), _ioc("203.0.113.1"), _ioc("203.0.113.2")]
+
+    selected = _select_for_enrichment(iocs, 10)
+
+    assert selected["ip"] == ["203.0.113.1", "203.0.113.2"]
+
+
+def test_selection_is_deterministic():
+    """The same payload must pick the same indicators, or two runs of the same
+    week's data quietly spend quota on different samples."""
+    from scripts.prefetch_feeds import _select_for_enrichment
+
+    iocs = [_ioc(f"203.0.113.{i}", confidence="Medium") for i in range(30)]
+    iocs.append(_ioc("198.51.100.9", corroborated=True))
+
+    assert _select_for_enrichment(iocs, 5) == _select_for_enrichment(iocs, 5)
+
+
+@pytest.mark.asyncio
+async def test_a_zero_limit_disables_it_without_touching_the_api(monkeypatch):
+    """VirusTotal costs quota, so "off" has to mean no request at all.
+
+    This pins the *behaviour*, not a particular guard: the limit is enforced
+    both by an early return and by the budget check in the selection loop, so
+    removing either alone still yields nothing. That redundancy is deliberate
+    (see the comment on `_select_for_enrichment`), and it means this test does
+    not fail on a single-line edit — the off-by-one that would actually let a
+    disabled run spend a lookup is caught by
+    `test_the_result_says_it_is_a_sample_not_coverage`.
+    """
+    from scripts import prefetch_feeds
+
+    class ExplodingVT:
+        def __init__(self, *a, **k):
+            raise AssertionError("must not construct the adapter when disabled")
+
+    monkeypatch.setattr(prefetch_feeds, "VirusTotalAdapter", ExplodingVT)
+
+    result = await prefetch_feeds._enrich_with_virustotal(
+        {"iocs": [_ioc("203.0.113.1")]}, 0
+    )
+
+    assert result is None
+    # A negative limit is nonsense input, not a licence to spend the budget.
+    assert prefetch_feeds._select_for_enrichment([_ioc("203.0.113.1")], -1) == {}
+
+
+@pytest.mark.asyncio
+async def test_the_result_says_it_is_a_sample_not_coverage(monkeypatch):
+    """R4: recording VirusTotal as covering the feed set would inflate the
+    badge. `selected_from` is what stops a reader — or the agent — reading 40
+    enriched indicators as 40 being all there were."""
+    from scripts import prefetch_feeds
+
+    class FakeVT:
+        def __init__(self, *a, **k):
+            pass
+
+        async def enrich(self, values, *, indicator_type="ip"):
+            return {
+                "enrichments": [{"indicator": v, "malicious": 1} for v in values],
+                "looked_up": list(values),
+            }
+
+    monkeypatch.setattr(prefetch_feeds, "VirusTotalAdapter", FakeVT)
+    monkeypatch.setattr(prefetch_feeds, "credential_provider_from_env", lambda: None)
+
+    iocs = {"iocs": [_ioc(f"203.0.113.{i}") for i in range(100)]}
+    result = await prefetch_feeds._enrich_with_virustotal(iocs, 5)
+
+    assert result["record_count"] == 5
+    assert result["selected_from"] == 100, (
+        "selected_from must report the candidate pool, not the sample size"
+    )
+    assert "corroborated" in result["selection"]
+
+
+@pytest.mark.asyncio
+async def test_one_type_failing_keeps_the_other(monkeypatch):
+    """The indicators are already in hand. Losing the domain verdicts because
+    the IP lookups rate-limited would throw away work that succeeded."""
+    from scripts import prefetch_feeds
+
+    class HalfBrokenVT:
+        def __init__(self, *a, **k):
+            pass
+
+        async def enrich(self, values, *, indicator_type="ip"):
+            if indicator_type == "ip":
+                raise RuntimeError("rate limited")
+            return {
+                "enrichments": [{"indicator": v} for v in values],
+                "looked_up": list(values),
+            }
+
+    monkeypatch.setattr(prefetch_feeds, "VirusTotalAdapter", HalfBrokenVT)
+    monkeypatch.setattr(prefetch_feeds, "credential_provider_from_env", lambda: None)
+
+    iocs = {"iocs": [_ioc("203.0.113.1"), _ioc("evil.test", type_="Domain")]}
+    result = await prefetch_feeds._enrich_with_virustotal(iocs, 10)
+
+    assert result["record_count"] == 1
+    assert result["looked_up"] == ["evil.test"]
+    assert "ip: RuntimeError" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_no_eligible_indicators_means_no_enrichment_block(monkeypatch):
+    """A week of nothing but URLs must not produce an empty block implying
+    VirusTotal was consulted and found nothing."""
+    from scripts import prefetch_feeds
+
+    result = await prefetch_feeds._enrich_with_virustotal(
+        {"iocs": [_ioc("http://x.test/", type_="URL")]}, 40
+    )
+
+    assert result is None
