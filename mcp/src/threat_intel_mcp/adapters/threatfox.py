@@ -9,6 +9,12 @@ No credential required — this is a free, unauthenticated feed. (Verified again
 the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
 ``urllib.request.urlopen`` with no Auth-Key header.)
 
+**Do not "upgrade" this to the JSON API.** ``https://threatfox-api.abuse.ch/api/v1/``
+requires an abuse.ch Auth-Key and answers **HTTP 401** without one — measured
+2026-09-12, the same session in which this CSV export returned HTTP 200 and
+3.7 MB. The two endpoints have diverged in their auth requirements, so the CSV
+export is not merely the historical choice here, it is the only keyless one.
+
 Feed characteristics (verified from the OpenCTI connector, 2026):
   - GET https://threatfox.abuse.ch/export/csv/recent/
   - Response: CSV; comment lines start with ``#``. Columns (0-indexed):
