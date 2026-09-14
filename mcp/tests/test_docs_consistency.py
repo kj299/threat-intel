@@ -417,3 +417,97 @@ def test_recorded_cassette_count_is_accurate():
             f"CLAUDE.md says {claimed} cassettes recorded, {len(cassettes)} are on "
             f"disk: {sorted(cassettes)}"
         )
+
+
+# --- File-tree ⟷ disk parity -------------------------------------------------
+
+# Lines that are part of a directory listing, in either of the two glyph styles
+# the READMEs use. Scoping to these matters: prose legitimately names files that
+# are NOT in this repository (mcp/README cites MISP's own `sub.py`), and a
+# whole-document scan would call those phantoms.
+_TREE_GLYPHS = ("+--", "├──", "└──")
+
+# Package markers carry no information in a listing, so neither README is
+# required to enumerate them.
+_TREE_IGNORED = {"__init__.py"}
+
+
+def _tree_filenames(doc: pathlib.Path) -> set[str]:
+    names: set[str] = set()
+    for line in doc.read_text(encoding="utf-8").splitlines():
+        if any(glyph in line for glyph in _TREE_GLYPHS):
+            names |= set(re.findall(r"([a-z_][a-z0-9_]*\.py)", line))
+    return names
+
+
+def _python_files(*directories: pathlib.Path) -> set[str]:
+    found: set[str] = set()
+    for directory in directories:
+        found |= {
+            p.name for p in directory.rglob("*.py") if p.name not in _TREE_IGNORED
+        }
+    return found
+
+
+_SERVER_SRC = _MCP_DIR / "src" / "threat_intel_mcp"
+_SCRIPTS_DIR = _MCP_DIR / "scripts"
+_TESTS_DIR = _MCP_DIR / "tests"
+
+
+def test_readme_file_trees_name_every_module():
+    """Both READMEs carry an exhaustive directory listing. Keep them exhaustive.
+
+    Nothing checked this, and it showed. At the time this test was written the
+    root README's tree was missing **seven** adapters, `transports/misp_zmq.py`,
+    the whole `render/` package and the whole `scripts/` directory — including
+    `prefetch_feeds.py`, which is the script the entire report path runs on.
+    `mcp/README.md` was missing the same seven adapters.
+
+    Worse, both trees still described `virustotal.py` as the "VirusTotal
+    Intelligence adapter" — the bulk feed deleted in #203. That rot was
+    corrected in mcp/README's prose (#210), in docs/architecture.md (#211) and
+    in CLAUDE.md (#210), and survived all three times *in the file trees*,
+    because every one of those passes was reading prose. A listing is invisible
+    to a reader looking for sentences and invisible to the #210 count guard,
+    which checks numbers and tool names.
+    """
+    expected = _python_files(_SERVER_SRC, _SCRIPTS_DIR)
+    assert expected, "no server modules found — layout drift?"
+
+    for readme in (_REPO_ROOT / "README.md", _README):
+        listed = _tree_filenames(readme)
+        missing = expected - listed
+        assert not missing, (
+            f"{readme}: modules on disk but absent from the file tree: "
+            f"{sorted(missing)}"
+        )
+
+
+def test_mcp_readme_tree_names_every_test_module():
+    """`mcp/README.md` also enumerates the test suite, and that listing was
+    missing 18 of 37 files — nearly half — when this test was written."""
+    expected = {p.name for p in _TESTS_DIR.glob("test_*.py")}
+    assert expected, "no test modules found — layout drift?"
+
+    missing = expected - _tree_filenames(_README)
+    assert not missing, (
+        f"test modules on disk but absent from mcp/README.md's tree: "
+        f"{sorted(missing)}"
+    )
+
+
+def test_file_trees_name_no_module_that_does_not_exist():
+    """The other direction: a tree must not list a file that was deleted.
+
+    Scoped to tree lines rather than the whole document, because prose cites
+    files outside this repository — mcp/README points at MISP's own `sub.py`
+    for the ZeroMQ framing, and that is a reference, not a claim about this
+    layout.
+    """
+    on_disk = {p.name for p in _REPO_ROOT.rglob("*.py") if ".git" not in p.parts}
+
+    for readme in (_REPO_ROOT / "README.md", _README):
+        phantom = _tree_filenames(readme) - on_disk
+        assert not phantom, (
+            f"{readme}: file tree lists modules that do not exist: {sorted(phantom)}"
+        )

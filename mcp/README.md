@@ -464,56 +464,90 @@ The server fetches credentials lazily per client, so Vault rotations are picked 
 
 ```
 src/threat_intel_mcp/
-├── server.py              MCP entrypoint; tool registration
+├── server.py              MCP entrypoint; tool registration (22 tools)
+├── __main__.py            python -m threat_intel_mcp (the documented launch form)
 ├── vault/
-│   ├── base.py            CredentialProvider Protocol + CredentialError
-│   ├── env.py             EnvCredentialProvider (dev only)
+│   ├── base.py            CredentialProvider protocol + error types
+│   ├── env.py             EnvCredentialProvider (env vars; dev only)
 │   ├── hashicorp.py       VaultCredentialProvider (AppRole + KV v2)
 │   ├── factory.py         credential_provider_from_env() selector
-│   └── protocols.py       Typed gRPC/MQTT/WebSocket/GraphQL credential bundles
+│   └── protocols.py       gRPC/MQTT/WebSocket/GraphQL credential bundles
 ├── transports/
-│   └── base.py            ProtocolAdapter: bring-your-own-endpoint base class
+│   ├── base.py            ProtocolAdapter: bring-your-own-endpoint base
+│   └── misp_zmq.py        MISP ZeroMQ subscriber (first concrete subclass, #162)
+├── render/
+│   ├── executive.py       enterprise_executive output -> self-contained HTML
+│   └── __main__.py        python -m threat_intel_mcp.render
 ├── adapters/
-│   ├── base.py            SourceAdapter Protocol + FetchResult dataclass
+│   ├── base.py            FetchResult, SourceAdapter protocol, error taxonomy
 │   ├── qfeeds.py          Q-Feeds REST adapter (20-min cache)
 │   ├── abuseipdb.py       AbuseIPDB blacklist adapter (60-min cache)
-│   ├── virustotal.py      VirusTotal Intelligence adapter (15-min cache, 15s rate limit)
 │   ├── otx.py             AlienVault OTX subscribed-pulses adapter (60-min cache)
-│   ├── shodan.py          Shodan Malware Hunter adapter (key param log-redacted, 60-min cache)
-│   ├── greynoise.py       GreyNoise GNQL malicious-scanner adapter (60-min cache)
+│   ├── shodan.py          Shodan Malware Hunter adapter (60-min cache)
+│   ├── greynoise.py       GreyNoise GNQL adapter (60-min cache)
 │   ├── anyrun.py          ANY.RUN TAXII 2.1 STIX feed adapter (60-min cache)
 │   ├── intel471.py        Intel 471 Titan indicators-stream adapter (60-min cache)
 │   ├── censys.py          Censys Search v2 hosts adapter (60-min cache)
-│   ├── threatfox.py       ThreatFox public IOC CSV adapter (no key, 15-min cache)
+│   ├── urlhaus.py         URLhaus malware-URL feed (abuse.ch; Auth-Key REQUIRED)
+│   ├── feodo.py           Feodo Tracker botnet C2 IPs (abuse.ch; key optional)
+│   ├── pulsedive.py       Pulsedive Explore — ONE request per fetch (50/day free tier)
+│   ├── threatfox.py       ThreatFox public IOC CSV (abuse.ch; key optional, 15-min cache)
+│   ├── openphish.py       OpenPhish Community phishing URLs (no key, 12-hr cache)
+│   ├── virustotal.py      VirusTotal per-indicator ENRICHMENT — not a feed (#203)
+│   ├── epss.py            EPSS per-CVE exploitation probability (no key, batched 100)
+│   ├── osv.py             OSV.dev per-CVE affected packages + fixes (no key)
 │   ├── cisa_kev.py        CISA KEV catalog adapter (public JSON, no key, 6-hr cache)
-│   └── nvd.py             NIST NVD 2.0 CVE adapter (key optional, 60-min cache)
+│   ├── nvd.py             NIST NVD 2.0 CVE adapter (key optional, 60-min cache)
+│   └── vulncheck.py       VulnCheck KEV CVE adapter (key required)
 ├── fanout.py              fetch_all_iocs: concurrent multi-source IOC merge + dedup
 ├── vulns.py               CVE-keyed vuln path: finalize_vulns + fetch_all_cves fan-out
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
 ├── sanitize.py            Strip control/zero-width/bidi + cap feed free-text
 ├── normalize.py           Schema validation + sanitize + dedup (finalize_iocs)
+├── stix_patterns.py       STIX pattern parsing (ANY.RUN TAXII objects)
 └── audit.py               Structured logging with secret redaction
+scripts/
+├── prefetch_feeds.py      The report path's fixed fetcher — holds every credential,
+│                          runs the fan-outs, calls the three enrichments
+└── record_cassettes.py    Records real feed responses for offline replay (#105)
 tests/
 ├── test_qfeeds.py         Q-Feeds adapter tests (pytest-httpx, no live calls)
 ├── test_abuseipdb.py      AbuseIPDB adapter tests
-├── test_virustotal.py     VirusTotal adapter tests
+├── test_virustotal.py     VirusTotal enrichment tests
 ├── test_otx.py            OTX adapter tests
 ├── test_shodan.py         Shodan adapter tests (incl. key-never-logged regression)
 ├── test_greynoise.py      GreyNoise adapter tests
 ├── test_threatfox.py      ThreatFox adapter tests
+├── test_abusech.py        URLhaus / Feodo / ThreatFox: the shared Auth-Key
+├── test_openphish.py      OpenPhish adapter tests (incl. the redirect allowlist pin)
+├── test_pulsedive.py      Pulsedive adapter tests (incl. the 429 quota diagnosis)
+├── test_epss.py           EPSS enrichment tests
+├── test_osv.py            OSV enrichment tests (incl. alias-following)
 ├── test_anyrun.py         ANY.RUN adapter tests
 ├── test_intel471.py       Intel 471 adapter tests
 ├── test_censys.py         Censys adapter tests
 ├── test_cisa_kev.py       CISA KEV adapter tests
 ├── test_nvd.py            NVD adapter tests (incl. optional-key + provider-outage paths)
+├── test_vulncheck.py      VulnCheck KEV adapter tests
 ├── test_vulns.py          Vuln pipeline: validate / sanitize / dedup / fan-out tests
 ├── test_stix_patterns.py  STIX pattern extractor tests
 ├── test_fanout.py         Fan-out merge / dedup / degrade tests (fake adapters)
 ├── test_resilience.py     Circuit breaker + backoff retry tests
 ├── test_integration.py    Real adapter -> fan-out -> guarded_fetch -> breaker (end-to-end)
 ├── test_server_smoke.py   Server wiring: IOC + CVE tools registered, sources degrade gracefully
-├── test_docs_consistency.py  Docs-as-code: env-var + Vault-path guards match the code
+├── test_server_success_paths.py  Tool success paths with mocked upstreams
+├── test_docs_consistency.py  Docs-as-code: env vars, Vault paths, tool parity, counts, file trees
+├── test_cassette_playback.py  Adapters replayed against recorded real responses (#105)
+├── test_vcr_harness.py    Cassette scrubbing + size-ceiling guards
+├── test_empty_parse_guards.py  guard_parsed coverage across every adapter (#106)
+├── test_pipeline_duplication.py  #84 trip-wire: IOC/CVE pipelines must not diverge
+├── test_prefetch_feeds.py Report-path fetcher: credential refusal, EPSS + VirusTotal wiring
+├── test_live_feeds.py     Live endpoint checks (pytest -m live; deselected by default)
+├── test_misp_zmq.py       MISP ZeroMQ subscriber tests
+├── test_executive_render.py  Executive HTML renderer tests
+├── test_entrypoint.py     python -m threat_intel_mcp entry-point tests
+├── test_audit.py          Audit logging + secret redaction tests
 ├── test_sanitize.py       Feed-data sanitization tests
 ├── test_netpolicy.py      Egress allowlist tests (incl. mock-transport e2e)
 ├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests

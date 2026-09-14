@@ -10,6 +10,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Four IOC feeds, two CVE enrichments, and every enrichment now actually called.** The server went from 9 IOC feeds to 13 and from one enrichment (which nothing invoked) to three (all invoked by the report path).
+
+  **Keyless first, deliberately.** A source needing no key is `consulted` on every run forever, where a credentialed one degrades to `unverified` the moment a subscription lapses. Before this there was exactly **one** keyless IOC feed; there are now two, plus two keyless CVE enrichments.
+
+  | Source | Kind | Key |
+  | --- | --- | --- |
+  | OpenPhish Community | IOC feed | none |
+  | URLhaus | IOC feed | shared abuse.ch |
+  | Feodo Tracker | IOC feed | shared abuse.ch, optional |
+  | Pulsedive | IOC feed | `PULSEDIVE_API_KEY` |
+  | EPSS (FIRST.org) | CVE enrichment | none |
+  | OSV.dev | CVE enrichment | none |
+
+  **One free abuse.ch Auth-Key covers four sources**, and adding it removed a standing risk rather than only adding coverage: abuse.ch has gated its APIs since 2025-06-30, and ThreatFox kept answering only because it reads the CSV *export*. That is a grandfathered route, not a promise, so the key is now sent there too — optionally, because breaking a feed that works in order to authenticate it would be a net loss.
+
+  **`prefetch_feeds.py` calls all three enrichments.** The `generate` job holds no MCP server by design, so an enrichment nobody calls does not exist. EPSS and OSV are unbounded; VirusTotal is a deliberate sample of 40 indicators chosen corroborated-first, and its payload block carries `selected_from` so a sample can never be recorded as feed-wide coverage.
+
+- **Recorded cassettes for five more adapters**, and they contradicted the code four times. A recording is the only check in this repository that cannot agree with a misconception:
+
+  - **OSV** returned well-formed, schema-valid records with **no `affected_packages`** — the only field worth calling OSV for. `/v1/vulns/{CVE}` returns the CVE-derived record, which carries GIT commit ranges and no package object; the ecosystem data lives in the aliased GHSA record. The adapter now follows the alias.
+  - **Feodo Tracker** entries carry a `status`, and four of the first five real entries were `offline` — one dark since February. The adapter had marked all of them `block` at `High`. Telling a SOC to block a cloud IP that has not served Emotet in six months points at a host quite possibly reassigned since.
+  - **`openphish.com/feed.txt` redirects** to the vendor's GitHub mirror, which the per-hop egress allowlist correctly refused.
+  - **Pulsedive answered HTTP 429 on request one of one** — see Known issues.
+
+### Changed
+
+- **`virustotal.py` is an enrichment, not a feed**, and the file trees in both READMEs now say so. They had described it as the "VirusTotal Intelligence adapter" — the bulk feed deleted in #203 — and that description survived three separate corrections of the same rot elsewhere, because each pass was reading prose and a directory listing is not prose.
+
+### Fixed
+
+- **Both README file trees were substantially stale.** The root README was missing seven adapters, `transports/misp_zmq.py`, the whole `render/` package and the whole `scripts/` directory — including `prefetch_feeds.py`, the script the entire report path runs on. `mcp/README.md` was missing the same seven adapters and 17 of its test files. Nothing in CI had ever compared a file tree to disk; `test_docs_consistency.py` now does, in both directions.
+
+### Known issues
+
+- **Pulsedive is built but unverified.** The first real call returned HTTP 429 on request one of one, with a well-formed request and a configured key. The adapter makes exactly one request per fetch, so this is not self-inflicted: either the account's quota is spent (50/day, 500/month) or the free plan does not include the Explore endpoint. Until that is settled the adapter degrades to `unverified` and is marked accordingly in `mcp/README.md`. If Explore turns out to be paid-only it needs re-targeting to `info.php`, which would make it an enrichment of at most 50 indicators a day rather than a feed.
+
+- **The source matrix does not yet name the new sources.** OpenPhish, URLhaus, Feodo Tracker, EPSS and OSV.dev are registered in the server but absent from `skills/cyber-threat-intel/references/source-matrix.md`. Source Governance requires a verified organisation and official URL with the verification named in the PR, so each addition is a deliberate act rather than a sweep.
+
+
 - **The report path now asserts its own honesty rules.** `scheduled-report.yml` published a report and checked nothing about it. `--corpus` proves the invariants hold over the frozen eleven — all but one generated *without* live feeds — so no live-feed report had ever been checked at all. The generate job now runs the same assertions over what it just produced.
 
   `evals/run.py --files PATH...` is the new mode. It reuses `check_report_file`, so the report path and the corpus cannot drift into checking different things.
