@@ -29,7 +29,17 @@ credentials.*
 htmlcov/
 coverage.xml
 
-# Claude Code runtime state (settings.local.json is tracked; locks are not)
+# Claude Code runtime state. `settings.local.json` was tracked until 2026-09-14
+# and is not any more: it is per-machine permission state, not project
+# configuration. By the time it was removed every entry in it referenced a file
+# that no longer existed (`cyber_threat_prompt.md`, `cyber_threat_skill.yaml`,
+# `docs.md`, `schema_json.json`, `examples_outputs.json`) and it carried a
+# `git push origin main` grant — one contributor's local trust decisions,
+# committed for everyone and silently stale.
+#
+# Ignored by exact name rather than ignoring `.claude/` wholesale: project
+# skills live at `.claude/skills/<name>/SKILL.md` and must stay trackable.
+.claude/settings.local.json
 .claude/*.lock
 # Claude Code agent worktrees (managed by the SDK, not project files)
 .claude/worktrees/
