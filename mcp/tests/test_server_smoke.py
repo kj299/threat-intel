@@ -54,6 +54,7 @@ _CREDENTIALED_FEED_TOOLS = [
     # URLhaus REQUIRES the shared abuse.ch Auth-Key; ThreatFox and Feodo send
     # the same key only when it exists, so they stay in _PUBLIC_FEED_TOOLS.
     "urlhaus_fetch_iocs",
+    "pulsedive_fetch_iocs",
 ]
 # Keyless public feeds: no credential, so they always attempt the network.
 _PUBLIC_FEED_TOOLS = [
@@ -88,7 +89,7 @@ _ALL_TOOLS = (
 _EXPECTED_SOURCES = {
     "Q-Feeds", "AbuseIPDB", "AlienVault OTX", "Shodan",
     "GreyNoise", "ANY.RUN", "Intel 471", "Censys", "ThreatFox", "OpenPhish",
-    "URLhaus", "Feodo Tracker",
+    "URLhaus", "Feodo Tracker", "Pulsedive",
 }
 _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 
@@ -120,6 +121,7 @@ _CRED_VARS = (
     # One key, three abuse.ch feeds — URLhaus requires it, ThreatFox and Feodo
     # Tracker send it when present and still answer without it.
     "ABUSECH_AUTH_KEY",
+    "PULSEDIVE_API_KEY",
 )
 
 
@@ -299,6 +301,7 @@ _FEED_TYPE_VALIDATING_TOOLS = [
     "openphish_fetch_iocs",
     "urlhaus_fetch_iocs",
     "feodo_fetch_iocs",
+    "pulsedive_fetch_iocs",
     "cisa_kev_fetch_cves",
     "nvd_fetch_cves",
     "vulncheck_fetch_cves",

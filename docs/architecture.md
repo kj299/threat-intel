@@ -20,14 +20,14 @@ flowchart TD
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
-        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       openphish_fetch_iocs\n       urlhaus_fetch_iocs\n       feodo_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       epss_enrich_cves\n       osv_enrich_cves\n       list_available_feeds"]
+        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       openphish_fetch_iocs\n       urlhaus_fetch_iocs\n       feodo_fetch_iocs\n       pulsedive_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       epss_enrich_cves\n       osv_enrich_cves\n       list_available_feeds"]
 
         FanOut["fetch_all_iocs fan-out\nfanout.py\nasyncio.gather over all sources\nmerge + cross-source dedup"]
         VulnFanOut["fetch_all_cves fan-out\nvulns.py\nfan_out_vulns over CVE sources\nmerge + dedup by CVE ID"]
         Resilience["resilience.py\nguarded_fetch per source\nCircuitBreaker + backoff retry"]
 
         subgraph Cred["CredentialProvider"]
-            EnvCred["Phase 1: EnvCredentialProvider\nreads QFEEDS_API_KEY\nreads ABUSEIPDB_API_KEY\nreads VIRUSTOTAL_API_KEY\nreads OTX_API_KEY\nreads SHODAN_API_KEY\nreads GREYNOISE_API_KEY\nreads ANYRUN_API_KEY\nreads INTEL471_* / CENSYS_*\nreads NVD_API_KEY (optional)\nreads VULNCHECK_API_KEY\nreads ABUSECH_AUTH_KEY (4 feeds)"]
+            EnvCred["Phase 1: EnvCredentialProvider\nreads QFEEDS_API_KEY\nreads ABUSEIPDB_API_KEY\nreads VIRUSTOTAL_API_KEY\nreads OTX_API_KEY\nreads SHODAN_API_KEY\nreads GREYNOISE_API_KEY\nreads ANYRUN_API_KEY\nreads INTEL471_* / CENSYS_*\nreads NVD_API_KEY (optional)\nreads VULNCHECK_API_KEY\nreads ABUSECH_AUTH_KEY (4 feeds)\nreads PULSEDIVE_API_KEY"]
             VaultCred["Phase 2: VaultCredentialProvider\nreads from HashiCorp Vault"]
         end
 
@@ -41,6 +41,7 @@ flowchart TD
             ThreatFox["ThreatFoxAdapter\nadapters/threatfox.py\npublic CSV · Auth-Key optional\n15-min cache"]
             URLhaus["URLhausAdapter\nadapters/urlhaus.py\nAuth-Key REQUIRED\n15-min cache"]
             Feodo["FeodoTrackerAdapter\nadapters/feodo.py\nbotnet C2 IPs · Auth-Key optional\n15-min cache"]
+            Pulsedive["PulsediveAdapter\nadapters/pulsedive.py\nkey in query param\nONE request/fetch (50/day)\n60-min cache"]
             OpenPhish["OpenPhishAdapter\nadapters/openphish.py\npublic text (no key)\n12-hour cache"]
             EPSS["EPSSAdapter\nadapters/epss.py\nCVE ENRICHMENT, no key\nbatched 100/request\n60-min cache"]
             OSV["OSVAdapter\nadapters/osv.py\nCVE ENRICHMENT, no key\n60-min cache"]
@@ -72,6 +73,7 @@ flowchart TD
         ThreatFox_API["ThreatFox feed\nhttps://threatfox.abuse.ch/export/csv/recent/\npublic CSV (grandfathered route)"]
         URLhaus_API["URLhaus API v1\nhttps://urlhaus-api.abuse.ch/v1\nGET /urls/recent/ · Auth-Key"]
         Feodo_API["Feodo Tracker blocklist\nhttps://feodotracker.abuse.ch\nGET /downloads/ipblocklist.json"]
+        Pulsedive_API["Pulsedive Explore\nhttps://pulsedive.com/api\nGET /explore.php?q=..&key=.."]
         OpenPhish_API["OpenPhish Community feed\nhttps://openphish.com/feed.txt\npublic text · 300 URLs · 12h refresh"]
         EPSS_API["FIRST.org EPSS API\nhttps://api.first.org/data/v1/epss\nGET ?cve=a,b,c · no auth"]
         OSV_API["OSV.dev API\nhttps://api.osv.dev/v1\nGET /vulns/{id} · no auth"]
@@ -99,6 +101,7 @@ flowchart TD
     Resilience -->|"guarded_fetch"| OpenPhish
     Resilience -->|"guarded_fetch"| URLhaus
     Resilience -->|"guarded_fetch"| Feodo
+    Resilience -->|"guarded_fetch"| Pulsedive
     Resilience -->|"guarded_fetch"| AnyRun
     Resilience -->|"guarded_fetch"| Intel471
     Resilience -->|"guarded_fetch"| Censys
@@ -148,6 +151,8 @@ flowchart TD
     URLhaus_API -->|"JSON urls[]"| URLhaus
     Feodo -->|"GET /downloads/ipblocklist.json"| Feodo_API
     Feodo_API -->|"JSON C2 array"| Feodo
+    Pulsedive -->|"GET /explore.php (one page)"| Pulsedive_API
+    Pulsedive_API -->|"JSON results[]"| Pulsedive
     EPSS -->|"GET ?cve=... (no auth)"| EPSS_API
     EPSS_API -->|"data[] cve · epss · percentile"| EPSS
     OSV -->|"GET /vulns/{cve} (no auth)"| OSV_API
@@ -172,6 +177,7 @@ flowchart TD
     OpenPhish -->|"raw ioc_network objects"| Normalize
     URLhaus -->|"raw ioc_network objects"| Normalize
     Feodo -->|"raw ioc_network objects"| Normalize
+    Pulsedive -->|"raw ioc_network objects"| Normalize
     AnyRun -->|"raw ioc_network objects"| Normalize
     Intel471 -->|"raw ioc_network objects"| Normalize
     Censys -->|"raw ioc_network objects"| Normalize

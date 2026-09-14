@@ -50,6 +50,7 @@ from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.adapters.openphish import OpenPhishAdapter
 from threat_intel_mcp.adapters.urlhaus import URLhausAdapter
 from threat_intel_mcp.adapters.feodo import FeodoTrackerAdapter
+from threat_intel_mcp.adapters.pulsedive import PulsediveAdapter
 from threat_intel_mcp.adapters.epss import EPSSAdapter
 from threat_intel_mcp.adapters.osv import OSVAdapter  # noqa: E402
 from threat_intel_mcp.adapters.virustotal import VirusTotalAdapter  # noqa: E402
@@ -86,6 +87,8 @@ FEEDS = {
     # answers without one, so it records like any keyless feed.
     "urlhaus": (lambda c: URLhausAdapter(c), True),
     "feodo": (lambda c: FeodoTrackerAdapter(c), False),
+    # One recording costs 1 of the 50 daily requests.
+    "pulsedive": (lambda c: PulsediveAdapter(c), True),
 }
 
 # Credential-bearing header names and query parameters. These are checked

@@ -40,6 +40,7 @@ from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_T
 from .adapters.openphish import OpenPhishAdapter, FEED_TYPES as OPENPHISH_FEED_TYPES
 from .adapters.urlhaus import URLhausAdapter, FEED_TYPES as URLHAUS_FEED_TYPES
 from .adapters.feodo import FeodoTrackerAdapter, FEED_TYPES as FEODO_FEED_TYPES
+from .adapters.pulsedive import PulsediveAdapter, FEED_TYPES as PULSEDIVE_FEED_TYPES
 from .adapters.epss import EPSSAdapter
 from .adapters.osv import OSVAdapter
 from .adapters.intel471 import Intel471Adapter, FEED_TYPES as INTEL471_FEED_TYPES
@@ -115,6 +116,9 @@ _openphish = OpenPhishAdapter()  # public feed, no credential
 # download paths, so for them the same key is optional.
 _urlhaus = URLhausAdapter(_credentials)
 _feodo = FeodoTrackerAdapter(_credentials)
+# 50 requests/day on the free tier -- the tightest budget here, which is why
+# the adapter makes exactly one request per fetch.
+_pulsedive = PulsediveAdapter(_credentials)
 _epss = EPSSAdapter()  # public API, no credential (enrichment, not a feed)
 _osv = OSVAdapter()  # public API, no credential (enrichment, not a feed)
 _anyrun = AnyRunAdapter(_credentials)
@@ -167,6 +171,7 @@ _FEED_SOURCES = [
     FeedSource(_openphish, 6, "OpenPhish", CircuitBreaker("OpenPhish"), _CONFIG_ERRORS),
     FeedSource(_urlhaus, 9, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
     FeedSource(_feodo, 9, "Feodo Tracker", CircuitBreaker("Feodo Tracker"), _CONFIG_ERRORS),
+    FeedSource(_pulsedive, 3, "Pulsedive", CircuitBreaker("Pulsedive"), _CONFIG_ERRORS),
 ]
 
 # Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
@@ -1131,6 +1136,70 @@ async def feodo_fetch_iocs(
 
 
 @mcp.tool()
+async def pulsedive_fetch_iocs(
+    time_range: str = "7d",
+    feed_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fetch high-risk community indicators from Pulsedive (Tier 3 CTI).
+
+    Returns ioc_network objects (IPs, domains, URLs) in the threat-intel
+    output.schema.json shape, de-duplicated and schema-validated. Requires
+    `PULSEDIVE_API_KEY`.
+
+    **One page per call, by design.** A free Pulsedive account allows 50
+    requests/day — the tightest budget of any source here — so this makes
+    exactly one request and says so in `partial_failure`. Never read the result
+    as the whole of Pulsedive's high-risk set.
+
+    Confidence follows Pulsedive's own risk scale; only live `high`/`critical`
+    indicators come back `action: block`. A `retired` indicator is kept as
+    history at `alert`, never as something to block.
+
+    Args:
+        time_range: Recorded for the Coverage Ledger; Explore returns current
+            state and narrowing by date would cost extra requests.
+        feed_types: Defaults to all available. Available: high_risk.
+
+    Returns:
+        dict with keys: iocs, source, tier, retrieved_at, record_count,
+        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
+    """
+    try:
+        result = await _pulsedive.fetch(time_range=time_range, feed_types=feed_types)
+    except ValueError:
+        raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except Exception as exc:
+        logger.warning("Pulsedive upstream fetch failed: %s", type(exc).__name__)
+        return _degraded_tool_result(
+            "Pulsedive",
+            3,
+            feed_types or list(PULSEDIVE_FEED_TYPES),
+            f"upstream fetch failed: {type(exc).__name__}",
+        )
+
+    deduped = finalize_iocs(result.iocs)
+    # This feed ALWAYS reports a partial_failure (the one-page cap), so the
+    # usual "partial_failure means degraded" rule would mark a healthy fetch
+    # `partial` forever. Records returned is the real signal here.
+    status = "consulted" if deduped else "partial"
+    return {
+        "iocs": deduped,
+        "source": result.source,
+        "tier": result.tier,
+        "retrieved_at": result.retrieved_at,
+        "record_count": len(deduped),
+        "latency_ms": result.latency_ms,
+        "feed_types_fetched": result.feed_types_fetched,
+        "partial_failure": result.partial_failure,
+        "coverage_ledger_entry": {
+            "tier": 3,
+            "source": "Pulsedive",
+            "status": status,
+        },
+    }
+
+
+@mcp.tool()
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
 
@@ -1462,6 +1531,12 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         abusech_cred_ok = False
 
+    pulsedive_cred_ok = True
+    try:
+        _credentials.get("pulsedive", "api_key")
+    except (KeyError, CredentialError):
+        pulsedive_cred_ok = False
+
     abuseipdb_cred_ok = True
     try:
         _credentials.get("abuseipdb", "api_key")
@@ -1638,6 +1713,15 @@ async def list_available_feeds() -> dict[str, Any]:
                 "feed_types": list(FEODO_FEED_TYPES),
                 "credential_configured": True,
                 "tool": "feodo_fetch_iocs",
+            },
+            {
+                "name": "Pulsedive",
+                "tier": 3,
+                "domain": "pulsedive.com",
+                "description": "High-risk community indicators via Explore — one page per fetch, because the free tier allows only 50 requests/day",
+                "feed_types": list(PULSEDIVE_FEED_TYPES),
+                "credential_configured": pulsedive_cred_ok,
+                "tool": "pulsedive_fetch_iocs",
             },
         ],
         # Enrichment sources score indicators the caller already holds. They are

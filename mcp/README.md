@@ -54,6 +54,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | OpenPhish Community adapter + `openphish_fetch_iocs` (free, no key; non-commercial use only) | ✅ #211 |
 | URLhaus adapter + `urlhaus_fetch_iocs` (abuse.ch; **requires** the shared `ABUSECH_AUTH_KEY`) | ✅ #212 |
 | Feodo Tracker adapter + `feodo_fetch_iocs` (abuse.ch botnet C2 IPs; same key, optional) | ✅ #212 |
+| Pulsedive adapter + `pulsedive_fetch_iocs` (`PULSEDIVE_API_KEY`; one page per fetch — free tier is 50 req/day) | ⚠️ #215 — built, but the first real call returned HTTP 429 on request one of one; Explore may be paid-only |
 | ThreatFox sends the abuse.ch `Auth-Key` when configured — abuse.ch has required auth since 2025-06-30 and the CSV export route is grandfathered, not promised | ✅ #212 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -419,7 +420,7 @@ Base URL and auth below were read from each vendor's **official SDK source** (Gi
 | Any.Run (T9) | subscription | `https://api.any.run/v1/feeds/taxii2/...` | header `Authorization` | **implemented** — `anyrun.py` |
 | Hybrid Analysis (T9) | free + paid tiers | `https://www.hybrid-analysis.com/api/v2` | header `api-key` | SDK `PayloadSecurity/VxAPI` |
 
-Sources with **no reachable public SDK** — base URL/auth left blank rather than guessed; read the vendor's docs before building: Recorded Future (`support.recordedfuture.com`), Mandiant / Google TI (`cloud.google.com/security`), CrowdStrike Falcon Intel (`falcon.crowdstrike.com`, OAuth2), SecurityTrails (`docs.securitytrails.com`), Pulsedive (`pulsedive.com/api`), and the Tier-7 dark-web feeds Flashpoint / Cybersixgill / DarkOwl / Kela / SOCRadar / ReliaQuest / ZeroFox / Searchlight.
+Sources with **no reachable public SDK** — base URL/auth left blank rather than guessed; read the vendor's docs before building: Recorded Future (`support.recordedfuture.com`), Mandiant / Google TI (`cloud.google.com/security`), CrowdStrike Falcon Intel (`falcon.crowdstrike.com`, OAuth2), SecurityTrails (`docs.securitytrails.com`), and the Tier-7 dark-web feeds Flashpoint / Cybersixgill / DarkOwl / Kela / SOCRadar / ReliaQuest / ZeroFox / Searchlight.
 
 > The base URLs above were verified by cloning each vendor's official SDK and reading the source; the "no reachable public SDK" list is left deliberately blank because asserting an endpoint you haven't confirmed is the exact fabrication this repo forbids.
 
