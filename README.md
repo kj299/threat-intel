@@ -110,6 +110,53 @@ threat-intel/
 +-- mcp/                                             # threat-intel-mcp server (v0.15.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
+    |   +-- server.py                                # FastMCP entry point (22 tools)
+    |   +-- __main__.py                              # python -m threat_intel_mcp entry point
+    |   +-- audit.py                                 # structured audit logging + secret redaction
+    |   +-- fanout.py                                # fetch_all_iocs: concurrent multi-source IOC merge
+    |   +-- vulns.py                                 # fetch_all_cves: CVE-keyed vuln validate/dedup/fan-out
+    |   +-- resilience.py                            # circuit breaker + backoff retry (guarded_fetch)
+    |   +-- netpolicy.py                             # per-adapter egress allowlist (httpx hook)
+    |   +-- sanitize.py                              # feed free-text sanitization (R6 runtime defense)
+    |   +-- normalize.py                             # finalize_iocs: sanitize -> validate -> dedup
+    |   +-- stix_patterns.py                         # STIX pattern parsing (ANY.RUN TAXII)
+    |   +-- adapters/
+    |   |   +-- base.py                              # FetchResult, SourceAdapter protocol, error taxonomy
+    |   |   +-- qfeeds.py                            # Q-Feeds HTTP adapter (paginated, 20-min cache)
+    |   |   +-- abuseipdb.py                         # AbuseIPDB blacklist adapter (60-min cache)
+    |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
+    |   |   +-- shodan.py                            # Shodan Malware Hunter adapter (60-min cache)
+    |   |   +-- greynoise.py                         # GreyNoise GNQL malicious-scanner adapter (60-min cache)
+    |   |   +-- anyrun.py                            # ANY.RUN TAXII 2.1 STIX feed adapter
+    |   |   +-- intel471.py                          # Intel 471 Titan indicators-stream adapter
+    |   |   +-- censys.py                            # Censys Search v2 hosts adapter
+    |   |   +-- urlhaus.py                           # URLhaus malware-URL feed (abuse.ch; Auth-Key required)
+    |   |   +-- feodo.py                             # Feodo Tracker botnet C2 IPs (abuse.ch; key optional)
+    |   |   +-- pulsedive.py                         # Pulsedive Explore (one request/fetch; 50/day free tier)
+    |   |   +-- threatfox.py                         # ThreatFox public IOC CSV (abuse.ch; key optional)
+    |   |   +-- openphish.py                         # OpenPhish Community phishing URLs (no key)
+    |   |   +-- virustotal.py                        # VirusTotal per-indicator ENRICHMENT (not a feed, #203)
+    |   |   +-- epss.py                              # EPSS per-CVE exploitation probability (no key)
+    |   |   +-- osv.py                               # OSV.dev per-CVE affected packages / fixes (no key)
+    |   |   +-- cisa_kev.py                          # CISA KEV catalog adapter (public JSON, no key)
+    |   |   +-- nvd.py                               # NIST NVD 2.0 CVE adapter (key optional)
+    |   |   +-- vulncheck.py                         # VulnCheck KEV CVE adapter (key required)
+    |   +-- transports/
+    |   |   +-- base.py                              # ProtocolAdapter: bring-your-own-endpoint base
+    |   |   +-- misp_zmq.py                          # MISP ZeroMQ subscriber (first concrete subclass)
+    |   +-- render/
+    |   |   +-- executive.py                         # enterprise_executive -> self-contained HTML
+    |   |   +-- __main__.py                          # python -m threat_intel_mcp.render
+    |   +-- vault/
+    |       +-- base.py                              # CredentialProvider protocol + error types
+    |       +-- env.py                               # EnvCredentialProvider (env vars)
+    |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
+    |       +-- factory.py                           # credential_provider_from_env() selector
+    |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
+    +-- scripts/
+    |   +-- prefetch_feeds.py                        # the report path's fixed fetcher (holds credentials)
+    |   +-- record_cassettes.py                      # records real feed responses for offline replay
+    +-- tests/                                       # unit + httpx-mock integration tests (no live network)
     |   +-- server.py                                # FastMCP stdio server entry point
     |   +-- normalize.py                             # ioc_network schema validation + dedup
     |   +-- audit.py                                 # structured audit logging + secret redaction
