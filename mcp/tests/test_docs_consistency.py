@@ -9,6 +9,7 @@ isn't exercised until someone follows it, so these tests exercise it.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import shutil
@@ -511,3 +512,60 @@ def test_file_trees_name_no_module_that_does_not_exist():
         assert not phantom, (
             f"{readme}: file tree lists modules that do not exist: {sorted(phantom)}"
         )
+
+
+# --- Runtime schema ⟷ published schema parity --------------------------------
+
+_PUBLISHED_SCHEMA = (
+    _REPO_ROOT / "skills" / "cyber-threat-intel" / "schemas" / "output.schema.json"
+)
+
+
+def test_runtime_ioc_schema_matches_the_published_one():
+    """``normalize.py`` inlines a copy of ``ioc_network``. Keep it honest.
+
+    The inlining is deliberate — it is what lets this package validate without
+    a file-system dependency on the threat-intel repo at runtime — and the
+    comment above it says "Keep in sync with output.schema.json". An
+    instruction is not a check, and this repository has already paid for that
+    twice: the `standalone/` prompt mirrors drifted until CI compared them, and
+    the README counts drifted until #210 pinned them.
+
+    Drift here is worse than either, because it is silent in both directions.
+    A runtime copy that is *looser* means the server hands Claude indicators
+    the published contract rejects — every consumer of the skill schema, not
+    just this server, then sees data it was promised it would not. A runtime
+    copy that is *stricter* means the server drops indicators that are
+    perfectly valid, which presents as a quiet feed rather than an error.
+
+    Compared as whole subschemas rather than field by field, so a new property
+    on either side has to be added to both.
+    """
+    from threat_intel_mcp.normalize import _IOC_NETWORK_SCHEMA as runtime
+
+    published = json.loads(_PUBLISHED_SCHEMA.read_text(encoding="utf-8"))
+    contract = published["definitions"]["ioc_network"]
+
+    # `$schema` and `type` are envelope keys the definition does not carry;
+    # everything that constrains an indicator must match exactly.
+    assert runtime["required"] == contract["required"], (
+        "required fields differ between the runtime copy and the published "
+        f"schema: runtime={runtime['required']} published={contract['required']}"
+    )
+
+    runtime_props, contract_props = runtime["properties"], contract["properties"]
+    assert set(runtime_props) == set(contract_props), (
+        "property sets differ — only in published: "
+        f"{sorted(set(contract_props) - set(runtime_props))}; only in runtime: "
+        f"{sorted(set(runtime_props) - set(contract_props))}"
+    )
+
+    differing = {
+        name: {"runtime": runtime_props[name], "published": contract_props[name]}
+        for name in sorted(runtime_props)
+        if runtime_props[name] != contract_props[name]
+    }
+    assert not differing, (
+        "these properties are constrained differently at runtime than in the "
+        f"published contract: {json.dumps(differing, indent=2, sort_keys=True)}"
+    )

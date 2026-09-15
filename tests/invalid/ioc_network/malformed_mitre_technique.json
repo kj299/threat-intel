@@ -1,0 +1,7 @@
+{
+  "type": "Domain",
+  "value": "evil.example.test",
+  "confidence": "Medium",
+  "source": "URLhaus",
+  "mitre_technique": "T1071.0011"
+}
