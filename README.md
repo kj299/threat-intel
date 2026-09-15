@@ -157,37 +157,6 @@ threat-intel/
     |   +-- prefetch_feeds.py                        # the report path's fixed fetcher (holds credentials)
     |   +-- record_cassettes.py                      # records real feed responses for offline replay
     +-- tests/                                       # unit + httpx-mock integration tests (no live network)
-    |   +-- server.py                                # FastMCP stdio server entry point
-    |   +-- normalize.py                             # ioc_network schema validation + dedup
-    |   +-- audit.py                                 # structured audit logging + secret redaction
-    |   +-- fanout.py                                # fetch_all_iocs: concurrent multi-source IOC merge
-    |   +-- vulns.py                                 # fetch_all_cves: CVE-keyed vuln validate/dedup/fan-out
-    |   +-- resilience.py                            # circuit breaker + backoff retry (guarded_fetch)
-    |   +-- netpolicy.py                             # per-adapter egress allowlist (httpx hook)
-    |   +-- sanitize.py                              # feed free-text sanitization (R6 runtime defense)
-    |   +-- adapters/
-    |   |   +-- base.py                              # FetchResult dataclass, SourceAdapter protocol
-    |   |   +-- qfeeds.py                            # Q-Feeds HTTP adapter (paginated, 20-min cache)
-    |   |   +-- abuseipdb.py                         # AbuseIPDB blacklist adapter (60-min cache)
-    |   |   +-- virustotal.py                        # VirusTotal Intelligence adapter (15-min cache)
-    |   |   +-- otx.py                               # AlienVault OTX pulses adapter (60-min cache)
-    |   |   +-- shodan.py                            # Shodan Malware Hunter adapter (60-min cache)
-    |   |   +-- greynoise.py                         # GreyNoise GNQL malicious-scanner adapter (60-min cache)
-    |   |   +-- threatfox.py                         # ThreatFox public IOC feed (no key)
-    |   |   +-- anyrun.py                            # ANY.RUN TAXII 2.1 STIX feed adapter
-    |   |   +-- intel471.py                          # Intel 471 Titan indicators-stream adapter
-    |   |   +-- censys.py                            # Censys Search v2 hosts adapter
-    |   |   +-- cisa_kev.py                          # CISA KEV catalog adapter (public JSON, no key)
-    |   |   +-- nvd.py                               # NIST NVD 2.0 CVE adapter (key optional)
-    |   +-- transports/
-    |   |   +-- base.py                              # ProtocolAdapter: bring-your-own-endpoint base
-    |   +-- vault/
-    |       +-- base.py                              # CredentialProvider protocol + error types
-    |       +-- env.py                               # EnvCredentialProvider (env vars)
-    |       +-- hashicorp.py                         # VaultCredentialProvider (AppRole + KV v2)
-    |       +-- factory.py                           # credential_provider_from_env() selector
-    |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
-    +-- tests/                                       # 312 unit + httpx-mock integration tests
 ```
 
 ---

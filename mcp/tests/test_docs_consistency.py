@@ -569,3 +569,54 @@ def test_runtime_ioc_schema_matches_the_published_one():
         "these properties are constrained differently at runtime than in the "
         f"published contract: {json.dumps(differing, indent=2, sort_keys=True)}"
     )
+
+
+def test_file_trees_do_not_list_a_module_more_often_than_it_exists():
+    """A tree must not carry a stale copy of itself alongside the current one.
+
+    This exists because the fix in #216 created the defect it was fixing. The
+    rebuild script spliced a corrected tree into README.md without removing the
+    old one, and both shipped: 25 filenames listed twice, the stale half reading
+    as though `server.py` and `adapters/` lived inside `tests/`, still carrying
+    the "VirusTotal Intelligence adapter" line and a "312 unit tests" count that
+    had just been reported as corrected.
+
+    **The guards written in #216 passed it.** `..._name_every_module` asks
+    whether each module is named *somewhere*; `..._no_module_that_does_not_exist`
+    asks whether each name exists. A document holding a correct tree *plus* a
+    stale duplicate satisfies both perfectly. Omission and invention were
+    covered; duplication was not a shape either question could see.
+
+    The ceiling is **derived, never a literal**: a filename may appear as many
+    times as files of that name exist, so `base.py` is allowed three entries
+    (adapters, transports, vault) and `__main__.py` two (the package and
+    `render/`) without anyone maintaining a list of exceptions. Add a fourth
+    `base.py` to the tree and it fails; add a fourth to the source and the
+    ceiling rises on its own.
+    """
+    from collections import Counter
+
+    on_disk = Counter(
+        p.name
+        for directory in (_SERVER_SRC, _SCRIPTS_DIR, _TESTS_DIR)
+        for p in directory.rglob("*.py")
+        if p.name not in _TREE_IGNORED
+    )
+    assert on_disk, "no modules found — layout drift?"
+
+    for readme in (_REPO_ROOT / "README.md", _README):
+        listed: Counter[str] = Counter()
+        for line in readme.read_text(encoding="utf-8").splitlines():
+            if any(glyph in line for glyph in _TREE_GLYPHS):
+                listed.update(re.findall(r"([a-z_][a-z0-9_]*\.py)", line))
+
+        over = {
+            name: (count, on_disk.get(name, 0))
+            for name, count in listed.items()
+            if count > on_disk.get(name, 0)
+        }
+        assert not over, (
+            f"{readme}: the file tree lists these modules more often than they "
+            f"exist on disk — {{name: (listed, on_disk)}} {over}. That is what a "
+            "stale copy of the tree left beside the current one looks like."
+        )
