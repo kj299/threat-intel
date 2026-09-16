@@ -38,10 +38,23 @@ workflow* with a chosen persona and time range.
 
 > **The weekly cron was removed (#170).** Each run costs a full agent session
 > — the first successful one took 50 turns — to report on three keyless feeds,
-> which was not worth a standing weekly charge. The trigger for re-enabling it,
-> the exact cron lines to restore, and why weekly rather than daily are all
-> recorded in [#169](https://github.com/kj299/threat-intel/issues/169): three
-> or more additional feed credentials configured.
+> which was not worth a standing weekly charge. That was true of run
+> `33326622088` (2026-08-30), the run this decision was made against; it no
+> longer describes the pipeline. [#169](https://github.com/kj299/threat-intel/issues/169)
+> named the trigger for revisiting it — three or more additional sources
+> configured — and, read literally, that has been met on keyless sources
+> alone: OpenPhish, EPSS, OSV and Feodo Tracker need no credential and are
+> always consulted, on top of the original three. `prefetch_feeds.py` also
+> reaches every credentialed adapter with a configured key, which only adds to
+> that count.
+>
+> Meeting the count is not the same as clearing the bar, though. Restoring the
+> cron is a standing-cost decision: a routine run only earns its cost if it
+> improves the tooling or the capability, not by re-proving a pipeline that is
+> already proven (CLAUDE.md's Operator Principle, 2026-09-04). That is the
+> operator's call to make — this doc records that the #169 trigger has fired,
+> not that the cron should be restored. The exact cron lines to restore, and
+> why weekly rather than daily, are still recorded in #169.
 
 **Enabling it:** the workflow needs one credential, as a repository secret.
 Either works, and they bill differently:
@@ -239,6 +252,7 @@ bumps) a `Report pipeline stale` issue if not.
 It is **manual-only, and deliberately so** (#170): with no cadence its condition
 is permanently true, so on a schedule it would refile the same issue forever —
 noise that trains people to ignore the alarm. It and `scheduled-report.yml`
-are a pair; restore both crons together when #169's threshold is met, with the
+are a pair; restore both crons together if the operator decides to act on
+#169's now-met trigger (see "How reports are generated" above), with the
 staleness check offset 54 minutes after generation so a successful run clears
 the alarm in the same hour.

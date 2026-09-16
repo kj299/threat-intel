@@ -69,33 +69,42 @@ name: scheduled-report
 # enumerating deny rules for every way a shell can read its own environment is
 # whack-a-mole that would only look like protection.
 #
-# The keyless feeds this workflow actually needs (ThreatFox, CISA KEV, NVD) take
-# no credential, so there is nothing to isolate today. If paid feeds are wanted
-# later, fetch them in a separate step and hand the agent a data file — the
-# shape record-cassettes.yml already uses, where the credentials sit in a step
-# that runs a fixed script rather than an agent. See docs/report-runbook.md.
+# This is why every feed credential lives in the `prefetch` job below instead
+# — a separate JOB, not a separate step, so the agent's runner never holds one
+# in any form. `prefetch` runs a fixed script (mcp/scripts/prefetch_feeds.py),
+# not an agent, and refuses to write a payload containing any credential it
+# holds; `generate` downloads the result and never sees a key. See
+# docs/report-runbook.md for the full rationale (#169).
 #
 # ─── NOTE FOR #76 ────────────────────────────────────────────────────────────
-# GitHub-hosted runners have open outbound internet, so the keyless feeds
-# (ThreatFox, CISA KEV, NVD) are reachable here even though they are blocked by
-# the proxy in the default cloud dev environment. A successful run of this
-# workflow would also satisfy #76's "first MCP-connected report".
+# GitHub-hosted runners have open outbound internet, so the seven feeds that
+# need no credential at all (ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV,
+# Feodo Tracker) are reachable here even though they are blocked by the proxy
+# in the default cloud dev environment. A successful run of this workflow
+# would also satisfy #76's "first MCP-connected report".
 
 on:
   # ─── NO SCHEDULE — MANUAL ONLY ───────────────────────────────────────────────
   # The weekly cron (Mondays 05:23 UTC) was removed deliberately: each run costs
   # a full agent session — the first successful one took 50 turns — to report on
-  # three keyless feeds, two of which a plain HTTP request would fetch.
+  # three keyless feeds, two of which a plain HTTP request would fetch. That was
+  # true of run 33326622088 (2026-08-30), the run this decision was made against.
   #
-  # The pipeline is proven: run 33326622088 produced
-  # reports/2026-08-30-threat-intel.md with live feeds connected. Re-running it
-  # weekly mostly re-proved that, at a standing cost.
+  # It is no longer true of the pipeline itself. Issue #169 named the trigger for
+  # revisiting this decision: three or more additional sources configured. Four
+  # more feeds need no credential at all and are always consulted (OpenPhish,
+  # EPSS, OSV, Feodo Tracker) on top of the original three (ThreatFox, CISA KEV,
+  # NVD), and the `prefetch` job below now also reaches every credentialed
+  # adapter with a configured key. Read literally, the #169 trigger has fired.
   #
-  # Re-enable the schedule when there is more to report on. Issue #169 tracks
-  # adding feeds and names the trigger: with three or more additional sources
-  # configured, the coverage badge can exceed MINIMAL and a weekly cadence earns
-  # its cost. Restore `- cron: "23 5 * * 1"` here and the matching alarm in
-  # report-staleness.yml at the same time — the two are a pair.
+  # Meeting the count is not the same as clearing the bar, though. Restoring the
+  # cron is a standing-cost decision, not a mechanical one: a routine run only
+  # earns its cost if it improves the tooling or the capability, not by
+  # re-proving a pipeline that is already proven (CLAUDE.md names this the
+  # Operator Principle, dated 2026-09-04). Whether today's broader coverage
+  # clears that bar is an operator call. If it does, restore
+  # `- cron: "23 5 * * 1"` here and the matching alarm in report-staleness.yml
+  # at the same time — the two are a pair.
   workflow_dispatch:
     inputs:
       persona:
