@@ -105,7 +105,12 @@ async def test_partial_failure_with_data_is_partial():
     ledger = result["coverage_ledger"][0]
     assert ledger["status"] == "partial"
     assert result["sources_consulted"] == []
-    assert result["sources_degraded"][0]["source"] == "Q-Feeds"
+    degraded = result["sources_degraded"][0]
+    assert degraded["source"] == "Q-Feeds"
+    # No exception was raised, so `error` must fall back to the adapter's own
+    # partial_failure reason rather than reporting None -- a "degraded:
+    # Q-Feeds — None" line answers nothing.
+    assert degraded["error"] == "malware_domains"
 
 
 @pytest.mark.asyncio
@@ -114,6 +119,8 @@ async def test_partial_failure_with_no_data_is_unverified():
     result = await fan_out([_source(a)])
 
     assert result["coverage_ledger"][0]["status"] == "unverified"
+    # Multiple partial_failure reasons must all surface, not just the first.
+    assert result["sources_degraded"][0]["error"] == "malware_ip; malware_domains"
 
 
 @pytest.mark.asyncio
@@ -127,7 +134,7 @@ async def test_credential_error_degrades_not_crashes():
     degraded = {d["source"]: d for d in result["sources_degraded"]}
     assert "VirusTotal" in degraded
     assert degraded["VirusTotal"]["status"] == "unverified"
-    assert degraded["VirusTotal"]["error"] == "CredentialError"
+    assert degraded["VirusTotal"]["error"] == "CredentialError: no key"
     # Credential error is non-retryable: adapter called exactly once.
     assert a.calls == 1
 
@@ -155,7 +162,7 @@ async def test_transient_failure_surfaces_after_retries_exhausted():
     )
 
     assert a.calls == 2  # retries=1 → 2 attempts
-    assert result["sources_degraded"][0]["error"] == "RuntimeError"
+    assert result["sources_degraded"][0]["error"] == "RuntimeError: timeout"
     assert result["record_count"] == 0
 
 

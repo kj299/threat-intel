@@ -76,9 +76,8 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard (`guard_parsed` / `UpstreamFormatError`) on every adapter | ✅ #106 |
-| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, VulnCheck KEV, VirusTotal | ✅ #105, #199, #208 |
-| Cassettes for the remaining eight credentialed adapters | blocked on feed credentials (#169) |
-| Cassettes for OpenPhish / EPSS / OSV | needs a runner with egress (#211) — all three hosts are blocked from the dev sandbox |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker (10 of 19) | ✅ #105, #199, #208, #211 |
+| Cassettes for the remaining nine credentialed adapters (AbuseIPDB, ANY.RUN, Censys, GreyNoise, Intel 471, AlienVault OTX, Pulsedive, Q-Feeds, Shodan) | blocked on feed credentials (#169) |
 | Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start

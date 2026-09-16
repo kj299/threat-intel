@@ -80,13 +80,15 @@ async def _run_source(
             **retry_kwargs,
         )
     except source.no_retry_on as exc:  # credential / config error
-        logger.warning("fan-out source %s unconfigured: %s", name, type(exc).__name__)
-        return _degraded(name, tier, type(exc).__name__, t0)
+        reason = f"{type(exc).__name__}: {exc}"
+        logger.warning("fan-out source %s unconfigured: %s", name, reason)
+        return _degraded(name, tier, reason, t0)
     except CircuitOpenError:
         return _degraded(name, tier, "circuit_open", t0)
     except Exception as exc:
-        logger.warning("fan-out source %s failed: %s", name, type(exc).__name__)
-        return _degraded(name, tier, type(exc).__name__, t0)
+        reason = f"{type(exc).__name__}: {exc}"
+        logger.warning("fan-out source %s failed: %s", name, reason)
+        return _degraded(name, tier, reason, t0)
 
     assert isinstance(result, FetchResult)
     deduped = finalize_iocs(result.iocs)
@@ -137,7 +139,15 @@ async def fan_out(
 
     consulted = [r["source"] for r in per_source if r["status"] == "consulted"]
     degraded = [
-        {"source": r["source"], "status": r["status"], "error": r["error"]}
+        # A source that fetched successfully but only partly (no exception, so
+        # `error` is None) still owes a reason -- `partial_failure` carries one.
+        # Without this fallback a healthy-but-partial source logs as
+        # "degraded: <source> — None", which answers nothing.
+        {
+            "source": r["source"],
+            "status": r["status"],
+            "error": r["error"] or "; ".join(r["partial_failure"]),
+        }
         for r in per_source
         if r["status"] != "consulted"
     ]

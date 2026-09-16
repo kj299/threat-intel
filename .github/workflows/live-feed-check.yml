@@ -18,8 +18,9 @@ name: live-feed-check
 #   this workflow   — detection: drift becomes an alarm within days.
 #
 # ─── SCOPE ───────────────────────────────────────────────────────────────────
-# Every feed this repository can reach: the keyless three (ThreatFox, CISA KEV,
-# NVD unauthenticated) plus every credentialed adapter whose key is configured.
+# Every feed this repository can reach: the seven that run unconditionally
+# (ThreatFox, CISA KEV, NVD unauthenticated, OpenPhish, EPSS, OSV, Feodo
+# Tracker) plus every credentialed adapter whose key is configured.
 #
 # This previously covered the keyless feeds only, on the reasoning that "a
 # scheduled job holding nine live API keys would be a standing liability for a
@@ -40,7 +41,8 @@ name: live-feed-check
 # indistinguishable from a real outage -- and it would be muted within a month.
 # With it, a red run means one thing: a key this repository holds stopped
 # working against its API. Forks and unconfigured repos see every keyed test
-# skip and the keyless three still run, so nothing here needs a secret to pass.
+# skip and the seven unconditional ones still run, so nothing here needs a
+# secret to pass.
 
 on:
   schedule:
@@ -131,10 +133,11 @@ jobs:
 
           [Full log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-          This checks every feed against its real endpoint — the keyless three
-          (ThreatFox, CISA KEV, NVD) plus every credentialed adapter whose key is
+          This checks every feed against its real endpoint — the seven that run
+          unconditionally (ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, Feodo
+          Tracker) plus every credentialed adapter whose key is
           configured. A feed with no credential skips, so a failure here means one
-          of two things: a keyless feed is down, moved or schema-drifted, or a key
+          of two things: an unconditional feed is down, moved or schema-drifted, or a key
           this repository holds has stopped working against its API. PR CI is
           mock-only and will stay green regardless, which is why this alarm exists
           (#78).
