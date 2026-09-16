@@ -26,6 +26,39 @@ _README = _MCP_DIR / "README.md"
 # Every (adapter_name, key) the code reads from the CredentialProvider.
 _CRED_RE = re.compile(r'credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"')
 
+# Directories and files that describe a past state on purpose and are never
+# edited to match today's code -- a changelog entry, a release snapshot, a
+# frozen report, a recorded eval transcript. Rewriting one to match current
+# counts would falsify the record it exists to keep; excluded rather than
+# checked, the same reasoning validate.yml's markdown-link check already
+# applies to docs/releases/.
+_PROSE_EXCLUDED_DIRS = ("docs/releases/", "reports/", "evals/runs/")
+_PROSE_EXCLUDED_FILES = {"changelog.md"}
+
+
+def _prose_docs() -> list[pathlib.Path]:
+    """Every maintained markdown doc in the repo, derived rather than a
+    hand-maintained list.
+
+    docs/architecture.md carried "3 of 12 adapters recorded" for weeks after
+    the real count moved to 10 of 19, because nothing added it to the fixed
+    tuple the count-parity checks used to scan. Deriving the file set instead
+    of enumerating it means a *new* doc that states one of these claims is
+    covered the moment it exists, not the next time someone remembers to add
+    it here.
+    """
+    docs = []
+    for md in sorted(_REPO_ROOT.rglob("*.md")):
+        rel = md.relative_to(_REPO_ROOT).as_posix()
+        if ".pytest_cache" in rel:
+            continue
+        if rel in _PROSE_EXCLUDED_FILES:
+            continue
+        if any(rel.startswith(prefix) for prefix in _PROSE_EXCLUDED_DIRS):
+            continue
+        docs.append(md)
+    return docs
+
 
 def _adapter_modules() -> set[str]:
     """Every adapter module, which is the honest denominator for cassettes.
@@ -295,13 +328,6 @@ def test_every_credentialed_adapter_has_a_live_check():
 
 # --- README ⟷ server cross-check -------------------------------------------
 
-_CLAUDE_MD = _REPO_ROOT / "CLAUDE.md"
-# docs/architecture.md carries the same "Recorded for N of M adapters" claim in
-# a Mermaid node label. It went stale to "3 of 12" while the real count moved
-# to "10 of 19" and nothing caught it -- this file was not in the count-parity
-# sweep below. It is now.
-_ARCHITECTURE_MD = _REPO_ROOT / "docs" / "architecture.md"
-
 
 def _registered_tools() -> set[str]:
     return set(_TOOL_DEF_RE.findall(_SERVER_PY.read_text(encoding="utf-8")))
@@ -347,6 +373,12 @@ def test_documented_counts_match_the_server_registry():
     adapters"), which is why the required-claims assertion at the bottom
     exists: the root README must still be making the four load-bearing claims
     in a form this test recognises.
+
+    Scans every maintained prose doc (see ``_prose_docs``), not a hand-picked
+    list of files. docs/architecture.md was not in that list until #220, and
+    it drifted the entire time it was missing -- the fix generalises past that
+    one instance so the next doc to state one of these numbers is covered
+    without this test needing to be edited again.
     """
     from threat_intel_mcp import server
 
@@ -377,18 +409,22 @@ def test_documented_counts_match_the_server_registry():
         r"Recorded for \d+ of (\d+)": len(_adapter_modules()),
     }
 
-    docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD, _ARCHITECTURE_MD)
+    docs = _prose_docs()
+    root_readme = _REPO_ROOT / "README.md"
     wrong: list[str] = []
-    seen: set[str] = set()
+    seen_in_root_readme: set[str] = set()
     for doc in docs:
+        # The relative path, not doc.name: several of these files are called
+        # README.md (root, mcp/, standalone/, mcp/tests/cassettes/), and a bare
+        # basename in a failure message would leave which one ambiguous.
+        rel = doc.relative_to(_REPO_ROOT).as_posix()
         text = doc.read_text(encoding="utf-8")
         for pattern, truth in expected.items():
             for claimed in re.findall(pattern, text):
-                seen.add(pattern)
+                if doc == root_readme:
+                    seen_in_root_readme.add(pattern)
                 if int(claimed) != truth:
-                    wrong.append(
-                        f"{doc.name}: /{pattern}/ says {claimed}, code says {truth}"
-                    )
+                    wrong.append(f"{rel}: /{pattern}/ says {claimed}, code says {truth}")
     assert not wrong, "documented counts contradict the code:\n  " + "\n  ".join(wrong)
 
     required = {
@@ -397,36 +433,53 @@ def test_documented_counts_match_the_server_registry():
         r"(\d+) MCP tools",
         r"(\d+) adapter credentials",
     }
-    assert required <= seen, (
+    # Checked specifically against the root README, not "seen anywhere in the
+    # scan": with many more docs in scope now, some other file coincidentally
+    # using recognisable phrasing would otherwise mask the root README itself
+    # dropping a load-bearing claim -- the exact vacuity this assertion exists
+    # to catch.
+    assert required <= seen_in_root_readme, (
         "the root README no longer states these counts in a form this check "
-        f"recognises, so it is guarding nothing: {sorted(required - seen)}. "
+        f"recognises, so it is guarding nothing: {sorted(required - seen_in_root_readme)}. "
         "Reword the docs back, or update the pattern here."
     )
 
 
 def test_recorded_cassette_count_is_accurate():
-    """"Recorded for N of M adapters" must count the cassettes on disk.
+    """"Recorded for N of M adapters" must count the cassettes on disk, in
+    every prose doc that makes the claim -- not just the pair that happened to
+    make it when this test was written.
 
     The numerator moves whenever someone records a feed, which is the moment
     nobody is thinking about prose. It said 3 while five cassettes existed, and
     separately docs/architecture.md's copy of the same claim said 3 while ten
     cassettes existed -- a second copy of a prose fact drifts independently of
-    the first, so both copies are checked here, not just one.
+    the first. Scanning every prose doc (see ``_prose_docs``) rather than a
+    hand-maintained pair means a third copy, wherever it lands, is covered
+    automatically instead of needing this test edited again.
     """
     cassettes = {p.stem for p in (_MCP_DIR / "tests" / "cassettes").glob("*.yaml")}
     assert cassettes, "no cassettes found — layout drift?"
 
-    for doc in (_CLAUDE_MD, _ARCHITECTURE_MD):
+    wrong: list[str] = []
+    made_the_claim: list[str] = []
+    for doc in _prose_docs():
+        rel = doc.relative_to(_REPO_ROOT).as_posix()
         claims = re.findall(r"Recorded for (\d+) of \d+", doc.read_text(encoding="utf-8"))
-        assert claims, (
-            f"{doc.name} no longer states 'Recorded for N of M', so this check "
-            "guards nothing there. Reword the docs back, or update the pattern here."
-        )
+        if not claims:
+            continue
+        made_the_claim.append(rel)
         for claimed in claims:
-            assert int(claimed) == len(cassettes), (
-                f"{doc.name} says {claimed} cassettes recorded, {len(cassettes)} are "
-                f"on disk: {sorted(cassettes)}"
-            )
+            if int(claimed) != len(cassettes):
+                wrong.append(
+                    f"{rel} says {claimed} cassettes recorded, {len(cassettes)} are "
+                    f"on disk: {sorted(cassettes)}"
+                )
+    assert not wrong, "documented cassette counts contradict disk:\n  " + "\n  ".join(wrong)
+    assert made_the_claim, (
+        "no prose doc states 'Recorded for N of M' any more, so this check "
+        "guards nothing. Reword the docs back, or update the pattern here."
+    )
 
 
 # --- File-tree ⟷ disk parity -------------------------------------------------
