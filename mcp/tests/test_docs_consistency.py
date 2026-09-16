@@ -296,6 +296,11 @@ def test_every_credentialed_adapter_has_a_live_check():
 # --- README ⟷ server cross-check -------------------------------------------
 
 _CLAUDE_MD = _REPO_ROOT / "CLAUDE.md"
+# docs/architecture.md carries the same "Recorded for N of M adapters" claim in
+# a Mermaid node label. It went stale to "3 of 12" while the real count moved
+# to "10 of 19" and nothing caught it -- this file was not in the count-parity
+# sweep below. It is now.
+_ARCHITECTURE_MD = _REPO_ROOT / "docs" / "architecture.md"
 
 
 def _registered_tools() -> set[str]:
@@ -372,7 +377,7 @@ def test_documented_counts_match_the_server_registry():
         r"Recorded for \d+ of (\d+)": len(_adapter_modules()),
     }
 
-    docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD)
+    docs = (_REPO_ROOT / "README.md", _README, _CLAUDE_MD, _ARCHITECTURE_MD)
     wrong: list[str] = []
     seen: set[str] = set()
     for doc in docs:
@@ -403,21 +408,25 @@ def test_recorded_cassette_count_is_accurate():
     """"Recorded for N of M adapters" must count the cassettes on disk.
 
     The numerator moves whenever someone records a feed, which is the moment
-    nobody is thinking about prose. It said 3 while five cassettes existed.
+    nobody is thinking about prose. It said 3 while five cassettes existed, and
+    separately docs/architecture.md's copy of the same claim said 3 while ten
+    cassettes existed -- a second copy of a prose fact drifts independently of
+    the first, so both copies are checked here, not just one.
     """
     cassettes = {p.stem for p in (_MCP_DIR / "tests" / "cassettes").glob("*.yaml")}
     assert cassettes, "no cassettes found — layout drift?"
 
-    claims = re.findall(r"Recorded for (\d+) of \d+", _CLAUDE_MD.read_text(encoding="utf-8"))
-    assert claims, (
-        "CLAUDE.md no longer states 'Recorded for N of M', so this check guards "
-        "nothing. Reword the docs back, or update the pattern here."
-    )
-    for claimed in claims:
-        assert int(claimed) == len(cassettes), (
-            f"CLAUDE.md says {claimed} cassettes recorded, {len(cassettes)} are on "
-            f"disk: {sorted(cassettes)}"
+    for doc in (_CLAUDE_MD, _ARCHITECTURE_MD):
+        claims = re.findall(r"Recorded for (\d+) of \d+", doc.read_text(encoding="utf-8"))
+        assert claims, (
+            f"{doc.name} no longer states 'Recorded for N of M', so this check "
+            "guards nothing there. Reword the docs back, or update the pattern here."
         )
+        for claimed in claims:
+            assert int(claimed) == len(cassettes), (
+                f"{doc.name} says {claimed} cassettes recorded, {len(cassettes)} are "
+                f"on disk: {sorted(cassettes)}"
+            )
 
 
 # --- File-tree ⟷ disk parity -------------------------------------------------

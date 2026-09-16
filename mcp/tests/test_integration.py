@@ -67,12 +67,15 @@ async def test_total_upstream_failure_trips_breaker_through_fanout(
     rk = {"retries": 0, "sleep": _no_sleep}
 
     r1 = await fan_out([source], retry_kwargs=rk)
-    assert r1["sources_degraded"][0]["error"] == "HTTPStatusError"
+    # Prefix only: the message half is httpx's own "Server error '503 ...'"
+    # text, not this test's concern -- it exists to prove the breaker sees the
+    # failure at all, per #56.
+    assert r1["sources_degraded"][0]["error"].startswith("HTTPStatusError: ")
     assert breaker.state == "closed"  # 1 failure < threshold 2
 
     r2 = await fan_out([source], retry_kwargs=rk)
     assert breaker.state == "open"  # 2 failures -> open
-    assert r2["sources_degraded"][0]["error"] == "HTTPStatusError"
+    assert r2["sources_degraded"][0]["error"].startswith("HTTPStatusError: ")
 
     requests_before = len(httpx_mock.get_requests())
     r3 = await fan_out([source], retry_kwargs=rk)

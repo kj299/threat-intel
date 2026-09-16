@@ -177,6 +177,19 @@ class TestFanOut:
         assert merged["exploit_status"] == "known_exploited"
 
     @pytest.mark.asyncio
+    async def test_partial_failure_with_data_surfaces_the_reason(self):
+        a = StubVulnAdapter(
+            "NVD", 1, vulns=[_vuln("CVE-2024-0001", source="NVD")], partial=["lastMod window"]
+        )
+        result = await fan_out_vulns([_source(a)])
+        assert result["coverage_ledger"][0]["status"] == "partial"
+        degraded = result["sources_degraded"][0]
+        assert degraded["source"] == "NVD"
+        # No exception was raised, so `error` must fall back to the adapter's
+        # own partial_failure reason rather than reporting None.
+        assert degraded["error"] == "lastMod window"
+
+    @pytest.mark.asyncio
     async def test_credential_error_degrades_not_crashes(self):
         a = StubVulnAdapter("NVD", 1, raises=CredentialError("provider down"))
         b = StubVulnAdapter("CISA KEV", 1, vulns=[_vuln("CVE-2024-0001", source="CISA KEV")])
@@ -184,7 +197,7 @@ class TestFanOut:
         assert result["record_count"] == 1
         degraded = {d["source"]: d for d in result["sources_degraded"]}
         assert degraded["NVD"]["status"] == "unverified"
-        assert degraded["NVD"]["error"] == "CredentialError"
+        assert degraded["NVD"]["error"] == "CredentialError: provider down"
         assert a.calls == 1  # non-retryable
 
     @pytest.mark.asyncio
@@ -195,7 +208,7 @@ class TestFanOut:
             retry_kwargs={"retries": 1, "jitter": False, "sleep": _no_sleep},
         )
         assert a.calls == 2
-        assert result["sources_degraded"][0]["error"] == "RuntimeError"
+        assert result["sources_degraded"][0]["error"] == "RuntimeError: timeout"
 
     @pytest.mark.asyncio
     async def test_per_source_summary_excludes_raw_vulns(self):
