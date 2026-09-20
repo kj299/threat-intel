@@ -43,6 +43,13 @@ def _patch_enrich(monkeypatch, adapter_attr: str, boom: BaseException):
     monkeypatch.setattr(getattr(server, adapter_attr), "enrich", fake_enrich)
 
 
+def _patch_enrich_ok(monkeypatch, adapter_attr: str, value: dict):
+    async def fake_enrich(*_args, **_kwargs):
+        return value
+
+    monkeypatch.setattr(getattr(server, adapter_attr), "enrich", fake_enrich)
+
+
 # ── VirusTotal ──────────────────────────────────────────────────────────────
 
 
@@ -90,6 +97,15 @@ async def test_virustotal_caller_error_reraised(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_epss_returns_the_adapter_result_on_success(monkeypatch):
+    """The success path returns the adapter's result verbatim — no re-wrapping,
+    which is what keeps `scored`/`not_scored` intact for the caller."""
+    sentinel = {"source": "EPSS", "enrichments": [{"cve": "CVE-2021-44228"}], "scored": ["CVE-2021-44228"]}
+    _patch_enrich_ok(monkeypatch, "_epss", sentinel)
+    assert await server.epss_enrich_cves(_CVES) is sentinel
+
+
+@pytest.mark.asyncio
 async def test_epss_upstream_failure_degrades(monkeypatch):
     _patch_enrich(monkeypatch, "_epss", RuntimeError("connection reset"))
     out = await server.epss_enrich_cves(_CVES)
@@ -110,6 +126,15 @@ async def test_epss_caller_error_reraised(monkeypatch):
 
 
 # ── OSV (keyless) ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_osv_returns_the_adapter_result_on_success(monkeypatch):
+    """Success returns the adapter's result verbatim, preserving `found` /
+    `not_found` / `failed` for the caller."""
+    sentinel = {"source": "OSV", "enrichments": [{"cve": "CVE-2021-44228"}], "found": ["CVE-2021-44228"]}
+    _patch_enrich_ok(monkeypatch, "_osv", sentinel)
+    assert await server.osv_enrich_cves(_CVES) is sentinel
 
 
 @pytest.mark.asyncio

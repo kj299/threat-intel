@@ -77,6 +77,11 @@ def _vuln_result(vulns: list, partial: list | None = None) -> VulnFetchResult:
 _SINGLE_ENDPOINT_TOOLS = {"abuseipdb_fetch_blocklist"}
 
 # Tool name -> the module-level adapter singleton it calls.
+# Pulsedive is deliberately absent: it ALWAYS reports partial_failure (a
+# one-page cap) and its tool reads records-returned rather than partial_failure
+# as the health signal, so `consulted`/`partial` mean something different there.
+# Forcing it through the generic partial/unverified assertions would test a
+# behaviour it cannot exhibit; it has its own test below.
 _IOC_TOOLS = {
     "qfeeds_fetch_iocs": "_qfeeds",
     "abuseipdb_fetch_blocklist": "_abuseipdb",
@@ -87,10 +92,14 @@ _IOC_TOOLS = {
     "intel471_fetch_iocs": "_intel471",
     "censys_fetch_iocs": "_censys",
     "threatfox_fetch_iocs": "_threatfox",
+    "openphish_fetch_iocs": "_openphish",
+    "urlhaus_fetch_iocs": "_urlhaus",
+    "feodo_fetch_iocs": "_feodo",
 }
 _VULN_TOOLS = {
     "cisa_kev_fetch_cves": "_cisa_kev",
     "nvd_fetch_cves": "_nvd",
+    "vulncheck_fetch_cves": "_vulncheck",
 }
 
 
@@ -160,6 +169,50 @@ async def test_ioc_tool_surfaces_a_caller_error_verbatim(monkeypatch, tool, adap
     monkeypatch.setattr(getattr(server, adapter), "fetch", bad_time_range)
     with pytest.raises(ValueError, match="time_range"):
         await getattr(server, tool)(time_range="seven days")
+
+
+# ── Pulsedive (special: records-returned is the health signal) ───────────────
+#
+# Pulsedive's free tier caps a fetch at one page, so the adapter ALWAYS reports
+# a partial_failure. The tool therefore cannot use the "partial_failure means
+# degraded" rule the other feeds share — a healthy fetch would be marked
+# `partial` forever — so it reads records-returned instead: `consulted` when the
+# page held records, `partial` when it came back empty. That inverted logic is
+# what these tests pin.
+
+
+@pytest.mark.asyncio
+async def test_pulsedive_consulted_despite_the_ever_present_partial_failure(monkeypatch):
+    """Records came back, so the fetch is `consulted` even though the one-page
+    cap always populates partial_failure — the whole point of the special
+    status rule."""
+    _patch_fetch(monkeypatch, "_pulsedive", _ioc_result(_IOCS, partial=["page_cap"]))
+    out = await server.pulsedive_fetch_iocs(time_range="7d")
+
+    assert out["coverage_ledger_entry"]["status"] == "consulted"
+    assert out["record_count"] == 2
+    assert out["partial_failure"] == ["page_cap"]
+
+
+@pytest.mark.asyncio
+async def test_pulsedive_is_partial_when_the_page_was_empty(monkeypatch):
+    """No records is `partial`, never `unverified`: the feed answered, the page
+    was simply empty, so it should not count as an outright failure."""
+    _patch_fetch(monkeypatch, "_pulsedive", _ioc_result([], partial=["page_cap"]))
+    out = await server.pulsedive_fetch_iocs(time_range="7d")
+
+    assert out["coverage_ledger_entry"]["status"] == "partial"
+    assert out["record_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_pulsedive_surfaces_a_caller_error_verbatim(monkeypatch):
+    async def bad_time_range(**_kwargs):
+        raise ValueError("time_range must look like 7d")
+
+    monkeypatch.setattr(server._pulsedive, "fetch", bad_time_range)
+    with pytest.raises(ValueError, match="time_range"):
+        await server.pulsedive_fetch_iocs(time_range="seven days")
 
 
 # ── CVE tools ───────────────────────────────────────────────────────────────
