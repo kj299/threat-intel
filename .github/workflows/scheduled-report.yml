@@ -84,27 +84,33 @@ name: scheduled-report
 # would also satisfy #76's "first MCP-connected report".
 
 on:
-  # ─── NO SCHEDULE — MANUAL ONLY ───────────────────────────────────────────────
-  # The weekly cron (Mondays 05:23 UTC) was removed deliberately: each run costs
-  # a full agent session — the first successful one took 50 turns — to report on
-  # three keyless feeds, two of which a plain HTTP request would fetch. That was
-  # true of run 33326622088 (2026-08-30), the run this decision was made against.
-  #
-  # It is no longer true of the pipeline itself. Issue #169 named the trigger for
-  # revisiting this decision: three or more additional sources configured. Four
+  # ─── WEEKLY CRON RESTORED (2026-09-20) ───────────────────────────────────────
+  # Removed 2026-08-30: each run costs a full agent session — the first
+  # successful one took 50 turns — to report on three keyless feeds, two of
+  # which a plain HTTP request would fetch. That was true of run 33326622088,
+  # the run the decision was made against; it stopped being true of the
+  # pipeline well before this cron came back. Issue #169 named the trigger for
+  # revisiting the decision: three or more additional sources configured. Four
   # more feeds need no credential at all and are always consulted (OpenPhish,
-  # EPSS, OSV, Feodo Tracker) on top of the original three (ThreatFox, CISA KEV,
-  # NVD), and the `prefetch` job below now also reaches every credentialed
-  # adapter with a configured key. Read literally, the #169 trigger has fired.
+  # EPSS, OSV, Feodo Tracker) on top of the original three (ThreatFox, CISA
+  # KEV, NVD), and the `prefetch` job below now also reaches every
+  # credentialed adapter with a configured key. The #169 trigger fired; the
+  # operator decided to act on it rather than leave a met threshold sitting
+  # undecided (CLAUDE.md's Operator Principle, 2026-09-04, is about a run
+  # earning its cost, not about never restoring a cron).
   #
-  # Meeting the count is not the same as clearing the bar, though. Restoring the
-  # cron is a standing-cost decision, not a mechanical one: a routine run only
-  # earns its cost if it improves the tooling or the capability, not by
-  # re-proving a pipeline that is already proven (CLAUDE.md names this the
-  # Operator Principle, dated 2026-09-04). Whether today's broader coverage
-  # clears that bar is an operator call. If it does, restore
-  # `- cron: "23 5 * * 1"` here and the matching alarm in report-staleness.yml
-  # at the same time — the two are a pair.
+  # report-staleness.yml's cron is deliberately NOT restored alongside this
+  # one, breaking the pairing #170 originally established between them.
+  # reports/ is a frozen eval corpus (validate.yml pins it at exactly 11) and
+  # the generate job below publishes to its run summary rather than
+  # committing — see the "Upload the report as an artifact" step — so
+  # reports/ will never move again regardless of how often this cron fires.
+  # A staleness alarm watching it would fire once and then permanently, the
+  # exact noise #170/#141 exists to prevent. That alarm stays manual-only
+  # until a home for new reports is chosen; see report-staleness.yml and
+  # docs/report-runbook.md.
+  schedule:
+    - cron: "23 5 * * 1" # Mondays 05:23 UTC — off the :00 herd
   workflow_dispatch:
     inputs:
       persona:
