@@ -1160,13 +1160,22 @@ jobs:
         # dependency for the same numbers.
         run: python -m coverage run --source=threat_intel_mcp -m pytest tests/ -v --tb=short
 
-      - name: Coverage report (non-gating, issue #82)
-        # Visible, not enforced. #82 closed with server.py at 82% against a 90%
+      - name: Coverage report and gate (issue #82)
+        # Gated at 90% TOTAL. #82 closed with server.py at 82% against a 90%
         # target and no CI report at all, so the shortfall was invisible for a
-        # month. This makes it visible on every run without blocking merges on
-        # a number nobody has agreed to gate on.
+        # month; the report was then made visible-but-non-gating because no one
+        # had agreed to a floor. The floor is now agreed: 90%, the original #82
+        # target. TOTAL currently sits at ~94%, so the 90% floor leaves headroom
+        # for the transports/misp_zmq.py subscribe loop (live-only, untestable
+        # without a ZeroMQ endpoint) while still failing the build if a suite is
+        # deleted or a new untested module lands.
+        #
+        # NOT piped through `tail`: a pipe hands the step tail's exit code and
+        # silently swallows coverage's fail-under signal. `--skip-covered` keeps
+        # the printed table short (only files below 100% show); `--fail-under`
+        # is computed on the TOTAL regardless of what the table omits.
         if: always()
-        run: python -m coverage report --show-missing --skip-covered | tail -25
+        run: python -m coverage report --show-missing --skip-covered --fail-under=90
 
       - name: Lint (ruff)
         run: ruff check src/ tests/ scripts/
