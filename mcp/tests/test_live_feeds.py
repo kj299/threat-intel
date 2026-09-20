@@ -439,27 +439,32 @@ class TestFeodoTracker:
 
     @pytest.mark.asyncio
     async def test_the_documented_ip_field_name_is_the_real_one(self):
-        """Settles the `ip_address` vs `dst_ip` question the adapter hedges on.
+        """Holds the settled IP field name against upstream drift.
 
-        The adapter reads either because abuse.ch documents one and its CSV
-        flavour uses the other, and no code here could reach the API to find
-        out. This asserts against the live body: if it passes, the hedge can be
-        narrowed to whichever key the recording shows.
+        This once settled an `ip_address` vs `dst_ip` hedge: abuse.ch documents
+        one for the JSON list and its CSV flavour uses the other, and nothing
+        here could reach the API to find out, so the adapter read both. The
+        2026-09-12 recording settled it — the JSON uses `ip_address` — and the
+        adapter narrowed to the single `_IP_KEY`.
+
+        So the question this asks has changed. It is no longer "which of the
+        two?" but "is the one we committed to still the real one?" — the only
+        check that would catch abuse.ch renaming the field, which would
+        otherwise surface as a silent zero-record fetch.
         """
         import httpx
 
-        from threat_intel_mcp.adapters.feodo import _FEED_URL, _IP_KEYS
+        from threat_intel_mcp.adapters.feodo import _FEED_URL, _IP_KEY
 
         async with httpx.AsyncClient(timeout=30) as client:
             body = (await client.get(_FEED_URL)).json()
 
         assert isinstance(body, list) and body, "blocklist was not a non-empty array"
-        present = {key for key in _IP_KEYS if key in body[0]}
-        assert present, (
-            f"live Feodo entry carries neither of {_IP_KEYS}; keys are "
+        assert _IP_KEY in body[0], (
+            f"live Feodo entry carries no {_IP_KEY!r}; keys are "
             f"{sorted(body[0])} — the adapter's IP mapping is wrong"
         )
-        print(f"Feodo live IP field name(s): {sorted(present)}")
+        print(f"Feodo live IP field name: {_IP_KEY}")
 
     @pytest.mark.asyncio
     async def test_records_survive_the_pipeline(self):
