@@ -8,15 +8,24 @@ name: report-staleness
 # alarms when that session stops delivering.
 
 on:
-  # ─── NO SCHEDULE — MANUAL ONLY ───────────────────────────────────────────────
+  # ─── NO SCHEDULE — MANUAL ONLY, STILL — SEE 2026-09-20 NOTE BELOW ────────────
   # This alarm measures a cadence that no longer exists. With scheduled report
   # generation disabled, "no new report in 10 days" is permanently true, so the
   # weekly cron (Mondays 06:17 UTC) would refile the same issue forever — noise
   # that also teaches people to ignore it, which is the opposite of what an
   # alarm is for. It closed #141 to stop exactly that.
   #
-  # Re-enable together with the generator's cron, not before: an alarm without a
-  # cadence to watch is worse than none. See issue #169.
+  # This was written to say "re-enable together with the generator's cron, not
+  # before" — but scheduled-report.yml's cron came back on 2026-09-20 and this
+  # one deliberately did NOT come back with it, breaking that pairing on
+  # purpose. reports/ is frozen at 11 (validate.yml pins the count) and the
+  # generator publishes to its run summary instead of committing, so `git log
+  # -- reports/` below will never move again no matter how often the generator
+  # runs. Restoring this cron today would not detect a dead cadence — it would
+  # refile the exact permanent alarm #141 already closed, for a reason that has
+  # nothing to do with whether reports are being generated. It stays
+  # manual-only until a home for new (non-frozen-corpus) reports is chosen. See
+  # issue #169 and docs/report-runbook.md.
   workflow_dispatch:
 
 permissions:

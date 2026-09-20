@@ -33,28 +33,30 @@ to the run's summary page** — it is not committed.
 > pins the count. A run writes to gitignored `report-output/` and the summary
 > step publishes it; nothing is added to `reports/`. A run is useful, a
 > permanent history of runs is not — read it in the Actions run, or copy it out.
-It is **manual-only**: trigger it from Actions → scheduled-report → *Run
-workflow* with a chosen persona and time range.
+It runs **weekly on a cron (Mondays 05:23 UTC), restored 2026-09-20**, and can
+still be triggered on demand from Actions → scheduled-report → *Run workflow*
+with a chosen persona and time range.
 
-> **The weekly cron was removed (#170).** Each run costs a full agent session
-> — the first successful one took 50 turns — to report on three keyless feeds,
-> which was not worth a standing weekly charge. That was true of run
-> `33326622088` (2026-08-30), the run this decision was made against; it no
-> longer describes the pipeline. [#169](https://github.com/kj299/threat-intel/issues/169)
-> named the trigger for revisiting it — three or more additional sources
-> configured — and, read literally, that has been met on keyless sources
-> alone: OpenPhish, EPSS, OSV and Feodo Tracker need no credential and are
-> always consulted, on top of the original three. `prefetch_feeds.py` also
-> reaches every credentialed adapter with a configured key, which only adds to
-> that count.
+> **The weekly cron was removed (#170), then restored.** Each run costs a full
+> agent session — the first successful one took 50 turns — to report on three
+> keyless feeds, which was not worth a standing weekly charge. That was true of
+> run `33326622088` (2026-08-30), the run the removal was decided against; it
+> stopped describing the pipeline well before the cron came back.
+> [#169](https://github.com/kj299/threat-intel/issues/169) named the trigger
+> for revisiting it — three or more additional sources configured — and that
+> has been met on keyless sources alone: OpenPhish, EPSS, OSV and Feodo Tracker
+> need no credential and are always consulted, on top of the original three.
+> `prefetch_feeds.py` also reaches every credentialed adapter with a
+> configured key, which only adds to that count.
 >
-> Meeting the count is not the same as clearing the bar, though. Restoring the
-> cron is a standing-cost decision: a routine run only earns its cost if it
-> improves the tooling or the capability, not by re-proving a pipeline that is
-> already proven (CLAUDE.md's Operator Principle, 2026-09-04). That is the
-> operator's call to make — this doc records that the #169 trigger has fired,
-> not that the cron should be restored. The exact cron lines to restore, and
-> why weekly rather than daily, are still recorded in #169.
+> Meeting the count is not the same as clearing the bar on its own — a routine
+> run only earns its cost if it improves the tooling or the capability, not by
+> re-proving a pipeline that is already proven (CLAUDE.md's Operator
+> Principle, 2026-09-04). That was the operator's call to make, and it was
+> made: the #169 trigger fired and the cron was restored on 2026-09-20. The
+> matching alarm in `report-staleness.yml` was **not** restored alongside it —
+> see the Staleness guard section below for why that pairing was deliberately
+> broken. #169 also records why weekly rather than daily.
 
 **Enabling it:** the workflow needs one credential, as a repository secret.
 Either works, and they bill differently:
@@ -252,7 +254,16 @@ bumps) a `Report pipeline stale` issue if not.
 It is **manual-only, and deliberately so** (#170): with no cadence its condition
 is permanently true, so on a schedule it would refile the same issue forever —
 noise that trains people to ignore the alarm. It and `scheduled-report.yml`
-are a pair; restore both crons together if the operator decides to act on
-#169's now-met trigger (see "How reports are generated" above), with the
-staleness check offset 54 minutes after generation so a successful run clears
-the alarm in the same hour.
+were designed as a pair, meant to restore together once #169's trigger fired
+(see "How reports are generated" above) — but only `scheduled-report.yml`'s
+cron came back on 2026-09-20. The pairing doesn't hold any more: `reports/` is
+a frozen eval corpus (validate.yml pins it at 11) and the generator publishes
+to its run summary rather than committing, so `reports/`'s git history will
+never move again no matter how often the generator runs. This alarm watches
+that history, so restoring its cron today would not detect a dead cadence —
+it would refile the exact permanent alarm #141 already closed, once and then
+forever, for a reason unrelated to whether reports are actually being
+generated. It stays manual-only until a home for new, non-frozen-corpus
+reports is chosen; the intended 54-minutes-after-generation offset (06:17 UTC
+against the generator's 05:23 UTC) stays documented in `report-staleness.yml`'s
+own comment for whoever makes that call.
