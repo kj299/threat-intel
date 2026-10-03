@@ -136,10 +136,13 @@ before working around the check.
 
 This workflow runs an LLM agent whose entire job is to ingest untrusted content
 — threat feeds, vendor blogs, leak-site aggregators, arbitrary web pages —
-while holding `Write` access and the ability to open a PR. That is a
+and its output is published to the run summary and job log. That is a
 prompt-injection surface by construction: the reports quote adversary-controlled
 text. Any credential in that step's environment is reachable by the agent and
-can leave in a file it commits. Log masking does not cover a committed file.
+can leave in the published report, where masking catches only an exact value,
+never a transformed one. The job is read-only (`contents: read`, no app token,
+no persisted checkout credential), which limits what an injection can *change*,
+not what it can *say*.
 
 Narrowing `--allowedTools` does not mitigate it. Claude Code runs a built-in set
 of read-only Bash commands *without consulting the allowlist*, and that set
