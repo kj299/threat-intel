@@ -284,11 +284,101 @@ async def test_the_per_run_cve_cap_is_enforced(monkeypatch):
                     "scored": [], "not_scored": []}
 
     monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", CountingEPSS)
-    vulns = {"vulns": [{"cve_id": f"CVE-2024-{i:05d}"} for i in range(600)]}
+    vulns = {"vulns": [{"cve_id": f"CVE-2024-{i:05d}"} for i in range(prefetch_feeds._MAX_CVES_TO_SCORE + 100)]}
 
     await prefetch_feeds._score_with_epss(vulns)
 
     assert captured["n"] == prefetch_feeds._MAX_CVES_TO_SCORE
+
+
+@pytest.mark.asyncio
+async def test_epss_scores_cves_kev_does_not_already_rank(monkeypatch):
+    """Merged order puts CISA KEV first. A plain slice scored only KEV entries on
+    every production run and never one of the ~11k NVD/VulnCheck-only CVEs EPSS
+    was added to rank."""
+    from scripts import prefetch_feeds
+
+    captured: dict = {}
+
+    class CapturingEPSS:
+        async def enrich(self, cves, **kwargs):
+            captured["ids"] = list(cves)
+            return {"enrichments": [], "source": "EPSS", "record_count": 0,
+                    "scored": [], "not_scored": []}
+
+    monkeypatch.setattr(prefetch_feeds, "EPSSAdapter", CapturingEPSS)
+    monkeypatch.setattr(prefetch_feeds, "_MAX_CVES_TO_SCORE", 3)
+    kev = [{"cve_id": f"CVE-2024-{i:05d}", "exploit_status": "known_exploited"} for i in range(5)]
+    nvd = [
+        {"cve_id": "CVE-2025-00001", "cvss_score": 5.0},
+        {"cve_id": "CVE-2025-00002", "cvss_score": 9.8},
+    ]
+
+    result = await prefetch_feeds._score_with_epss({"vulns": kev + nvd})
+
+    assert captured["ids"][:2] == ["CVE-2025-00002", "CVE-2025-00001"]
+    assert captured["ids"][2].startswith("CVE-2024-")
+    assert result["selected_from"] == 7
+    assert "KEV" in result["selection"]
+
+
+def _epss_block(scores):
+    return {"enrichments": [{"cve": c, "epss": e} for c, e in scores]}
+
+
+@pytest.mark.asyncio
+async def test_osv_looks_up_the_highest_epss_cves_within_its_cap(monkeypatch):
+    """OSV was documented as called by the prefetch and never was. It is now, as
+    a bounded sample of the CVEs most likely to be exploited."""
+    from scripts import prefetch_feeds
+
+    captured: dict = {}
+
+    class CapturingOSV:
+        async def enrich(self, cves):
+            captured["ids"] = list(cves)
+            return {"enrichments": [], "source": "OSV.dev", "record_count": 0,
+                    "found": [], "not_found": list(cves), "failed": []}
+
+    monkeypatch.setattr(prefetch_feeds, "OSVAdapter", CapturingOSV)
+    monkeypatch.setattr(prefetch_feeds, "_MAX_CVES_FOR_OSV", 2)
+
+    result = await prefetch_feeds._enrich_with_osv(
+        _epss_block([("CVE-1", 0.1), ("CVE-2", 0.9), ("CVE-3", 0.5)])
+    )
+
+    assert captured["ids"] == ["CVE-2", "CVE-3"]
+    assert result["selected_from"] == 3
+    assert "EPSS" in result["selection"]
+
+
+@pytest.mark.asyncio
+async def test_no_epss_scores_means_no_osv_call(monkeypatch):
+    from scripts import prefetch_feeds
+
+    class ExplodingOSV:
+        async def enrich(self, cves):
+            raise AssertionError("OSV must not be called without CVEs to look up")
+
+    monkeypatch.setattr(prefetch_feeds, "OSVAdapter", ExplodingOSV)
+    assert await prefetch_feeds._enrich_with_osv(None) is None
+    assert await prefetch_feeds._enrich_with_osv({"enrichments": []}) is None
+
+
+@pytest.mark.asyncio
+async def test_an_osv_outage_degrades_rather_than_failing_the_prefetch(monkeypatch):
+    from scripts import prefetch_feeds
+
+    class BrokenOSV:
+        async def enrich(self, cves):
+            raise RuntimeError("osv down")
+
+    monkeypatch.setattr(prefetch_feeds, "OSVAdapter", BrokenOSV)
+    result = await prefetch_feeds._enrich_with_osv(_epss_block([("CVE-1", 0.4)]))
+
+    assert result["record_count"] == 0
+    assert "osv down" in result["error"]
+    assert result["failed"] == ["CVE-1"]
 
 
 # ─── VirusTotal enrichment in the prefetch (#214) ────────────────────────────
