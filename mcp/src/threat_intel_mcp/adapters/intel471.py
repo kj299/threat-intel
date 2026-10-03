@@ -129,7 +129,7 @@ class Intel471Adapter:
     """Adapter for Intel 471 (intel471.com) Titan malware indicators."""
 
     name = "Intel 471"
-    tier = 2
+    tier = 7
 
     def __init__(self, credentials: CredentialProvider) -> None:
         self._credentials = credentials
@@ -188,7 +188,7 @@ class Intel471Adapter:
         return FetchResult(
             iocs=iocs,
             source="Intel 471",
-            tier=2,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(iocs),
             latency_ms=round(latency_ms, 1),

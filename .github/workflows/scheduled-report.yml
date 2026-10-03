@@ -6,14 +6,14 @@ name: scheduled-report
 # described or ran it. report-staleness.yml detects that death; this workflow is
 # the mechanism itself, committed so it is reproducible and reviewable.
 #
-# ─── STATUS: VERIFIED END TO END (run 33326622088, 2026-08-30) ───────────────
-# This workflow has produced a real report from live feeds: reports/
-# 2026-08-30-threat-intel.md, merged as 6c53cf5. That run researched, wrote,
-# committed and opened a PR with threat-intel-mcp connected — ThreatFox and
-# CISA KEV returning live data, the other feeds correctly degrading to
-# unverified for want of credentials.
+# ─── STATUS: VERIFIED END TO END ─────────────────────────────────────────────
+# Current shape -- two jobs, no MCP server in the agent's job, publish-only:
+# run 35511896414 (2026-09-20), verified again read-only by run 37120720027
+# (2026-10-03). History: the first live-feed report, run 33326622088
+# (2026-08-30), came from the retired single-job design, which connected
+# threat-intel-mcp to the agent and committed reports/2026-08-30-threat-intel.md.
 #
-# Getting there took seven dispatches, and every defect they found is fixed
+# Getting that first run working took seven dispatches, and every defect they found is fixed
 # below: the missing id-token permission, a stale API key overriding the
 # configured credential, and routing that keyed off the secret's name rather
 # than the credential's format. None of those were visible without executing
@@ -45,14 +45,18 @@ name: scheduled-report
 # delete a secret to make the configured one take effect.
 #
 # ─── SAFE WHEN UNCONFIGURED ──────────────────────────────────────────────────
-# With neither secret set every step is skipped and the run succeeds with a
-# notice, so a dispatch in a repo that hasn't opted in is a no-op rather than a
-# failure.
+# With neither secret set, a *dispatch* skips the generate job's steps and
+# succeeds with a notice, so a repo that hasn't opted in gets a no-op rather
+# than a failure (prefetch still runs; it holds no model credential). A
+# *scheduled* run with no credential fails instead: the cron firing without one
+# means the weekly report has silently stopped.
 #
-# ─── DO NOT ADD FEED CREDENTIALS TO THIS WORKFLOW ────────────────────────────
-# Only the two model credentials above belong here. No QFEEDS_API_KEY, no
-# VIRUSTOTAL_API_KEY, none of the other ten. CI enforces this — see "Agent
-# credential isolation" in validate.yml.
+# ─── FEED CREDENTIALS NEVER GO IN THE AGENT'S (generate) JOB ─────────────────
+# Only the model credentials above belong in `generate`. No QFEEDS_API_KEY, no
+# VIRUSTOTAL_API_KEY, no feed credential of any kind: they live in the
+# `prefetch` job alone. CI enforces both halves -- see "Agent credential
+# isolation" and "Every feed credential reaches the prefetch job" in
+# validate.yml.
 #
 # This is not an ordinary CI job. It runs an LLM agent whose entire purpose is
 # to ingest untrusted content — threat feeds, vendor blogs, leak-site
@@ -77,12 +81,11 @@ name: scheduled-report
 # holds; `generate` downloads the result and never sees a key. See
 # docs/report-runbook.md for the full rationale (#169).
 #
-# ─── NOTE FOR #76 ────────────────────────────────────────────────────────────
-# GitHub-hosted runners have open outbound internet, so the seven feeds that
-# need no credential at all (ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV,
-# Feodo Tracker) are reachable here even though they are blocked by the proxy
-# in the default cloud dev environment. A successful run of this workflow
-# would also satisfy #76's "first MCP-connected report".
+# ─── EGRESS ──────────────────────────────────────────────────────────────────
+# GitHub-hosted runners have open outbound internet, so every feed host is
+# reachable here. Restricted dev sandboxes may block them; whether they do is
+# per-environment and changes, so check rather than assume
+# (docs/report-runbook.md, "Egress requirement").
 
 on:
   # ─── WEEKLY CRON RESTORED (2026-09-20) ───────────────────────────────────────

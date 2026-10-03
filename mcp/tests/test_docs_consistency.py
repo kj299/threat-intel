@@ -348,7 +348,9 @@ def test_readmes_name_exactly_the_registered_tools():
     registered = _registered_tools()
     assert registered, "no @mcp.tool() registrations found — regex/refactor drift?"
 
-    for readme in (_REPO_ROOT / "README.md", _README):
+    # docs/architecture.md too: its Component Notes row was a second copy of the
+    # tool list that drifted to 17 of 22 tools while both READMEs stayed exact.
+    for readme in (_REPO_ROOT / "README.md", _README, _REPO_ROOT / "docs" / "architecture.md"):
         documented = set(_DOC_TOOL_RE.findall(readme.read_text(encoding="utf-8")))
         missing = registered - documented
         phantom = documented - registered
@@ -476,9 +478,14 @@ def test_recorded_cassette_count_is_accurate():
                     f"on disk: {sorted(cassettes)}"
                 )
     assert not wrong, "documented cassette counts contradict disk:\n  " + "\n  ".join(wrong)
-    assert made_the_claim, (
-        "no prose doc states 'Recorded for N of M' any more, so this check "
-        "guards nothing. Reword the docs back, or update the pattern here."
+    # Per file, not "any file": #222 loosened this to any-doc, so one copy could
+    # be reworded out of the pattern and silently stop being checked while
+    # another still matched -- the vacuity its sibling test guards against.
+    required = {"CLAUDE.md", "docs/architecture.md", "mcp/README.md"}
+    silent = sorted(required - set(made_the_claim))
+    assert not silent, (
+        f"{silent} no longer state 'Recorded for N of M', so this check guards "
+        "nothing there. Reword the docs back, or update the pattern here."
     )
 
 
@@ -735,3 +742,56 @@ def test_every_threat_intel_import_resolves():
     assert not unresolved, "imports that would fail when their code runs:\n  " + "\n  ".join(
         unresolved
     )
+
+
+# --- Adapter tiers ⟷ the source matrix ---------------------------------------
+
+
+def _matrix_tiers() -> list[tuple[int, str]]:
+    """(tier, lowercased bullet line) for every source the matrix lists."""
+    matrix = _REPO_ROOT / "skills" / "cyber-threat-intel" / "references" / "source-matrix.md"
+    rows, tier = [], None
+    for line in matrix.read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"## Tier (\d+):", line)
+        if heading:
+            tier = int(heading.group(1))
+        elif line.startswith("## "):
+            tier = None
+        elif tier and line.startswith("- "):
+            rows.append((tier, line.lower()))
+    return rows
+
+
+@pytest.mark.asyncio
+async def test_adapter_tiers_follow_the_source_matrix():
+    """source-matrix.md is authoritative for tiers. OTX and VirusTotal sat in
+    Tier 2 in code while the matrix (and every prose copy) put them in Tier 3,
+    and Intel 471 in Tier 2 against the matrix's Tier 7 -- so ledger rows landed
+    in the wrong tier. Each tier was also restated in up to four places: the
+    adapter, the server registry, the adapter's own result, and
+    list_available_feeds. All now must agree with the matrix."""
+    from threat_intel_mcp import server
+
+    named = [(s.name, s.adapter) for s in [*server._FEED_SOURCES, *server._VULN_SOURCES]]
+    named += [("VirusTotal", server._virustotal), ("EPSS", server._epss), ("OSV.dev", server._osv)]
+    rows = _matrix_tiers()
+    assert rows, "no '## Tier N:' sections parsed from source-matrix.md -- layout drift?"
+
+    wrong, checked = [], 0
+    for name, adapter in named:
+        tiers = {t for t, line in rows if name.lower() in line}
+        if not tiers:
+            continue  # not yet named in the matrix: a Source Governance gap, not a tier one
+        checked += 1
+        if adapter.tier not in tiers:
+            wrong.append(f"{name}: code tier {adapter.tier}, matrix tier {sorted(tiers)}")
+    assert checked >= 10, f"only {checked} adapters matched a matrix entry -- name drift?"
+    assert not wrong, "adapter tiers contradict source-matrix.md:\n  " + "\n  ".join(wrong)
+
+    for source in [*server._FEED_SOURCES, *server._VULN_SOURCES]:
+        assert source.tier == source.adapter.tier, f"registry restates {source.name}'s tier"
+    listing = await server.list_available_feeds()
+    for entry in [*listing["feeds"], *listing["cve_sources"], *listing["enrichment_sources"]]:
+        adapter = dict(named).get(entry["name"])
+        if adapter is not None:
+            assert entry["tier"] == adapter.tier, f"list_available_feeds restates {entry['name']}"

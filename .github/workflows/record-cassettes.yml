@@ -15,8 +15,7 @@ name: record-cassettes
 # compared against. Re-record when you want to, and review the diff.
 #
 # ─── SECRETS ─────────────────────────────────────────────────────────────────
-# Keyless feeds (ThreatFox, CISA KEV, NVD) need no credentials and are the
-# default. Recording a keyed feed puts a live credential in the runner
+# The keyless feeds need no credentials and are the default. Recording a keyed feed puts a live credential in the runner
 # environment, so it is opt-in via the `include_keyed` input and only works if
 # the corresponding secrets are configured.
 #

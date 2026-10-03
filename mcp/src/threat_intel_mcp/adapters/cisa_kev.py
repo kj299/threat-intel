@@ -186,7 +186,7 @@ class CISAKEVAdapter:
         return VulnFetchResult(
             vulns=vulns,
             source="CISA KEV",
-            tier=1,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(vulns),
             latency_ms=round(latency_ms, 1),

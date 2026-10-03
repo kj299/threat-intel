@@ -194,7 +194,7 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.15.0):** 13 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, Feodo Tracker, Pulsedive, and two that need **no key at all**: the abuse.ch feed ThreatFox and the OpenPhish Community phishing feed. The four abuse.ch sources — ThreatFox, URLhaus, Feodo Tracker and (for ThreatFox's export path) the same token — share **one free `ABUSECH_AUTH_KEY`**; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 22 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 16 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
+**Current (v0.15.0):** 13 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, Pulsedive, and three that need **no key**: the abuse.ch feeds ThreatFox and Feodo Tracker (which use the abuse.ch key when it is set) and the OpenPhish Community phishing feed. The three abuse.ch adapters — ThreatFox, URLhaus and Feodo Tracker — share **one free `ABUSECH_AUTH_KEY`**; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 22 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 16 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
 
 Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
@@ -248,7 +248,7 @@ See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed
 
 ## Setting up credentials
 
-**Nothing here needs a key to start.** The skill itself takes none, and six sources work unauthenticated: ThreatFox and OpenPhish (IOCs), CISA KEV and NVD (CVEs), and the EPSS and OSV.dev CVE enrichments. Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
+**Nothing here needs a key to start.** The skill itself takes none, and seven sources work unauthenticated: ThreatFox, Feodo Tracker and OpenPhish (IOCs), CISA KEV and NVD (CVEs), and the EPSS and OSV.dev CVE enrichments — ThreatFox, Feodo Tracker and NVD use a key when one is set. Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
 
 There are **two kinds of credential**, and they do not go in the same place:
 
@@ -261,14 +261,14 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 ### Which context reads which keys
 
-The commonest surprise: **Actions secrets only exist inside a running workflow.** Nothing bridges them into a local shell, and the workflow that runs the *prompt* is deliberately not given them.
+The commonest surprise: **Actions secrets only exist inside a running workflow.** Nothing bridges them into a local shell, and the job that runs the *prompt* (`scheduled-report`'s `generate`) is deliberately not given them.
 
 | How you run it | Reads keys from | Actions secrets used? |
 |---|---|---|
 | Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
-| `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — all 13 |
-| `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — all 13; a feed with no key skips, one whose key fails is a red run |
-| `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — all 13 |
+| `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — every feed credential |
+| `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run |
+| `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 
 **Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
@@ -304,7 +304,7 @@ For the conforming output shape and a table of common validation errors with the
 
 Each run produces a full report; it is **published to the run's summary page and job log** instead of committed, because a run is useful while its permanent history is not. Generation runs **weekly** (Mondays 05:23 UTC — removed in #170, restored 2026-09-20 once #169's threshold was met) and can also be dispatched by hand. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
 
-How they're generated, how to run one (including wiring the MCP server for live-data reports), and the staleness alarm that pairs with the cadence: see [docs/report-runbook.md](docs/report-runbook.md).
+How they're generated, how to run one (including wiring the MCP server for live-data reports), and why the staleness alarm stays manual while `reports/` is frozen: see [docs/report-runbook.md](docs/report-runbook.md).
 
 ---
 

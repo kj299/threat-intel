@@ -434,9 +434,9 @@ async def test_fetch_all_cves_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
 @pytest.mark.asyncio
 async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeypatch):
     """fetch_all_iocs fans out across every source and returns a coherent result
-    without crashing. With no credentials, the nine credentialed sources degrade
-    to 'unverified' (no network); the two keyless feeds need no key, so —
-    served an empty feed here — they come back 'consulted' with zero records.
+    without crashing. With no credentials, every credentialed source degrades
+    to 'unverified' (no network); the keyless feeds need no key, so — served an
+    empty feed here — they come back 'consulted' with zero records.
     Every source appears in the Coverage Ledger exactly once."""
     for var in _CRED_VARS:
         monkeypatch.delenv(var, raising=False)
@@ -545,6 +545,27 @@ def test_server_instructions_reach_the_initialize_payload():
             f"{expected!r} missing from server instructions — the feed guidance "
             "a client relies on has been truncated or dropped"
         )
+
+
+def test_runtime_text_names_every_registered_source():
+    """The instructions and the fan-out tool descriptions are what a model reads
+    to decide what to call. They listed 8 of 13 IOC feeds and 2 of 3 CVE feeds
+    for weeks after the rest landed, because nothing compared them to the
+    registries they describe."""
+    instructions = server.mcp._lowlevel_server.create_initialization_options().instructions
+    iocs_doc = server.fetch_all_iocs.__doc__ or ""
+    cves_doc = server.fetch_all_cves.__doc__ or ""
+    missing = [
+        f"{where}: {source.name}"
+        for where, text, sources in (
+            ("instructions", instructions, [*server._FEED_SOURCES, *server._VULN_SOURCES]),
+            ("fetch_all_iocs", iocs_doc, server._FEED_SOURCES),
+            ("fetch_all_cves", cves_doc, server._VULN_SOURCES),
+        )
+        for source in sources
+        if source.name not in text
+    ]
+    assert not missing, f"registered sources the runtime text never names: {missing}"
 
 
 def test_every_registered_tool_is_exposed_by_the_server():

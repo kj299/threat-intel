@@ -25,22 +25,25 @@ name: live-feed-check
 # This previously covered the keyless feeds only, on the reasoning that "a
 # scheduled job holding nine live API keys would be a standing liability for a
 # check whose value is mostly in the free feeds". That was written when the
-# repository held no feed credentials at all. Six now exist, and the value moved
-# with them -- the keyless feeds have never broken, while the credentialed ones
-# produced two faults in one day that nothing offline could see: five secrets
-# named so the workflow never read them (#197), and a VirusTotal key that
-# resolves and is then rejected for an insufficient plan. Neither is visible to
-# any mock, cassette, or parity check; only a live call finds them.
+# repository held no feed credentials at all. Six existed when this changed
+# (2026-09-06; ten by 2026-10), and the value moved with them -- the credentialed
+# feeds produced two faults in one day that nothing offline could see: five
+# secrets named so the workflow never read them (#197), and a VirusTotal bulk
+# endpoint that never existed and 404'd on the first real call (#203). Neither is
+# visible to any mock, cassette, or parity check; only a live call finds them.
 #
 # The liability is also smaller than that note assumed. This runs a fixed pytest
 # process, not an agent, so the credentials sit in exactly the shape the
 # `prefetch` job in scheduled-report.yml already uses with the same set of keys.
 #
 # **A feed with no credential SKIPS; a feed WITH one that fails FAILS.** Without
-# that split the check is noise -- nine "no credential" lines every week,
-# indistinguishable from a real outage -- and it would be muted within a month.
-# With it, a red run means one thing: a key this repository holds stopped
-# working against its API. Forks and unconfigured repos see every keyed test
+# that split the check is noise -- a "no credential" line for every unconfigured
+# feed, every week, indistinguishable from a real outage -- and it would be
+# muted within a month. With it, a red run means one thing: a feed broke, or a
+# key this repository holds stopped working against its API. A named account
+# limit (AccountLimitError, e.g. Pulsedive's 429) xfails with its reason rather
+# than failing, for the same reason: a fact only the account owner can change
+# must not hold the alarm permanently red. Forks and unconfigured repos see every keyed test
 # skip and the seven unconditional ones still run, so nothing here needs a
 # secret to pass.
 
@@ -57,7 +60,7 @@ permissions:
 
 jobs:
   check:
-    name: Live keyless feed check
+    name: Live feed check
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}

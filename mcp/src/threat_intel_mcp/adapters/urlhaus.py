@@ -18,9 +18,9 @@ has required the header since abuse.ch made authentication mandatory on
 
 Feed contract
 -------------
-Taken from URLhaus's published API reference. **Not yet confirmed against a real
-response** -- every abuse.ch host is unreachable from the development sandbox,
-so record a cassette before trusting the field mapping.
+Taken from URLhaus's published API reference, and confirmed against a real
+response: tests/cassettes/urlhaus.yaml (recorded 2026-09-12) is replayed in
+test_cassette_playback.py, and the weekly live check exercises it.
 
   - ``GET https://urlhaus-api.abuse.ch/v1/urls/recent/``
   - Auth: ``Auth-Key: <auth_key>``

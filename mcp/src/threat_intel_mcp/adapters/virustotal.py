@@ -191,7 +191,7 @@ class VirusTotalAdapter:
     """Per-indicator enrichment against VirusTotal's public API."""
 
     name = "VirusTotal"
-    tier = 2
+    tier = 3
     requires_credential = True
     # Not a feed: it scores indicators the caller supplies rather than
     # discovering them, so it is deliberately absent from _FEED_SOURCES and
@@ -324,7 +324,7 @@ class VirusTotalAdapter:
         return {
             "enrichments": enrichments,
             "source": "VirusTotal",
-            "tier": 2,
+            "tier": self.tier,
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
             "record_count": len(enrichments),
             "latency_ms": round(latency_ms, 1),

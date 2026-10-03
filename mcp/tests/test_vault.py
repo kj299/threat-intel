@@ -170,7 +170,7 @@ class TestVaultCredentialProvider:
 def test_an_empty_env_value_is_treated_as_absent(monkeypatch, value):
     """An unset GitHub Actions secret interpolates to the EMPTY STRING.
 
-    So a workflow wiring up all twelve feed credentials hands every
+    So a workflow wiring up every feed credential hands every
     unconfigured adapter a `""` to authenticate with. The feed rejects it and
     the adapter reports `HTTPStatusError` — upstream and *retryable* — when the
     truth is a missing credential, which is config and not retryable.

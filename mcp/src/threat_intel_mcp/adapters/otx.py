@@ -169,7 +169,7 @@ class OTXAdapter:
     """Adapter for AlienVault OTX subscribed-pulse feed."""
 
     name = "AlienVault OTX"
-    tier = 2
+    tier = 3
 
     def __init__(self, credentials: CredentialProvider) -> None:
         self._credentials = credentials
@@ -237,7 +237,7 @@ class OTXAdapter:
         return FetchResult(
             iocs=iocs,
             source="AlienVault OTX",
-            tier=2,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(iocs),
             latency_ms=round(latency_ms, 1),
