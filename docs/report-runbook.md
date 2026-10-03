@@ -1,7 +1,8 @@
 # Report Runbook
 
-How the threat-intel reports in [`reports/`](../reports/) are produced, how to
-run one manually, and how staleness is detected. (Issue #77.)
+How the weekly threat-intel report is produced, how to run one manually, and
+why the staleness alarm stays manual. (Issue #77.) The reports in
+[`reports/`](../reports/) are a frozen eval corpus, not this pipeline's output.
 
 ## What `reports/` is
 
@@ -82,9 +83,8 @@ The workflow routes on the credential's **format**, not on which secret it
 landed in, so a key in the wrong slot still reaches the right input and the run
 logs a warning saying so. It does not, and cannot, convert one into the other.
 
-Set whichever suits you. While the workflow is manual-only each dispatch is a
-one-off charge; if the weekly cron is restored (#169) it becomes a standing
-billing decision. A Console API key is a separate product from a
+Set whichever suits you. The weekly cron is on (restored 2026-09-20), so this
+is a standing cost: one agent session every Monday, plus any dispatches. A Console API key is a separate product from a
 Claude subscription and is **not** funded by one: a brand-new key on an account
 with no credits shows as `Active` and still fails every request.
 
@@ -110,7 +110,12 @@ With neither set every step skips and the run succeeds with a notice, so the
 workflow is inert until you opt in — it will not fail on dispatch in an
 unconfigured repo.
 
-> **Verified end to end** by run `33326622088` on 2026-08-30, which produced
+> **Verified end to end in its current shape** -- two jobs, no MCP server in
+> the agent's job, published rather than committed -- by run `35511896414`
+> (2026-09-20), and again read-only by run `37120720027` (2026-10-03).
+>
+> **History:** the first live-feed report came from run `33326622088` on
+> 2026-08-30, in the retired single-job design, which produced
 > [`reports/2026-08-30-threat-intel.md`](../reports/2026-08-30-threat-intel.md)
 > — the first report in this repository generated from live feed data rather
 > than web search. `threat-intel-mcp` was connected; ThreatFox and CISA KEV
@@ -126,13 +131,15 @@ unconfigured repo.
 > configured credential, or routing that keyed off a secret's *name* rather
 > than the credential's format. Each of those needed an actual run.
 
-### Feed credentials do not go in this workflow
+<a id="feed-credentials-do-not-go-in-this-workflow"></a>
 
-The report run needs no feed API keys — ThreatFox and CISA KEV are keyless and
-NVD works unauthenticated. **Do not add `QFEEDS_API_KEY`, `VIRUSTOTAL_API_KEY`,
-or any of the other ten** to `scheduled-report.yml`. CI blocks it (*Agent
-credential isolation* in `validate.yml`), and the reason is worth understanding
-before working around the check.
+### Feed credentials never go in the agent's job
+
+The agent's job (`generate`) needs no feed API keys: it reads a data file the
+`prefetch` job wrote. **Do not add `QFEEDS_API_KEY`, `VIRUSTOTAL_API_KEY`, or any
+other feed credential** to `generate`; they belong in `prefetch` alone. CI blocks
+it (*Agent credential isolation* in `validate.yml`), and the reason is worth
+understanding before working around the check.
 
 This workflow runs an LLM agent whose entire job is to ingest untrusted content
 — threat feeds, vendor blogs, leak-site aggregators, arbitrary web pages —
@@ -247,11 +254,11 @@ described or ran it.
    With MCP connected, the skill's Workflow step 2a calls
    `fetch_all_iocs` / `fetch_all_cves` and folds live results in; sources the
    tools report as degraded stay `unverified` in the ledger — never upgraded.
-3. **Review before committing:** badge consistent with the ledger; every IOC
-   carries a real `source`; the methodology notice matches what was actually
-   connected.
-4. **Commit** as `reports/YYYY-MM-DD-threat-intel.md` via PR, using the commit
-   convention above.
+3. **Review:** badge consistent with the ledger; every IOC carries a real
+   `source`; the methodology notice matches what was actually connected.
+4. **Keep it outside `reports/`** -- e.g. `report-output/`, which is gitignored.
+   Do not commit it: `reports/` is the frozen eval corpus, and `validate.yml`
+   fails any PR that changes its count.
 
 ## Staleness guard
 
@@ -259,8 +266,8 @@ described or ran it.
 whether anything has touched `reports/` in the last **10 days** and opens (or
 bumps) a `Report pipeline stale` issue if not.
 
-It is **manual-only, and deliberately so** (#170): with no cadence its condition
-is permanently true, so on a schedule it would refile the same issue forever —
+It is **manual-only, and deliberately so** (#170): with nothing committing to
+`reports/`, its condition is permanently true, so on a schedule it would refile the same issue forever —
 noise that trains people to ignore the alarm. It and `scheduled-report.yml`
 were designed as a pair, meant to restore together once #169's trigger fired
 (see "How reports are generated" above) — but only `scheduled-report.yml`'s

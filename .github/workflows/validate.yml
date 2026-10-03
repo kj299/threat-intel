@@ -1165,7 +1165,7 @@ jobs:
         # target and no CI report at all, so the shortfall was invisible for a
         # month; the report was then made visible-but-non-gating because no one
         # had agreed to a floor. The floor is now agreed: 90%, the original #82
-        # target. TOTAL currently sits at ~94%, so the 90% floor leaves headroom
+        # target. TOTAL sat at 97% when last measured (2026-10-03), so the 90% floor leaves headroom
         # for the transports/misp_zmq.py subscribe loop (live-only, untestable
         # without a ZeroMQ endpoint) while still failing the build if a suite is
         # deleted or a new untested module lands.

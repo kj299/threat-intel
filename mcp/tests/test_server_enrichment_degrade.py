@@ -1,6 +1,6 @@
 """The enrichment tools' *degrade* paths (VirusTotal / EPSS / OSV).
 
-``test_server_success_paths.py`` drives the twelve feed/CVE tools through a
+``test_server_success_paths.py`` drives the feed and CVE tools through a
 working fetch; ``test_server_smoke.py`` drives them through their degrade
 branches. Neither touches the three **enrichment** tools —
 ``virustotal_enrich_iocs``, ``epss_enrich_cves`` and ``osv_enrich_cves`` — which

@@ -99,7 +99,7 @@ The skill references sources organized by priority:
 | 8 | Government Advisories | CISA, FBI, NSA, NCSC, ENISA, FS-ISAC, JPCERT/CC |
 | 9 | Malware Analysis | MalwareBazaar, ThreatFox, Malpedia, Cape Sandbox |
 
-These are references for the AI to draw from based on its training data. There are no live API integrations.
+These are references for the AI to draw from, mostly from its training data. Some have live adapters in the optional `threat-intel-mcp` server (for example NVD, CISA KEV, ThreatFox, Shodan, Censys, VirusTotal, GreyNoise, Intel 471), and a credentialed one is live only when its key is configured; see the MCP section below.
 
 > The table above shows examples per tier for orientation. **The complete source matrix referenced by the source-coverage guidance (R1–R6) lives in [skills/cyber-threat-intel/references/source-matrix.md](../skills/cyber-threat-intel/references/source-matrix.md) -- that file is the single source of truth.** Update it there; do not duplicate the matrix in this document. The original-prompt.md file is the canonical source for tier-name parity checks in CI.
 

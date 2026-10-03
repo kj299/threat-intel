@@ -9,8 +9,8 @@ name: report-staleness
 
 on:
   # ─── NO SCHEDULE — MANUAL ONLY, STILL — SEE 2026-09-20 NOTE BELOW ────────────
-  # This alarm measures a cadence that no longer exists. With scheduled report
-  # generation disabled, "no new report in 10 days" is permanently true, so the
+  # This alarm watches reports/, which nothing commits to any more (it is a
+  # frozen eval corpus), so "no new report in 10 days" is permanently true and the
   # weekly cron (Mondays 06:17 UTC) would refile the same issue forever — noise
   # that also teaches people to ignore it, which is the opposite of what an
   # alarm is for. It closed #141 to stop exactly that.

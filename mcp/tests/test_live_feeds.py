@@ -1,4 +1,4 @@
-"""Live smoke checks against the real keyless feeds (#78).
+"""Live smoke checks against every feed's real endpoint (#78).
 
 **Deselected by default.** ``pyproject.toml`` sets ``addopts = -m "not live"``,
 so PR CI stays fully offline. The ``live-feed-check`` workflow runs these on a
@@ -22,11 +22,13 @@ misread), the adapter returned 0 records from a 1 MB response, and nothing
 surfaced it until an operator ran the feeds by hand on a Windows box (#76,
 #100). This check is what would have caught it.
 
-Scope is the keyless feeds — ThreatFox, CISA KEV, NVD — which need no secrets,
-so the check works in a fork and in a repository with no credentials
-configured. Keyed feeds are deliberately out of scope: a scheduled job holding
-nine live API keys is a standing liability for a check whose value is mostly in
-the free ones.
+Scope is every feed: the seven that run unconditionally (ThreatFox, Feodo
+Tracker, OpenPhish, CISA KEV, NVD, EPSS, OSV.dev -- ThreatFox, Feodo and NVD
+accept an optional key) plus every credentialed adapter whose key is
+configured. A credentialed feed with no key skips, so the check still passes
+in a fork; one with a key that fails, fails -- except a named account limit
+(AccountLimitError), which xfails with its reason. It began as keyless-only;
+the section comment above the credentialed tests says why that changed.
 """
 
 from __future__ import annotations
@@ -161,22 +163,21 @@ class TestNVD:
 
 # ─── Credentialed feeds ──────────────────────────────────────────────────────
 #
-# Added because the original scope note above -- "keyed feeds are deliberately
-# out of scope: a scheduled job holding nine live API keys is a standing
-# liability for a check whose value is mostly in the free ones" -- was written
-# when this repository held no feed credentials at all. Six now exist, and the
-# value has moved with them: the keyless feeds have never broken, while the
-# credentialed ones produced two faults in a single day that nothing offline
-# could see.
+# Added because the original scope note -- "keyed feeds are deliberately out of
+# scope: a scheduled job holding nine live API keys is a standing liability for
+# a check whose value is mostly in the free ones" -- was written when this
+# repository held no feed credentials at all. Six existed when it changed
+# (2026-09-06), and the value moved with them: the credentialed feeds produced
+# two faults in a single day that nothing offline could see.
 #
 #   * Five secrets were named ABUSEIPDB / SHODAN / VIRUSTOTAL_API rather than
 #     ABUSEIPDB_API_KEY / SHODAN_API_KEY / VIRUSTOTAL_API_KEY, so five feeds
 #     reported CredentialNotFoundError for weeks while their keys sat
 #     configured and unread (#197). No offline check can see repository
 #     settings; only a live call can.
-#   * VirusTotal's key resolves and is then REJECTED by VirusTotal -- an
-#     insufficient plan, not a missing key. That is invisible to every mock,
-#     cassette and parity check in this repository.
+#   * VirusTotal's bulk "feeds" endpoint never existed: the first live call
+#     returned 404 (#203), which every mock, cassette and parity check had
+#     agreed with.
 #
 # The liability is also smaller than the note assumed: this is a fixed pytest
 # run, not an agent, so the credentials sit in the same shape as the `prefetch`
@@ -440,8 +441,8 @@ class TestFeodoTracker:
         assert result.record_count > 0, (
             "Feodo Tracker returned 0 C2 IPs. The blocklist is never empty in "
             "practice, so this means the JSON layout changed — most likely the "
-            "per-entry field names, which are the unverified part of that "
-            "adapter (see its module warning)."
+            "per-entry field names (settled once by tests/cassettes/feodo.yaml; "
+            "a live mismatch means the upstream changed)."
         )
 
     @pytest.mark.asyncio

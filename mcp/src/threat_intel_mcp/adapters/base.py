@@ -44,8 +44,10 @@ Empty results (the silent half of the same trap)
 ------------------------------------------------
 Raising correctly is only half the contract. An adapter must also refuse to
 report a confident ``0 records`` from a body it could not read, because an
-empty result set is indistinguishable from a quiet week. Every adapter routes
-its parse through ``guard_parsed`` below; see its docstring for the rule.
+empty result set is indistinguishable from a quiet week. Every adapter enforces
+this; all but ThreatFox and OSV do it through ``guard_parsed`` below (see its
+docstring for the rule), and those two raise ``UpstreamFormatError`` inline with
+a more specific message.
 """
 
 from __future__ import annotations
