@@ -17,7 +17,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from threat_intel_mcp.adapters.base import UpstreamFormatError
+from threat_intel_mcp.adapters.base import AccountLimitError, UpstreamFormatError
 from threat_intel_mcp.adapters.pulsedive import (
     MAX_REQUESTS_PER_FETCH,
     PulsediveAdapter,
@@ -297,7 +297,7 @@ async def test_a_429_names_quota_or_plan_rather_than_a_bare_http_error(
     """
     httpx_mock.add_response(url=_EXPLORE_RE, status_code=429)
 
-    with pytest.raises(RuntimeError) as excinfo:
+    with pytest.raises(AccountLimitError) as excinfo:
         await adapter.fetch()
 
     message = str(excinfo.value)
@@ -308,6 +308,29 @@ async def test_a_429_names_quota_or_plan_rather_than_a_bare_http_error(
         "the message must say retrying is pointless — otherwise the obvious "
         "response to a 429 is a retry that spends more of a spent budget"
     )
+
+
+@pytest.mark.asyncio
+async def test_the_fan_out_does_not_retry_an_account_limit(adapter, httpx_mock: HTTPXMock):
+    """A 429 is an account condition, not a transient one. Before it was named,
+    the fan-out's backoff retried it twice: three requests per prefetch against
+    a 50-a-day budget, every week, for an answer that could not change."""
+    from threat_intel_mcp import server
+    from threat_intel_mcp.fanout import FeedSource, fan_out
+    from threat_intel_mcp.resilience import CircuitBreaker
+
+    httpx_mock.add_response(url=_EXPLORE_RE, status_code=429, is_reusable=True)
+
+    async def _no_sleep(_):
+        pass
+
+    source = FeedSource(adapter, 3, "Pulsedive", CircuitBreaker("Pulsedive"), server._CONFIG_ERRORS)
+    result = await fan_out([source], retry_kwargs={"retries": 2, "sleep": _no_sleep})
+
+    assert len(httpx_mock.get_requests()) == 1
+    degraded = result["sources_degraded"][0]
+    assert degraded["status"] == "unverified"
+    assert degraded["error"].startswith("AccountLimitError: ")
 
 
 @pytest.mark.asyncio

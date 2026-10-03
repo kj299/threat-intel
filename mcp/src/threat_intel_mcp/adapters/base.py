@@ -23,7 +23,10 @@ whether a single-feed tool **crashes** or **degrades**, and whether the fan-out
 
 3. **Any other exception** (``httpx`` errors, ``RuntimeError``, parse failures)
    — **upstream/transient problem**. Retryable: the fan-out's backoff + circuit
-   breaker engage, and the tool degrades to ``unverified``.
+   breaker engage, and the tool degrades to ``unverified``. One named
+   exception: ``AccountLimitError`` (quota spent, or plan excludes the
+   endpoint) degrades the same way but is non-retryable — retrying cannot
+   change an account fact and only spends budget.
 
 The trap: a **malformed upstream body** (a 200 with an unexpected shape) is case
 3, NOT case 1 — do **not** raise ``ValueError`` for it (the tool would re-raise
@@ -74,6 +77,16 @@ class UpstreamFormatError(RuntimeError):
     crash the call.
     """
 
+
+
+class AccountLimitError(RuntimeError):
+    """The upstream refused this account: quota spent, or the plan excludes it.
+
+    Still a ``RuntimeError``, so tools degrade rather than crash, but listed in
+    the fan-out's non-retryable errors: retrying spends a budget that is either
+    already gone or never existed. The weekly live check treats it as an
+    account-side condition (xfail) rather than a code or feed failure.
+    """
 
 def guard_parsed(
     source: str,

@@ -682,3 +682,56 @@ def test_file_trees_do_not_list_a_module_more_often_than_it_exists():
             f"exist on disk — {{name: (listed, on_disk)}} {over}. That is what a "
             "stale copy of the tree left beside the current one looks like."
         )
+
+
+# --- Imports that only run in live or rarely-run code ----------------------
+
+
+def _threat_intel_imports(path: pathlib.Path):
+    import ast
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):  # every depth: function bodies included
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module.split(".")[0] == "threat_intel_mcp":
+                for alias in node.names:
+                    yield node.lineno, node.module, alias.name
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] == "threat_intel_mcp":
+                    yield node.lineno, alias.name, None
+
+
+def test_every_threat_intel_import_resolves():
+    """Resolve every `threat_intel_mcp` import in tests, scripts and evals.
+
+    An import inside a function body runs only when that function does. The
+    live module is deselected from PR CI, so when 8930e36 renamed feodo's
+    `_IP_KEYS` the stale import inside a live test passed ruff, collection and
+    every PR check, and broke only the weekly live run five days later (#223).
+    This resolves each one statically, whatever the depth.
+    """
+    import importlib
+
+    roots = (_TESTS_DIR, _SCRIPTS_DIR, _REPO_ROOT / "evals")
+    files = [p for root in roots for p in sorted(root.glob("*.py"))]
+    unresolved, checked = [], 0
+    for path in files:
+        for lineno, module, name in _threat_intel_imports(path):
+            checked += 1
+            where = f"{path.relative_to(_REPO_ROOT).as_posix()}:{lineno}"
+            try:
+                mod = importlib.import_module(module)
+            except ImportError as exc:
+                unresolved.append(f"{where}: import {module} -- {exc}")
+                continue
+            if name is None or name == "*" or hasattr(mod, name):
+                continue
+            try:
+                importlib.import_module(f"{module}.{name}")
+            except ImportError:
+                unresolved.append(f"{where}: from {module} import {name}")
+    assert checked, "found no threat_intel_mcp imports -- layout drift?"
+    assert not unresolved, "imports that would fail when their code runs:\n  " + "\n  ".join(
+        unresolved
+    )
