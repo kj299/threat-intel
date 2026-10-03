@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .adapters.base import FetchResult, SourceAdapter
+from .audit import redact_url
 from .normalize import deduplicate_iocs, finalize_iocs
 from .resilience import CircuitBreaker, CircuitOpenError, guarded_fetch
 
@@ -80,13 +81,13 @@ async def _run_source(
             **retry_kwargs,
         )
     except source.no_retry_on as exc:  # credential / config error
-        reason = f"{type(exc).__name__}: {exc}"
+        reason = redact_url(f"{type(exc).__name__}: {exc}")
         logger.warning("fan-out source %s unconfigured: %s", name, reason)
         return _degraded(name, tier, reason, t0)
     except CircuitOpenError:
         return _degraded(name, tier, "circuit_open", t0)
     except Exception as exc:
-        reason = f"{type(exc).__name__}: {exc}"
+        reason = redact_url(f"{type(exc).__name__}: {exc}")
         logger.warning("fan-out source %s failed: %s", name, reason)
         return _degraded(name, tier, reason, t0)
 

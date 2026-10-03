@@ -55,7 +55,7 @@ from threat_intel_mcp.vulns import fan_out_vulns
 # Credentials are read by the adapters via EnvCredentialProvider; this script
 # never touches their values. The names are needed only to prove none of them
 # reached the output file.
-_CREDENTIAL_ENV_SUFFIXES = ("_API_KEY", "_API_ID", "_API_SECRET", "_EMAIL", "_TOKEN")
+_CREDENTIAL_ENV_SUFFIXES = ("_API_KEY", "_AUTH_KEY", "_API_ID", "_API_SECRET", "_EMAIL", "_TOKEN")
 
 
 def _credential_values() -> dict[str, str]:

@@ -72,6 +72,26 @@ def test_a_credential_in_the_payload_refuses_to_write(tmp_path, monkeypatch, fak
     assert not out.exists(), "the file must not be written when a credential leaked"
 
 
+def test_every_adapter_credential_is_scanned():
+    """Each `credentials.get(adapter, key)` maps to env var {ADAPTER}_{KEY}; every
+    one must be covered by the scanner, or a leak of it is written unchecked.
+    ABUSECH_AUTH_KEY was missed exactly this way when abuse.ch auth was added."""
+    import re
+
+    adapters = pathlib.Path(__file__).resolve().parents[1] / "src" / "threat_intel_mcp" / "adapters"
+    pattern = re.compile(r'credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z_]+)"')
+    names = {
+        f"{a.upper()}_{k.upper()}"
+        for src in adapters.glob("*.py")
+        for a, k in pattern.findall(src.read_text(encoding="utf-8"))
+    }
+    assert names, "no credentials.get(...) calls found -- regex/refactor drift?"
+    unscanned = sorted(
+        n for n in names if not n.endswith(prefetch_feeds._CREDENTIAL_ENV_SUFFIXES)
+    )
+    assert not unscanned, f"credentials the prefetch scanner would not check: {unscanned}"
+
+
 def test_a_clean_payload_is_written(tmp_path, monkeypatch, fake_feeds):
     monkeypatch.setenv("VIRUSTOTAL_API_KEY", "supersecrettoken12345")
     fake_feeds()
