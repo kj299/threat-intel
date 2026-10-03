@@ -65,7 +65,11 @@ class FetchResult:
     record_count: int
     latency_ms: float
     feed_types_fetched: list[str]
-    partial_failure: list[str] = field(default_factory=list)  # feed_types that failed
+    # Why this fetch is not complete: feed types that failed, and caps that bound
+    # it (Q-Feeds truncation, Pulsedive's one-page limit). Non-empty means the
+    # fan-out reports the source as partial -- a capped sample is partial
+    # coverage, and the ledger must say so (R4).
+    partial_failure: list[str] = field(default_factory=list)
 
 
 class UpstreamFormatError(RuntimeError):
