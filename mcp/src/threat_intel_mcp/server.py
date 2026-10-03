@@ -1,8 +1,8 @@
 """threat-intel-mcp: MCP server for live threat intelligence feed integration.
 
 Exposes Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
-Intel 471, Censys, and the two keyless feeds ThreatFox and OpenPhish as IOC
-tools; the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools;
+Intel 471, Censys, URLhaus, Pulsedive, Feodo Tracker, ThreatFox and OpenPhish
+as IOC tools (the last three answer without a key); the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools;
 and three enrichment tools (VirusTotal for indicators, EPSS and OSV.dev for
 CVEs -- the latter two keyless), that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
@@ -13,7 +13,8 @@ Run: threat-intel-mcp   (after `pip install -e .`)
 Credentials: set VAULT_ADDR + VAULT_ROLE_ID + VAULT_SECRET_ID for HashiCorp Vault,
 or QFEEDS_API_KEY / ABUSEIPDB_API_KEY / VIRUSTOTAL_API_KEY / OTX_API_KEY / SHODAN_API_KEY /
 GREYNOISE_API_KEY / ANYRUN_API_KEY / INTEL471_EMAIL + INTEL471_API_KEY /
-CENSYS_API_ID + CENSYS_API_SECRET / VULNCHECK_API_KEY for env-var mode.
+CENSYS_API_ID + CENSYS_API_SECRET / VULNCHECK_API_KEY / NVD_API_KEY (optional) /
+ABUSECH_AUTH_KEY / PULSEDIVE_API_KEY for env-var mode.
 """
 
 from __future__ import annotations
@@ -78,9 +79,10 @@ mcp = MCPServer(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
         "AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
-        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3; plus two feeds needing "
-        "no credential at all: the abuse.ch feed ThreatFox Tier 9 and the "
-        "OpenPhish Community phishing feed Tier 6). "
+        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3, URLhaus Tier 9, "
+        "Pulsedive Tier 3; plus three answering without a credential: the abuse.ch "
+        "feeds ThreatFox and Feodo Tracker, Tier 9, which use the abuse.ch key "
+        "when set, and the OpenPhish Community phishing feed, Tier 6). "
         "For vulnerabilities, call the Tier 1 CVE feeds: CISA KEV and NVD are "
         "government sources needing no credential (NVD accepts an optional key "
         "for a higher rate limit), and VulnCheck KEV is a vendor catalogue that "
@@ -91,7 +93,8 @@ mcp = MCPServer(
         "epss_enrich_cves ranks them by exploitation probability, and "
         "osv_enrich_cves names the open-source packages affected and the "
         "versions that fix them. Neither discovers CVEs, so neither is part of "
-        "fetch_all_cves. "
+        "fetch_all_cves. virustotal_enrich_iocs scores indicators you already "
+        "hold, one lookup each against a 500/day quota. "
         "Use fetch_all_iocs to query every configured IOC feed at once (concurrent, "
         "with per-source circuit breakers and merged deduplication), or call an "
         "individual feed tool for a single source. "
@@ -1206,10 +1209,12 @@ async def pulsedive_fetch_iocs(
 
 @mcp.tool()
 async def fetch_all_iocs(time_range: str = "7d") -> dict[str, Any]:
-    """Fetch and merge IOCs from ALL configured feeds concurrently (Tier 2-3 CTI).
+    """Fetch and merge IOCs from ALL IOC feeds concurrently.
 
-    Queries all configured feeds (Q-Feeds, AbuseIPDB, AlienVault OTX,
-    Shodan, GreyNoise, ANY.RUN, Intel 471, Censys) at the same time,
+    Queries every IOC feed (Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan,
+    GreyNoise, ANY.RUN, Intel 471, Censys, ThreatFox, OpenPhish, URLhaus,
+    Feodo Tracker, Pulsedive) at the same time; a feed without its credential
+    degrades rather than being skipped. It
     schema-validates and deduplicates each source, then merges everything into a
     single deduplicated ioc_network array (cross-source duplicates collapse to the
     highest-confidence copy). Each source is guarded by its own circuit breaker and
@@ -1470,7 +1475,7 @@ async def nvd_fetch_cves(
 async def fetch_all_cves(time_range: str = "7d") -> dict[str, Any]:
     """Fetch and merge CVE records from ALL vulnerability feeds concurrently (Tier 1).
 
-    Queries the government CVE feeds (CISA KEV, NVD) at the same time,
+    Queries the CVE feeds (CISA KEV, NVD, VulnCheck KEV) at the same time,
     sanitises/validates/deduplicates each source, then merges everything into a
     single set de-duplicated by CVE ID (a CVE present in both keeps the
     highest-CVSS copy and gains a corroborated-by tag plus KEV's
@@ -1793,18 +1798,22 @@ async def list_available_feeds() -> dict[str, Any]:
         ],
         "aggregate_tool": "fetch_all_iocs",
         "aggregate_description": (
-            "Queries all credential-configured feeds concurrently, with per-source "
+            "Queries every IOC feed concurrently, with per-source "
             "circuit breakers and merged deduplication; degraded feeds surface as "
             "'unverified' in the returned coverage_ledger."
         ),
         "cve_aggregate_tool": "fetch_all_cves",
         "cve_aggregate_description": (
-            "Queries all government CVE feeds (CISA KEV, NVD) concurrently and "
+            "Queries every CVE feed (CISA KEV, NVD, VulnCheck KEV) concurrently and "
             "merges into one set de-duplicated by CVE ID; degraded feeds surface "
             "as 'unverified' in the returned coverage_ledger. Emits vulnerability "
             "records (CVE-keyed), not ioc_network indicators."
         ),
-        "phase": "5 (10 IOC feeds + 2 government CVE feeds: CISA KEV + NVD via a CVE-keyed vulnerability-output path; concurrent fan-out + hardening + HashiCorp Vault or env-var credentials)",
+        "phase": (
+            f"5 ({len(_FEED_SOURCES)} IOC feeds + {len(_VULN_SOURCES)} CVE feeds via a "
+            "CVE-keyed vulnerability-output path; concurrent fan-out + hardening + "
+            "HashiCorp Vault or env-var credentials)"
+        ),
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 
