@@ -434,7 +434,7 @@ jobs:
           # bounded -- reports/ is the frozen corpus and this is not it.
           retention-days: 30
 
-      - name: Publish the report to the run summary
+      - name: Publish the report to the run summary and job log
         if: always()
         run: |
           shopt -s nullglob
@@ -445,8 +445,23 @@ jobs:
             exit 0
           fi
           for f in "${files[@]}"; do
-            echo "::notice::Report ready: $f ($(wc -c < "$f") bytes)"
+            # The agent picks the filename; strip CR/LF so it can't open a new ::command:: line.
+            name="$(printf '%s' "$f" | tr -d '\r\n')"
+            echo "::notice::Report ready: $name ($(wc -c < "$f") bytes)"
             cat "$f" >> "$GITHUB_STEP_SUMMARY"
+
+            # Also into the job log: the only copy an agent session can read
+            # back (the summary has no API; the artifact host is unreachable
+            # from sandboxes). stdout is parsed for ::commands:: and this text
+            # derives from untrusted feeds (R6), so commands are suspended with
+            # a per-run random token (coreutils; uuidgen is not guaranteed).
+            stop="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+            echo "::group::Report: $name"
+            echo "::stop-commands::${stop}"
+            cat "$f"
+            echo
+            echo "::${stop}::"
+            echo "::endgroup::"
           done
 
           # A report committed into reports/ would silently extend the frozen
