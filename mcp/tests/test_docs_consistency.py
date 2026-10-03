@@ -348,7 +348,9 @@ def test_readmes_name_exactly_the_registered_tools():
     registered = _registered_tools()
     assert registered, "no @mcp.tool() registrations found — regex/refactor drift?"
 
-    for readme in (_REPO_ROOT / "README.md", _README):
+    # docs/architecture.md too: its Component Notes row was a second copy of the
+    # tool list that drifted to 17 of 22 tools while both READMEs stayed exact.
+    for readme in (_REPO_ROOT / "README.md", _README, _REPO_ROOT / "docs" / "architecture.md"):
         documented = set(_DOC_TOOL_RE.findall(readme.read_text(encoding="utf-8")))
         missing = registered - documented
         phantom = documented - registered
@@ -476,9 +478,14 @@ def test_recorded_cassette_count_is_accurate():
                     f"on disk: {sorted(cassettes)}"
                 )
     assert not wrong, "documented cassette counts contradict disk:\n  " + "\n  ".join(wrong)
-    assert made_the_claim, (
-        "no prose doc states 'Recorded for N of M' any more, so this check "
-        "guards nothing. Reword the docs back, or update the pattern here."
+    # Per file, not "any file": #222 loosened this to any-doc, so one copy could
+    # be reworded out of the pattern and silently stop being checked while
+    # another still matched -- the vacuity its sibling test guards against.
+    required = {"CLAUDE.md", "docs/architecture.md", "mcp/README.md"}
+    silent = sorted(required - set(made_the_claim))
+    assert not silent, (
+        f"{silent} no longer state 'Recorded for N of M', so this check guards "
+        "nothing there. Reword the docs back, or update the pattern here."
     )
 
 
