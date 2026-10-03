@@ -87,7 +87,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - MITRE ATT&CK — attack.mitre.org — TTPs, techniques, groups [MUST]
 - Exploit-DB — exploit-db.com — PoC archive [MUST]
 - GitHub Security Advisories — github.com/advisories [MUST]
-- CVE Details, VulDB, OpenCVE, Vulners, Packet Storm, Rapid7 Vuln DB, Sploitus, 0day.today, GitHub PoC repos, ExploitPack [SHOULD]
+- CVE Details, VulDB, OpenCVE, Vulners, Packet Storm, Rapid7 Vuln DB, Sploitus, 0day.today, GitHub PoC repos, ExploitPack, VulnCheck KEV (vulncheck.com/kev), EPSS (first.org/epss — 30-day exploitation probability), OSV.dev (osv.dev — affected packages and fixed versions) [SHOULD]
 - Zero Day Initiative (ZDI) — zerodayinitiative.com/advisories/published (+RSS /rss/published/<year>) [MUST]
 - Zero-day trackers: Zero Day Tracker (zerodaytracker.com), Zero Day Clock (zerodayclock.com — time-to-exploit analytics), Zero-Day.cz [SHOULD]
 
@@ -121,7 +121,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 - Krebs on Security — krebsonsecurity.com [MUST]
 - The DFIR Report — thedfirreport.com [MUST]
 - Bleeping Computer — bleepingcomputer.com [MUST]
-- The Hacker News, SANS ISC, Schneier on Security, Troy Hunt, tl;dr sec, Risky Business News, r/netsec (and adjacent subreddits), Hacker News security submissions, Lobste.rs, Slashdot Security, Stack Exchange InfoSec, Graham Cluley, Cybersecurity News, Dark Reading, Threatpost, Security Affairs, Malwarebytes Labs, SANS Reading Room, X/Twitter #infosec/#threatintel/#malware/#APT/#CVE communities, infosec.exchange / ioc.exchange, MISP Project (misp-project.org), OpenCTI (github.com/OpenCTI-Platform/opencti), Cyber Threat Alliance (cyberthreatalliance.org), Have I Been Pwned (haveibeenpwned.com), CERT/CC (kb.cert.org), Citizen Lab (citizenlab.ca), Emerging Threats open ruleset (rules.emergingthreats.net) [SHOULD]
+- The Hacker News, SANS ISC, Schneier on Security, Troy Hunt, tl;dr sec, Risky Business News, r/netsec (and adjacent subreddits), Hacker News security submissions, Lobste.rs, Slashdot Security, Stack Exchange InfoSec, Graham Cluley, Cybersecurity News, Dark Reading, Threatpost, Security Affairs, Malwarebytes Labs, SANS Reading Room, X/Twitter #infosec/#threatintel/#malware/#APT/#CVE communities, infosec.exchange / ioc.exchange, MISP Project (misp-project.org), OpenCTI (github.com/OpenCTI-Platform/opencti), Cyber Threat Alliance (cyberthreatalliance.org), Have I Been Pwned (haveibeenpwned.com), CERT/CC (kb.cert.org), Citizen Lab (citizenlab.ca), Emerging Threats open ruleset (rules.emergingthreats.net), OpenPhish Community feed (openphish.com) [SHOULD]
 
 ### Tier 7: Dark Web Intelligence (mostly paywalled — mark `unverified` if inaccessible)
 - Flashpoint, Intel 471, DarkOwl, Kela, Cybersixgill, SOCRadar, ReliaQuest, ZeroFox, Searchlight Cyber, Recorded Future Dark Web [SHOULD]
@@ -137,7 +137,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 ### Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]
 - ThreatFox — threatfox.abuse.ch [MUST]
-- Hybrid Analysis, Any.Run, Triage, Joe Sandbox, Malpedia, YARA Rules repo, Malshare, theZoo, Cape Sandbox [SHOULD]
+- URLhaus (urlhaus.abuse.ch), Feodo Tracker (feodotracker.abuse.ch), Hybrid Analysis, Any.Run, Triage, Joe Sandbox, Malpedia, YARA Rules repo, Malshare, theZoo, Cape Sandbox [SHOULD]
 
 ---
 
