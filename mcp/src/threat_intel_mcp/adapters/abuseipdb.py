@@ -128,7 +128,7 @@ class AbuseIPDBAdapter:
                 return FetchResult(
                     iocs=cached_iocs,
                     source="AbuseIPDB",
-                    tier=3,
+                    tier=self.tier,
                     retrieved_at=datetime.now(timezone.utc).isoformat(),
                     record_count=len(cached_iocs),
                     latency_ms=round(latency_ms, 1),
@@ -178,7 +178,7 @@ class AbuseIPDBAdapter:
         return FetchResult(
             iocs=iocs,
             source="AbuseIPDB",
-            tier=3,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(iocs),
             latency_ms=round(latency_ms, 1),

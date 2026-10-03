@@ -215,7 +215,7 @@ class ShodanAdapter:
         return FetchResult(
             iocs=all_iocs,
             source="Shodan",
-            tier=3,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(all_iocs),
             latency_ms=round(latency_ms, 1),

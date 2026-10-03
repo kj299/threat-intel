@@ -270,12 +270,12 @@ In Claude Code, after the MCP server is connected:
 feed_integrations: [
   {"name": "Q-Feeds",       "tier": 2, "access_level": "premium"},
   {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
-  {"name": "VirusTotal",    "tier": 2, "access_level": "intelligence"},
-  {"name": "AlienVault OTX","tier": 2, "access_level": "community"},
+  {"name": "VirusTotal",    "tier": 3, "access_level": "public"},
+  {"name": "AlienVault OTX","tier": 3, "access_level": "community"},
   {"name": "Shodan",        "tier": 3, "access_level": "membership"},
   {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"},
   {"name": "ANY.RUN",       "tier": 9, "access_level": "ti"},
-  {"name": "Intel 471",     "tier": 2, "access_level": "titan"},
+  {"name": "Intel 471",     "tier": 7, "access_level": "titan"},
   {"name": "Censys",        "tier": 3, "access_level": "search"}
 ]
 ```
@@ -417,7 +417,7 @@ Base URL and auth below were read from each vendor's **official SDK source** (Gi
 | ONYPHE (T2) | subscription | `https://www.onyphe.io/api/v2` | `apikey` param | SDK `sebdraven/pyonyphe` |
 | BinaryEdge (T2) | subscription | `https://api.binaryedge.io/v2` | header `X-Key` | SDK `Te-k/pybinaryedge` |
 | Intelligence X (T3) | subscription | `https://2.intelx.io` | header `x-key` | SDK `IntelligenceX/SDK` |
-| Intel 471 (T2/T7) | subscription | `https://api.intel471.com/v1/indicators/stream` | HTTP Basic (email + key) | **implemented** — `intel471.py` |
+| Intel 471 (T7) | subscription | `https://api.intel471.com/v1/indicators/stream` | HTTP Basic (email + key) | **implemented** — `intel471.py` |
 | Any.Run (T9) | subscription | `https://api.any.run/v1/feeds/taxii2/...` | header `Authorization` | **implemented** — `anyrun.py` |
 | Hybrid Analysis (T9) | free + paid tiers | `https://www.hybrid-analysis.com/api/v2` | header `api-key` | SDK `PayloadSecurity/VxAPI` |
 

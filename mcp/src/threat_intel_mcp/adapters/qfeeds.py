@@ -159,7 +159,7 @@ class QFeedsAdapter:
         return FetchResult(
             iocs=all_iocs,
             source="Q-Feeds",
-            tier=2,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(all_iocs),
             latency_ms=round(latency_ms, 1),

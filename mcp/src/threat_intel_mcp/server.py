@@ -78,8 +78,8 @@ mcp = MCPServer(
     instructions=(
         "Live threat intelligence feed tools. Call these to retrieve current IOCs "
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
-        "AlienVault OTX Tier 2, Shodan Tier 3, GreyNoise Tier 3, "
-        "ANY.RUN Tier 9, Intel 471 Tier 2, Censys Tier 3, URLhaus Tier 9, "
+        "AlienVault OTX Tier 3, Shodan Tier 3, GreyNoise Tier 3, "
+        "ANY.RUN Tier 9, Intel 471 Tier 7, Censys Tier 3, URLhaus Tier 9, "
         "Pulsedive Tier 3; plus three answering without a credential: the abuse.ch "
         "feeds ThreatFox and Feodo Tracker, Tier 9, which use the abuse.ch key "
         "when set, and the OpenPhish Community phishing feed, Tier 6). "
@@ -167,19 +167,19 @@ def _degraded_tool_result(
 
 
 _FEED_SOURCES = [
-    FeedSource(_qfeeds, 2, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
-    FeedSource(_abuseipdb, 3, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
-    FeedSource(_otx, 2, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
-    FeedSource(_shodan, 3, "Shodan", CircuitBreaker("Shodan"), _CONFIG_ERRORS),
-    FeedSource(_greynoise, 3, "GreyNoise", CircuitBreaker("GreyNoise"), _CONFIG_ERRORS),
-    FeedSource(_anyrun, 9, "ANY.RUN", CircuitBreaker("ANY.RUN"), _CONFIG_ERRORS),
-    FeedSource(_intel471, 2, "Intel 471", CircuitBreaker("Intel 471"), _CONFIG_ERRORS),
-    FeedSource(_censys, 3, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
-    FeedSource(_threatfox, 9, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
-    FeedSource(_openphish, 6, "OpenPhish", CircuitBreaker("OpenPhish"), _CONFIG_ERRORS),
-    FeedSource(_urlhaus, 9, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
-    FeedSource(_feodo, 9, "Feodo Tracker", CircuitBreaker("Feodo Tracker"), _CONFIG_ERRORS),
-    FeedSource(_pulsedive, 3, "Pulsedive", CircuitBreaker("Pulsedive"), _CONFIG_ERRORS),
+    FeedSource(_qfeeds, _qfeeds.tier, "Q-Feeds", CircuitBreaker("Q-Feeds"), _CONFIG_ERRORS),
+    FeedSource(_abuseipdb, _abuseipdb.tier, "AbuseIPDB", CircuitBreaker("AbuseIPDB"), _CONFIG_ERRORS),
+    FeedSource(_otx, _otx.tier, "AlienVault OTX", CircuitBreaker("AlienVault OTX"), _CONFIG_ERRORS),
+    FeedSource(_shodan, _shodan.tier, "Shodan", CircuitBreaker("Shodan"), _CONFIG_ERRORS),
+    FeedSource(_greynoise, _greynoise.tier, "GreyNoise", CircuitBreaker("GreyNoise"), _CONFIG_ERRORS),
+    FeedSource(_anyrun, _anyrun.tier, "ANY.RUN", CircuitBreaker("ANY.RUN"), _CONFIG_ERRORS),
+    FeedSource(_intel471, _intel471.tier, "Intel 471", CircuitBreaker("Intel 471"), _CONFIG_ERRORS),
+    FeedSource(_censys, _censys.tier, "Censys", CircuitBreaker("Censys"), _CONFIG_ERRORS),
+    FeedSource(_threatfox, _threatfox.tier, "ThreatFox", CircuitBreaker("ThreatFox"), _CONFIG_ERRORS),
+    FeedSource(_openphish, _openphish.tier, "OpenPhish", CircuitBreaker("OpenPhish"), _CONFIG_ERRORS),
+    FeedSource(_urlhaus, _urlhaus.tier, "URLhaus", CircuitBreaker("URLhaus"), _CONFIG_ERRORS),
+    FeedSource(_feodo, _feodo.tier, "Feodo Tracker", CircuitBreaker("Feodo Tracker"), _CONFIG_ERRORS),
+    FeedSource(_pulsedive, _pulsedive.tier, "Pulsedive", CircuitBreaker("Pulsedive"), _CONFIG_ERRORS),
 ]
 
 # Vulnerability feeds emit CVE-keyed vuln records (see vulns.py), not
@@ -192,10 +192,10 @@ _FEED_SOURCES = [
 # are complements: finalize_vulns dedupes by CVE ID and preserves corroboration,
 # so a CVE in both becomes one record naming both sources.
 _VULN_SOURCES = [
-    VulnFeedSource(_cisa_kev, 1, "CISA KEV", CircuitBreaker("CISA KEV"), _CONFIG_ERRORS),
-    VulnFeedSource(_nvd, 1, "NVD", CircuitBreaker("NVD"), _CONFIG_ERRORS),
+    VulnFeedSource(_cisa_kev, _cisa_kev.tier, "CISA KEV", CircuitBreaker("CISA KEV"), _CONFIG_ERRORS),
+    VulnFeedSource(_nvd, _nvd.tier, "NVD", CircuitBreaker("NVD"), _CONFIG_ERRORS),
     VulnFeedSource(
-        _vulncheck, 1, "VulnCheck KEV", CircuitBreaker("VulnCheck KEV"), _CONFIG_ERRORS
+        _vulncheck, _vulncheck.tier, "VulnCheck KEV", CircuitBreaker("VulnCheck KEV"), _CONFIG_ERRORS
     ),
 ]
 
@@ -416,7 +416,7 @@ async def virustotal_enrich_iocs(
         return {
             "enrichments": [],
             "source": "VirusTotal",
-            "tier": 2,
+            "tier": _virustotal.tier,
             "retrieved_at": "",
             "record_count": 0,
             "latency_ms": 0.0,
@@ -429,7 +429,7 @@ async def virustotal_enrich_iocs(
         return {
             "enrichments": [],
             "source": "VirusTotal",
-            "tier": 2,
+            "tier": _virustotal.tier,
             "retrieved_at": "",
             "record_count": 0,
             "latency_ms": 0.0,
@@ -536,7 +536,7 @@ async def otx_fetch_iocs(
     time_range: str = "7d",
     feed_types: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch threat indicators from AlienVault OTX subscribed pulses (Tier 2 CTI).
+    """Fetch threat indicators from AlienVault OTX subscribed pulses (Tier 3 aggregator).
 
     Retrieves indicators from pulses modified within the given time_range,
     returning ioc_network objects in the threat-intel output.schema.json shape.
@@ -555,7 +555,7 @@ async def otx_fetch_iocs(
     Usage with the threat-intel skill:
         1. Call this tool; receive iocs.
         2. Pass iocs as context to the skill invocation.
-        3. Set skill_input.feed_integrations = [{"name": "AlienVault OTX", "tier": 2,
+        3. Set skill_input.feed_integrations = [{"name": "AlienVault OTX", "tier": 3,
            "access_level": "community"}] so the Coverage Ledger marks it consulted.
     """
     try:
@@ -595,7 +595,7 @@ async def otx_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 2,
+            "tier": _otx.tier,
             "source": "AlienVault OTX",
             "status": status,
         },
@@ -810,7 +810,7 @@ async def intel471_fetch_iocs(
     time_range: str = "7d",
     feed_types: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch Intel 471 malware network indicators (Tier 2 CTI).
+    """Fetch Intel 471 malware network indicators (Tier 7 dark-web intelligence).
 
     Returns ioc_network objects in the threat-intel output.schema.json shape,
     de-duplicated and schema-validated before return.
@@ -826,7 +826,7 @@ async def intel471_fetch_iocs(
     except (CredentialError, KeyError) as exc:
         logger.warning("Intel 471 credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "Intel 471", 2, feed_types or list(INTEL471_FEED_TYPES.keys()),
+            "Intel 471", _intel471.tier, feed_types or list(INTEL471_FEED_TYPES.keys()),
             "Intel 471 credentials not configured. Set INTEL471_EMAIL and INTEL471_API_KEY.",
         )
     except ValueError:
@@ -834,7 +834,7 @@ async def intel471_fetch_iocs(
     except Exception as exc:
         logger.warning("Intel 471 upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "Intel 471", 2, feed_types or list(INTEL471_FEED_TYPES.keys()),
+            "Intel 471", _intel471.tier, feed_types or list(INTEL471_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
 
@@ -851,7 +851,7 @@ async def intel471_fetch_iocs(
         "latency_ms": result.latency_ms,
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
-        "coverage_ledger_entry": {"tier": 2, "source": "Intel 471", "status": status},
+        "coverage_ledger_entry": {"tier": _intel471.tier, "source": "Intel 471", "status": status},
     }
 
 
@@ -1636,7 +1636,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "AlienVault OTX",
-                "tier": 2,
+                "tier": _otx.tier,
                 "domain": "otx.alienvault.com",
                 "description": "Community and commercial threat pulses with IP, domain, and URL indicators",
                 "feed_types": ["subscribed"],
@@ -1672,7 +1672,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "Intel 471",
-                "tier": 2,
+                "tier": _intel471.tier,
                 "domain": "intel471.com",
                 "description": "Titan malware indicators stream (IP + URL network indicators)",
                 "feed_types": list(INTEL471_FEED_TYPES.keys()),
@@ -1741,7 +1741,7 @@ async def list_available_feeds() -> dict[str, Any]:
         "enrichment_sources": [
             {
                 "name": "VirusTotal",
-                "tier": 2,
+                "tier": _virustotal.tier,
                 "domain": "virustotal.com",
                 "description": "Per-indicator lookup: detection counts, community reputation, network ownership (4 lookups/min, 500/day on the public API)",
                 "indicator_types": list(VT_INDICATOR_TYPES.keys()),

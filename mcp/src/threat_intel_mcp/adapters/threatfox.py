@@ -263,7 +263,7 @@ class ThreatFoxAdapter:
         return FetchResult(
             iocs=iocs,
             source="ThreatFox",
-            tier=9,
+            tier=self.tier,
             retrieved_at=datetime.now(timezone.utc).isoformat(),
             record_count=len(iocs),
             latency_ms=round(latency_ms, 1),

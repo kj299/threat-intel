@@ -222,7 +222,7 @@ class TestOTXAdapterFetch:
         )
         result = await adapter.fetch(time_range="7d")
         assert result.source == "AlienVault OTX"
-        assert result.tier == 2
+        assert result.tier == 3
         assert result.record_count > 0
         assert "subscribed" in result.feed_types_fetched
 
