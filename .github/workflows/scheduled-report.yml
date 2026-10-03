@@ -270,6 +270,15 @@ jobs:
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "auth=none" >> "$GITHUB_OUTPUT"
+            # A dispatch in an unconfigured repo or fork is an opt-out and stays
+            # green. The cron firing with no credential is a fault: the weekly
+            # report silently stops, and nothing else would say so.
+            if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+              echo "::error::Scheduled run has no model credential \
+              (CLAUDEOUATH / CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY), \
+              so no report was generated. See docs/report-runbook.md."
+              exit 1
+            fi
             echo "::notice::No model credential is set \
             — skipping report generation. Set CLAUDEOUATH / CLAUDE_CODE_OAUTH_TOKEN \
             or ANTHROPIC_API_KEY to enable the weekly cadence \
@@ -490,10 +499,18 @@ jobs:
         # repository is built to prevent. Style notes never fail: the badge
         # check is directional, and under-claiming is correct behaviour.
         if: always()
+        env:
+          CONFIGURED: ${{ steps.guard.outputs.configured }}
         run: |
           shopt -s nullglob
           files=(report-output/*.md)
           if [ ${#files[@]} -eq 0 ]; then
+            # The agent ran and wrote nothing: that is a failed run, not a
+            # quiet one. Only an unconfigured repo may end here green.
+            if [ "$CONFIGURED" = "true" ]; then
+              echo "::error::The agent ran but produced no report in report-output/."
+              exit 1
+            fi
             echo "::warning::No report to check; the step above already said so."
             exit 0
           fi

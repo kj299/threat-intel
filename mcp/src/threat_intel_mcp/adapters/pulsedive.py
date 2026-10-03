@@ -84,7 +84,7 @@ import httpx
 from ..audit import log_tool_call, redact_url
 from ..netpolicy import egress_event_hooks
 from ..vault.base import CredentialProvider
-from .base import FetchResult, guard_parsed
+from .base import AccountLimitError, FetchResult, guard_parsed
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +265,7 @@ class PulsediveAdapter:
                     # budget the difference between "quota spent" and
                     # "Pulsedive is down" decides whether an operator waits or
                     # investigates, and the weekly live check should say which.
-                    raise RuntimeError(
+                    raise AccountLimitError(
                         "Pulsedive returned HTTP 429 on the first request of "
                         "this fetch. This adapter makes exactly one request per "
                         "fetch. Either the account's quota is already spent "

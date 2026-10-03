@@ -28,6 +28,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from . import __version__
+from .adapters.base import AccountLimitError
 from .adapters.abuseipdb import AbuseIPDBAdapter
 from .adapters.cisa_kev import CISAKEVAdapter, FEED_TYPES as CISA_KEV_FEED_TYPES
 from .adapters.nvd import NVDAdapter, FEED_TYPES as NVD_FEED_TYPES
@@ -133,7 +134,11 @@ _vulncheck = VulnCheckAdapter(_credentials)  # community KEV; credential require
 # treated as non-retryable and surface as "unverified" in the Coverage Ledger.
 # ValueError covers caller mistakes (bad time_range / feed_types) — not an
 # upstream-health signal, so it must not trip a breaker or be retried.
-_CONFIG_ERRORS: tuple[type[BaseException], ...] = (CredentialError, KeyError, ValueError)
+# AccountLimitError (quota spent / plan excludes the endpoint) is the same kind
+# of thing: retrying cannot help and says nothing about upstream health.
+_CONFIG_ERRORS: tuple[type[BaseException], ...] = (
+    CredentialError, KeyError, ValueError, AccountLimitError,
+)
 
 
 def _degraded_tool_result(

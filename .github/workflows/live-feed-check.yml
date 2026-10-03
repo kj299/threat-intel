@@ -125,7 +125,7 @@ jobs:
           set -euo pipefail
           detail=$(cat failures.txt)
           title="Live feed check failing"
-          body="The scheduled live check against the keyless feeds failed on $(date -u +%F).
+          body="The scheduled live check against the real feed endpoints failed on $(date -u +%F).
 
           \`\`\`
           ${detail}
@@ -149,7 +149,12 @@ jobs:
           # Title-based dedupe: bump the existing alarm rather than stacking new ones.
           existing=$(gh issue list --state open --search "Live feed check failing in:title" --json number --jq '.[0].number' || true)
           if [ -n "${existing:-}" ] && [ "${existing}" != "null" ]; then
-            gh issue comment "$existing" --body "Still failing as of $(date -u +%F). [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            # The current failure list, every time: a new feed breaking next to a
+            # standing failure must not read like the same old alarm.
+            gh issue comment "$existing" --body "$(printf 'Still failing as of %s. [Run](%s)\n\n```\n%s\n```' \
+              "$(date -u +%F)" \
+              "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              "$detail")"
           else
             gh issue create --title "$title" --body "$body"
           fi

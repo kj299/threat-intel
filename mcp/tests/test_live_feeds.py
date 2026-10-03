@@ -36,6 +36,7 @@ import os
 import pytest
 
 from threat_intel_mcp.adapters.abuseipdb import AbuseIPDBAdapter
+from threat_intel_mcp.adapters.base import AccountLimitError
 from threat_intel_mcp.adapters.anyrun import AnyRunAdapter
 from threat_intel_mcp.adapters.censys import CensysAdapter
 from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
@@ -246,7 +247,13 @@ async def test_credentialed_ioc_feed_answers_its_api(name, adapter_key, env_vars
     _skip_unless_configured(name, env_vars)
 
     adapter = _IOC_ADAPTERS[adapter_key](credential_provider_from_env())
-    result = await adapter.fetch(time_range="7d")
+    try:
+        result = await adapter.fetch(time_range="7d")
+    except AccountLimitError as exc:
+        # Quota spent or plan excludes the endpoint: an account-side fact the
+        # code cannot fix, so it must not hold the alarm permanently red and
+        # bury a real breakage. xfail keeps it named in every run's output.
+        pytest.xfail(f"{name}: account limit, not a code or feed fault -- {exc}")
 
     assert result.source == name
     assert result.record_count >= 0
