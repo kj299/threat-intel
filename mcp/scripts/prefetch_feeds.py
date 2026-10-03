@@ -44,6 +44,7 @@ import sys
 # the tool surface is then prefetched automatically, and the two cannot drift.
 from threat_intel_mcp.fanout import fan_out
 from threat_intel_mcp.adapters.epss import EPSSAdapter
+from threat_intel_mcp.adapters.osv import OSVAdapter
 from threat_intel_mcp.adapters.virustotal import (
     MAX_INDICATORS_PER_CALL as VT_MAX_PER_CALL,
     VirusTotalAdapter,
@@ -90,9 +91,17 @@ def assert_no_credentials(payload: str) -> None:
         )
 
 
-# EPSS scores are capped per run so a pathological CVE week cannot turn the
-# prefetch into a long sweep. 500 is roughly three times a normal weekly window.
-_MAX_CVES_TO_SCORE = 500
+# Capped per run so a pathological CVE week cannot turn the prefetch into a long
+# sweep: 1000 is ten keyless requests. A normal window is ~12k CVEs, so this is a
+# sample and the payload says so (`selected_from`, `selection`).
+_MAX_CVES_TO_SCORE = 1000
+_EPSS_SELECTION = "not already in CISA KEV first, then highest CVSS"
+
+
+def _epss_priority(v: dict) -> tuple:
+    # KEV already says "exploited"; EPSS adds most to the CVEs nothing else ranks.
+    known = v.get("exploit_status") == "known_exploited"
+    return (known, -(v.get("cvss_score") or 0.0))
 
 
 async def _score_with_epss(vulns: dict) -> dict | None:
@@ -112,14 +121,15 @@ async def _score_with_epss(vulns: dict) -> dict | None:
     A failure here degrades rather than fails: the CVE records are already in
     hand and are worth delivering unranked.
     """
-    ids = [v["cve_id"] for v in vulns.get("vulns", []) if v.get("cve_id")]
-    if not ids:
+    records = [v for v in vulns.get("vulns", []) if v.get("cve_id")]
+    if not records:
         return None
-    if len(ids) > _MAX_CVES_TO_SCORE:
-        ids = ids[:_MAX_CVES_TO_SCORE]
+    # Merged order puts CISA KEV first, so a plain slice scored only KEV entries.
+    ids = [v["cve_id"] for v in sorted(records, key=_epss_priority)][:_MAX_CVES_TO_SCORE]
+    sample = {"selected_from": len(records), "selection": _EPSS_SELECTION}
 
     try:
-        return await EPSSAdapter().enrich(ids)
+        return {**await EPSSAdapter().enrich(ids), **sample}
     except Exception as exc:  # noqa: BLE001 - an unranked report still ships
         print(f"EPSS enrichment degraded: {type(exc).__name__}: {exc}", file=sys.stderr)
         return {
@@ -129,7 +139,34 @@ async def _score_with_epss(vulns: dict) -> dict | None:
             "scored": [],
             "not_scored": [],
             "error": f"{type(exc).__name__}: {exc}",
+            **sample,
         }
+
+
+# OSV is keyless but sequential, up to 1 + 3 alias hops per CVE, so it is a
+# bounded sample: the CVEs EPSS rates most likely to be exploited, which is where
+# "which package, fixed in which version" matters most.
+_MAX_CVES_FOR_OSV = 100
+_OSV_SELECTION = "highest EPSS score first"
+
+
+async def _enrich_with_osv(epss: dict | None) -> dict | None:
+    """Affected packages and fixed versions for the riskiest CVEs this run."""
+    scored = sorted(
+        (r for r in (epss or {}).get("enrichments", []) if r.get("cve")),
+        key=lambda r: -(r.get("epss") or 0.0),
+    )
+    if not scored:
+        return None
+    ids = [r["cve"] for r in scored[:_MAX_CVES_FOR_OSV]]
+    sample = {"selected_from": len(scored), "selection": _OSV_SELECTION}
+    try:
+        return {**await OSVAdapter().enrich(ids), **sample}
+    except Exception as exc:  # noqa: BLE001 - the CVEs still ship without packages
+        reason = f"{type(exc).__name__}: {exc}"
+        print(f"OSV enrichment degraded: {reason}", file=sys.stderr)
+        return {"enrichments": [], "source": "OSV.dev", "record_count": 0,
+                "found": [], "not_found": [], "failed": ids, "error": reason, **sample}
 
 
 # VirusTotal's public API allows 4 lookups/min and 500/day, so unlike EPSS this
@@ -264,6 +301,7 @@ async def collect(time_range: str, virustotal_limit: int = _DEFAULT_VT_LIMIT) ->
     )
     # Sequential, not gathered: both need what the fan-outs just produced.
     epss = await _score_with_epss(vulns)
+    osv = await _enrich_with_osv(epss)
     virustotal = await _enrich_with_virustotal(iocs, virustotal_limit)
     payload = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -273,6 +311,8 @@ async def collect(time_range: str, virustotal_limit: int = _DEFAULT_VT_LIMIT) ->
     }
     if epss is not None:
         payload["cve_enrichment"] = {"epss": epss}
+    if osv is not None:
+        payload.setdefault("cve_enrichment", {})["osv"] = osv
     if virustotal is not None:
         payload["ioc_enrichment"] = {"virustotal": virustotal}
     return payload
@@ -303,6 +343,15 @@ def summarise(payload: dict) -> str:
             f"{virustotal['selected_from']} eligible indicators enriched "
             f"({virustotal['selection']})"
         )
+    osv = payload.get("cve_enrichment", {}).get("osv")
+    if osv is not None:
+        if osv.get("error"):
+            lines.append(f"osv: degraded — {osv['error']}")
+        else:
+            lines.append(
+                f"osv: {len(osv.get('found', []))} of {osv['selected_from']} scored CVEs "
+                f"have OSV records (looked up {_MAX_CVES_FOR_OSV} max, {osv['selection']})"
+            )
     epss = payload.get("cve_enrichment", {}).get("epss")
     if epss is not None:
         if epss.get("error"):
@@ -310,7 +359,8 @@ def summarise(payload: dict) -> str:
         else:
             lines.append(
                 f"epss: {epss['record_count']} of "
-                f"{epss['record_count'] + len(epss['not_scored'])} CVEs scored"
+                f"{epss['record_count'] + len(epss['not_scored'])} CVEs scored, "
+                f"selected from {epss.get('selected_from', '?')} ({epss.get('selection', '')})"
             )
     return "\n".join(lines)
 

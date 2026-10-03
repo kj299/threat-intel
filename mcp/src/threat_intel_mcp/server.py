@@ -110,7 +110,7 @@ _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
-_threatfox = ThreatFoxAdapter()  # public feed, no credential
+_threatfox = ThreatFoxAdapter(_credentials)  # public export; abuse.ch key sent when configured
 _openphish = OpenPhishAdapter()  # public feed, no credential
 # abuse.ch: one Auth-Key covers all of them. URLhaus REQUIRES it (its v1 API
 # has enforced auth since 2025-06-30); ThreatFox and Feodo read grandfathered

@@ -257,7 +257,7 @@ There are **two kinds of credential**, and they do not go in the same place:
 | **Feed keys** | The 15 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, `ABUSECH_AUTH_KEY`, `PULSEDIVE_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, and `scheduled-report`'s `prefetch` job |
 | **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
 
-**Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content, with write access and the ability to open a PR, so any credential in its environment is reachable by a prompt injection and can leave in a committed file. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
+**Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content and whose output is published, so any credential in its environment is reachable by a prompt injection and can leave in the published report. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
 
 ### Which context reads which keys
 

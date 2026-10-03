@@ -910,10 +910,10 @@ jobs:
           python <<'PY'
           # scheduled-report.yml runs an LLM agent whose job is to ingest
           # untrusted content -- threat feeds, vendor blogs, leak-site
-          # aggregators, arbitrary web pages -- with Write access and the ability
-          # to open a PR. Any feed credential placed in that step's environment
-          # is reachable by the agent and can leave in a file it commits, which
-          # log masking does not cover.
+          # aggregators, arbitrary web pages -- and publishes what it writes.
+          # Any feed credential placed in that step's environment is reachable
+          # by the agent and can leave in the published report; masking catches
+          # only an exact value, never a transformed one.
           #
           # Narrowing --allowedTools does NOT mitigate this. Claude Code runs a
           # built-in set of read-only Bash commands without consulting the
@@ -1002,7 +1002,7 @@ jobs:
                   print(f"  {line}")
               print()
               print("These would sit in the environment of an agent that reads "
-                    "untrusted web content and can commit files. Fetch the feeds "
+                    "untrusted web content and publishes its output. Fetch the feeds "
                     "in a SEPARATE JOB and pass the agent a data file instead -- "
                     "the shape the `prefetch` job already uses.")
               sys.exit(1)

@@ -32,9 +32,8 @@ name: scheduled-report
 #                              Requires credits: a Console key is separate from
 #                              a Claude subscription and is NOT funded by it.
 #
-# The schedule is off (see the `on:` block), so this is now a per-dispatch
-# cost rather than a standing one. If the weekly cron is restored, it becomes a
-# standing billing decision again.
+# The weekly schedule is on (restored 2026-09-20, see the `on:` block), so this
+# is a standing cost: one agent session every Monday, plus any dispatches.
 #
 # **The OAuth token wins when both are set**, and the generate step passes only
 # the chosen credential — the other is blanked. That matters: the action
@@ -57,10 +56,12 @@ name: scheduled-report
 #
 # This is not an ordinary CI job. It runs an LLM agent whose entire purpose is
 # to ingest untrusted content — threat feeds, vendor blogs, leak-site
-# aggregators, arbitrary web pages — while holding Write access and the ability
-# to open a PR. Anything in this step's environment is reachable by that agent
-# and can leave in a file it commits. GitHub's log masking does not cover a
-# committed file, and would not catch a transformed value in a log either.
+# aggregators, arbitrary web pages — and its output is published to the run
+# summary and job log. Anything in this step's environment is reachable by that
+# agent and can leave in that output. GitHub's masking catches only an exact
+# value, never a transformed one. (The agent is also read-only now -- see the
+# `permissions:` block -- but that limits what it can change, not what it can
+# say.)
 #
 # Narrowing --allowedTools does not fix it. Claude Code runs a built-in set of
 # read-only Bash commands without consulting the allowlist, and that set
@@ -122,15 +123,18 @@ on:
         default: 7d
         type: string
 
+# Read-only, and no id-token. The agent below reads untrusted feed text, and
+# since #170 it commits nothing and opens no PR, so it needs no write access.
+# Two credentials used to give it some anyway: this workflow's GITHUB_TOKEN
+# (contents/pull-requests write, persisted by checkout), and -- the larger one
+# -- a Claude GitHub App installation token the action minted over OIDC, with
+# contents/PRs/issues write, exported to the agent as GH_TOKEN. A `permissions:`
+# block cannot narrow that app token, so the action is handed this read-only
+# GITHUB_TOKEN instead (github_token input), which skips the OIDC exchange; and
+# without id-token: write, an injected agent cannot mint one itself. Run
+# 33320791061 needed id-token only because of that exchange.
 permissions:
-  contents: write # commit the report to a branch
-  pull-requests: write # open the PR carrying it
-  # Required by claude-code-action, and not optional: it mints its GitHub token
-  # by exchanging an Actions OIDC token (setupGitHubToken -> getOidcToken).
-  # Without this the action retries three times and fails in ~15s with
-  # "Could not fetch an OIDC token", before Claude is ever invoked. Found on the
-  # first real dispatch (run 33320791061) — the steps before it all passed.
-  id-token: write
+  contents: read
 
 jobs:
   # ─── Feed credentials live HERE, and only here ───────────────────────────────
@@ -287,6 +291,8 @@ jobs:
 
       - uses: actions/checkout@v7
         if: steps.guard.outputs.configured == 'true'
+        with:
+          persist-credentials: false # nothing in this job pushes; keep the token off disk
 
       - uses: actions/setup-python@v7
         if: steps.guard.outputs.configured == 'true'
@@ -348,6 +354,9 @@ jobs:
           # with an identity-linked API key" (run 33323829864). Unset for OAuth
           # tokens and for workspace-scoped keys, and empty is treated as absent.
           anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          # Read-only (see the workflow `permissions:` block). Supplying it skips
+          # the action's OIDC exchange for a write-capable app token.
+          github_token: ${{ github.token }}
           # --max-turns is a runaway guard, not a budget, and it must sit well
           # clear of a normal run. The first successful report (run 33326622088)
           # took 50 turns with only two feeds responding, and the action treats

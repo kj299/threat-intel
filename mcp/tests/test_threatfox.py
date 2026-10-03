@@ -264,3 +264,20 @@ class TestEmptyAndBrokenFeeds:
         )
         result = await adapter.fetch()
         assert result.record_count == 1
+
+
+def test_every_registered_source_that_takes_credentials_gets_them():
+    """An adapter that accepts a credential provider but is registered without
+    one silently runs unauthenticated. ThreatFox did for weeks after the
+    abuse.ch key was added, while six docs said the key was sent."""
+    import inspect
+
+    from threat_intel_mcp import server
+
+    missing = []
+    for source in [*server._FEED_SOURCES, *server._VULN_SOURCES]:
+        adapter = source.adapter
+        reads_a_key = "_credentials.get(" in inspect.getsource(type(adapter))
+        if reads_a_key and getattr(adapter, "_credentials", None) is not server._credentials:
+            missing.append(source.name)
+    assert not missing, f"registered without the server's credential provider: {missing}"
