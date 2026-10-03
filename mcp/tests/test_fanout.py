@@ -175,3 +175,31 @@ async def test_per_source_summary_excludes_raw_iocs():
     assert "iocs" not in summary
     assert summary["record_count"] == 1
     assert summary["source"] == "Q-Feeds"
+
+
+def _http_error_with_key_in_url():
+    import httpx
+
+    request = httpx.Request("GET", "https://api.shodan.io/shodan/host/search?key=SECRETKEY123456&query=x")
+    response = httpx.Response(401, request=request)
+    return httpx.HTTPStatusError(
+        f"Client error '401 Unauthorized' for url '{request.url}'", request=request, response=response
+    )
+
+
+@pytest.mark.asyncio
+async def test_degraded_reason_never_carries_a_query_string_key(caplog):
+    # Shodan and Pulsedive authenticate with ?key=; httpx embeds the full URL in
+    # its error message, so the reason must be redacted before it is logged or
+    # returned.
+    a = StubAdapter("Shodan", 2, raises=_http_error_with_key_in_url())
+    with caplog.at_level("WARNING"):
+        result = await fan_out(
+            [_source(a)], retry_kwargs={"retries": 0, "jitter": False, "sleep": _no_sleep}
+        )
+
+    error = result["sources_degraded"][0]["error"]
+    assert error.startswith("HTTPStatusError: ")
+    assert "SECRETKEY123456" not in error
+    assert "key=[REDACTED]" in error
+    assert "SECRETKEY123456" not in caplog.text

@@ -211,6 +211,24 @@ class TestFanOut:
         assert result["sources_degraded"][0]["error"] == "RuntimeError: timeout"
 
     @pytest.mark.asyncio
+    async def test_degraded_reason_never_carries_a_query_string_key(self, caplog):
+        import httpx
+
+        request = httpx.Request("GET", "https://example.test/cves?apiKey=x&key=SECRETKEY123456")
+        response = httpx.Response(403, request=request)
+        exc = httpx.HTTPStatusError(
+            f"Client error '403 Forbidden' for url '{request.url}'", request=request, response=response
+        )
+        a = StubVulnAdapter("NVD", 1, raises=exc)
+        with caplog.at_level("WARNING"):
+            result = await fan_out_vulns(
+                [_source(a)], retry_kwargs={"retries": 0, "jitter": False, "sleep": _no_sleep}
+            )
+        error = result["sources_degraded"][0]["error"]
+        assert "SECRETKEY123456" not in error
+        assert "SECRETKEY123456" not in caplog.text
+
+    @pytest.mark.asyncio
     async def test_per_source_summary_excludes_raw_vulns(self):
         a = StubVulnAdapter("CISA KEV", 1, vulns=[_vuln("CVE-2024-0001", source="CISA KEV")])
         result = await fan_out_vulns([_source(a)])
