@@ -34,6 +34,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **`openphish.com/feed.txt` redirects** to the vendor's GitHub mirror, which the per-hop egress allowlist correctly refused.
   - **Pulsedive answered HTTP 429 on request one of one** — see Known issues.
 
+- **The source matrix now names every source the server consults.** OpenPhish (Tier 6), URLhaus and Feodo Tracker (Tier 9), and VulnCheck KEV, EPSS and OSV.dev (Tier 1) had shipped as adapters with no matrix entry, so reports cited six sources that Source Governance had never vetted. Each now has an entry, mirrored to `original-prompt.md` and both `standalone/` files, at the tier its adapter already used, so no ledger row moves. The PR names the verification for each. OpenPhish's is the weakest: its site names no operating entity, and its Terms of Use are governed by the law of England and Wales.
+
+  `test_adapter_tiers_follow_the_source_matrix` used to skip any adapter the matrix did not mention, which is how all six got in. It now fails on one, checks that the entry carries the adapter's domain, and reads the adapters off the server rather than a hand-written list. That list spelled OSV as "OSV.dev" where the server says "OSV", so OSV's `list_available_feeds` tier was never compared.
+
 ### Changed
 
 - **`virustotal.py` is an enrichment, not a feed**, and the file trees in both READMEs now say so. They had described it as the "VirusTotal Intelligence adapter" — the bulk feed deleted in #203 — and that description survived three separate corrections of the same rot elsewhere, because each pass was reading prose and a directory listing is not prose.
@@ -45,8 +49,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Known issues
 
 - **Pulsedive is built but unverified.** The first real call returned HTTP 429 on request one of one, with a well-formed request and a configured key. The adapter makes exactly one request per fetch, so this is not self-inflicted: either the account's quota is spent (50/day, 500/month) or the free plan does not include the Explore endpoint. Until that is settled the adapter degrades to `unverified` and is marked accordingly in `mcp/README.md`. If Explore turns out to be paid-only it needs re-targeting to `info.php`, which would make it an enrichment of at most 50 indicators a day rather than a feed.
-
-- **The source matrix does not yet name the new sources.** OpenPhish, URLhaus, Feodo Tracker, EPSS and OSV.dev are registered in the server but absent from `skills/cyber-threat-intel/references/source-matrix.md`. Source Governance requires a verified organisation and official URL with the verification named in the PR, so each addition is a deliberate act rather than a sweep.
 
 
 - **The report path now asserts its own honesty rules.** `scheduled-report.yml` published a report and checked nothing about it. `--corpus` proves the invariants hold over the frozen eleven — all but one generated *without* live feeds — so no live-feed report had ever been checked at all. The generate job now runs the same assertions over what it just produced.

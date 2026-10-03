@@ -10,6 +10,7 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 
 - **Inclusion bar.** A source must be a named, real organization with a verified official URL and meaningful defender value. Verify the org and URL against an authoritative directory (e.g. the ENISA CSIRT inventory, FIRST member directory, National Council of ISACs) or the organization's own site, and name the verification source in the PR. No fictional infrastructure; if you can't verify it, don't add it (R3).
 - **Excluded origins.** Sources based in **China, Russia, North Korea, Belarus, or Iran** are not listed, regardless of technical quality — for defender tooling, feed provenance is a supply-chain and tasking-risk decision, not just a data-quality one. Three previously-listed sources were removed under this rule in v1.19.0 (see the changelog); CI guards against reintroducing their domains into any source file, including this sentence's own file.
+- **Adapters are sources.** Each `threat-intel-mcp` feed or enrichment adapter needs an entry here, at the adapter's tier and with its domain, added in the PR that adds the adapter. `mcp/tests/test_docs_consistency.py` fails on any adapter not named this way.
 - **Removals** follow the same discipline as additions: state the reason in the PR and changelog, and apply the change to every mirrored file.
 
 ## Tier 1: Vulnerability Databases & Exploit Repositories
@@ -29,6 +30,9 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 - 0day.today — 0day.today [SHOULD]
 - GitHub PoC repos — github.com/search (search `CVE-YYYY-NNNNN PoC`) [SHOULD]
 - ExploitPack — exploitpack.com — exploitation framework with 39k+ exploits [SHOULD]
+- VulnCheck KEV — vulncheck.com/kev — known-exploited-vulnerability catalog wider than CISA KEV, with per-CVE exploitation evidence; free community account and API token required [SHOULD]
+- EPSS (FIRST) — first.org/epss — Exploit Prediction Scoring System: daily probability that a CVE is exploited in the next 30 days, plus its percentile; free API at api.first.org/data/v1/epss, no registration [SHOULD]
+- OSV.dev — osv.dev — Google-run open-source vulnerability database: affected packages and fixed versions per advisory, across package ecosystems; free API, no key [SHOULD]
 
 **Zero-Day Trackers & Exploit-Timeline Intelligence**
 - Zero Day Initiative (ZDI) — zerodayinitiative.com/advisories/published — researcher-disclosed advisories (ZDI IDs, CVEs, CVSS, Pwn2Own); machine-readable RSS at zerodayinitiative.com/rss/published/<year> [MUST]
@@ -160,6 +164,7 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 - CERT/CC — kb.cert.org — Carnegie Mellon SEI coordinated disclosure (VINCE) [SHOULD]
 - Citizen Lab — citizenlab.ca — academic spyware / targeted-threat research [SHOULD]
 - Emerging Threats open ruleset — rules.emergingthreats.net — free Suricata/Snort IDS rules [SHOULD]
+- OpenPhish — openphish.com — free Community feed of recently detected phishing URLs (latest 300, refreshed every 12 hours); premium feeds are paid [SHOULD]
 
 ## Tier 7: Dark Web Intelligence (mostly paywalled — mark `unverified` if inaccessible)
 - Flashpoint (flashpoint.io), Intel 471 (intel471.com), DarkOwl (darkowl.com), Kela (ke-la.com), Cybersixgill (cybersixgill.com), SOCRadar (socradar.io), ReliaQuest (reliaquest.com), ZeroFox (zerofox.com), Searchlight Cyber (slcyber.io) [SHOULD]
@@ -226,6 +231,8 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 ## Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]
 - ThreatFox — threatfox.abuse.ch [MUST]
+- URLhaus — urlhaus.abuse.ch — malware-distribution URLs; API needs a free abuse.ch Auth-Key [SHOULD]
+- Feodo Tracker — feodotracker.abuse.ch — botnet C2 IP blocklist (Dridex, Emotet, TrickBot, QakBot, BazarLoader) [SHOULD]
 - Hybrid Analysis — hybrid-analysis.com [SHOULD]
 - Any.Run — any.run [SHOULD]
 - Triage — tria.ge [SHOULD]

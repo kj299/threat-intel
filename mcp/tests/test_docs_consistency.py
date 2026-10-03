@@ -769,29 +769,46 @@ async def test_adapter_tiers_follow_the_source_matrix():
     and Intel 471 in Tier 2 against the matrix's Tier 7 -- so ledger rows landed
     in the wrong tier. Each tier was also restated in up to four places: the
     adapter, the server registry, the adapter's own result, and
-    list_available_feeds. All now must agree with the matrix."""
+    list_available_feeds. All now must agree with the matrix.
+
+    Every adapter must also be *named* there, at its official domain. This
+    test used to skip an adapter the matrix did not mention, and six shipped
+    that way -- cited in every report while Source Governance had never vetted
+    them. The adapters are read off the server module rather than listed here,
+    because a hand-written list is how OSV escaped the listing check below: it
+    was spelled "OSV.dev" in this test and "OSV" in the server."""
     from threat_intel_mcp import server
 
-    named = [(s.name, s.adapter) for s in [*server._FEED_SOURCES, *server._VULN_SOURCES]]
-    named += [("VirusTotal", server._virustotal), ("EPSS", server._epss), ("OSV.dev", server._osv)]
+    adapters = [
+        v for k, v in vars(server).items() if k.startswith("_") and type(v).__name__.endswith("Adapter")
+    ]
+    listing = await server.list_available_feeds()
+    listed = {
+        e["name"]: e for group in ("feeds", "cve_sources", "enrichment_sources") for e in listing[group]
+    }
+    # Both directions, so neither side can be found empty and pass vacuously.
+    assert {a.name for a in adapters} == set(listed), "server adapters and list_available_feeds disagree"
     rows = _matrix_tiers()
     assert rows, "no '## Tier N:' sections parsed from source-matrix.md -- layout drift?"
 
-    wrong, checked = [], 0
-    for name, adapter in named:
-        tiers = {t for t, line in rows if name.lower() in line}
-        if not tiers:
-            continue  # not yet named in the matrix: a Source Governance gap, not a tier one
-        checked += 1
-        if adapter.tier not in tiers:
-            wrong.append(f"{name}: code tier {adapter.tier}, matrix tier {sorted(tiers)}")
-    assert checked >= 10, f"only {checked} adapters matched a matrix entry -- name drift?"
-    assert not wrong, "adapter tiers contradict source-matrix.md:\n  " + "\n  ".join(wrong)
+    unnamed, wrong = [], []
+    for adapter in adapters:
+        entry = listed[adapter.name]
+        assert entry["tier"] == adapter.tier, f"list_available_feeds restates {adapter.name}'s tier"
+        matches = [(t, line) for t, line in rows if adapter.name.lower() in line]
+        tiers = sorted({t for t, _ in matches})
+        if not matches:
+            unnamed.append(f"{adapter.name} ({entry['domain']}, tier {adapter.tier})")
+        elif adapter.tier not in tiers:
+            wrong.append(f"{adapter.name}: code tier {adapter.tier}, matrix tier {tiers}")
+        elif not any(t == adapter.tier and entry["domain"] in line for t, line in matches):
+            wrong.append(f"{adapter.name}: its matrix entry does not carry {entry['domain']}")
+    assert not unnamed, (
+        "adapters the source matrix does not name -- add a verified entry (Source Governance in "
+        "source-matrix.md) to it and its mirrors:\n  " + "\n  ".join(unnamed)
+    )
+    assert not wrong, "adapters contradict source-matrix.md:\n  " + "\n  ".join(wrong)
 
     for source in [*server._FEED_SOURCES, *server._VULN_SOURCES]:
+        assert source.name == source.adapter.name, f"registry renames {source.adapter.name}"
         assert source.tier == source.adapter.tier, f"registry restates {source.name}'s tier"
-    listing = await server.list_available_feeds()
-    for entry in [*listing["feeds"], *listing["cve_sources"], *listing["enrichment_sources"]]:
-        adapter = dict(named).get(entry["name"])
-        if adapter is not None:
-            assert entry["tier"] == adapter.tier, f"list_available_feeds restates {entry['name']}"
