@@ -25,8 +25,13 @@ live feed access says so and contains no literal IOC values.
 ## How reports are generated
 
 [`scheduled-report.yml`](../.github/workflows/scheduled-report.yml) runs the
-skill with the `threat-intel-mcp` server connected and **publishes the report
-to the run's summary page** — it is not committed.
+skill against feed data a separate, credential-holding job has already fetched
+(see below — the agent has no MCP feed server), and **publishes the report to
+the run's summary page and its job log** — it is not committed. The job-log
+copy is the one an agent session can read back: the summary has no REST API,
+and the artifact downloads from a blob host sandboxed sessions cannot reach. It
+is printed with workflow commands suspended, because the text derives from
+untrusted feed content.
 
 > **`reports/` is frozen at 11 (2026-09-03).** It is the eval corpus that
 > `evals/run.py --corpus` checks on every PR, not an archive of runs, and CI

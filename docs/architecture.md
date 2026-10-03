@@ -11,7 +11,7 @@ flowchart TD
         Output["Output\nValidated against\noutput.schema.json"]
         Render["render/executive.py\npython -m threat_intel_mcp.render\nexecutive_overview: attached | separate\nself-contained HTML — NOT an MCP tool"]
         Prefetch["scheduled-report.yml : job 1 of 2\nprefetch — HOLDS the feed credentials\nfixed script, no agent\nmcp/scripts/prefetch_feeds.py\n→ feed-data.json artifact"]
-        Sched["scheduled-report.yml : job 2 of 2\ngenerate — the agent. NO credentials,\nno MCP feed server. Reads feed-data.json\nreport → report-output/ (gitignored)\n→ run summary — never reports/"]
+        Sched["scheduled-report.yml : job 2 of 2\ngenerate — the agent. NO credentials,\nno MCP feed server. Reads feed-data.json\nreport → report-output/ (gitignored)\n→ run summary + job log — never reports/"]
     end
     subgraph Verify["Offline verification (no live network in CI)"]
         Reports["reports/\nFROZEN corpus of 11\n(count pinned by CI)"]
