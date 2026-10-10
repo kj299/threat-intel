@@ -107,7 +107,8 @@ on:
   # one, breaking the pairing #170 originally established between them.
   # reports/ is a frozen eval corpus (validate.yml pins it at exactly 11) and
   # the generate job below publishes to its run summary rather than
-  # committing — see the "Upload the report as an artifact" step — so
+  # committing — see the "Publish the report to the run summary and job
+  # log" step — so
   # reports/ will never move again regardless of how often this cron fires.
   # A staleness alarm watching it would fire once and then permanently, the
   # exact noise #170/#141 exists to prevent. That alarm stays manual-only
@@ -156,8 +157,8 @@ jobs:
     name: Fetch feeds (holds credentials; no agent)
     runs-on: ubuntu-latest
     # Narrower than the workflow default on purpose: this job reads the repo and
-    # uploads an artifact. It has no reason to write contents or open PRs, and
-    # the job that CAN do those things is the one with no credentials.
+    # uploads an artifact. It has no reason to write contents or open PRs; the
+    # generate job is read-only too (see the workflow-level permissions).
     permissions:
       contents: read
     steps:
@@ -367,8 +368,9 @@ jobs:
           # finished successfully* — that run had already committed the report
           # and opened the PR before the check fired. A tight ceiling therefore
           # buys nothing and costs a full re-run plus a red job that looks like
-          # breakage. 80 leaves room for the credentialed feeds that are not yet
-          # configured, each of which adds tool calls to the same pass.
+          # breakage. 80 is that margin kept, not a feed-call budget: the agent
+          # has no feed tools (below), so its turns go on reading feed-data.json
+          # and writing the report.
           # The MCP server is deliberately NOT connected here any more. Feed
           # data arrives as a file from the prefetch job, and re-fetching from
           # this job would produce a strictly worse second picture: this runner
@@ -413,8 +415,9 @@ jobs:
                 quiet week is the correct answer; do not inflate it.
               - Every IOC and CVE cites the feed it came from. Never invent an
                 indicator, hash, CVE ID, or attribution to fill space (R3).
-              - State plainly in the methodology notice that live threat-intel-mcp
-                feeds WERE connected for this run, and which ones.
+              - State plainly in the methodology notice that this run used live
+                feed data fetched by the prefetch job (feed-data.json), and name
+                the sources it consulted.
 
             Save it as report-output/<YYYY-MM-DD>-threat-intel.md using today's
             date. Do NOT commit it, do NOT create a branch, and do NOT open a
@@ -432,11 +435,6 @@ jobs:
       # this run's summary page instead: readable in the Actions UI, retained
       # with the run, gone when the run ages out. That is what "a run is
       # helpful, its history is not" means in practice.
-      #
-      # Written with the shell rather than upload-artifact: the job summary is
-      # built into the runner, so there is no action version to pin or to get
-      # wrong. If a downloadable file is wanted later, upload-artifact is the
-      # addition.
       - name: Upload the report as an artifact
         # Before the publish step, not after. That step also enforces the
         # reports/ freeze and can exit 1, and evidence should not be contingent

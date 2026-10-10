@@ -111,6 +111,7 @@ flowchart TD
     Resilience -->|"guarded_fetch"| Censys
     Resilience -->|"guarded_fetch"| CISAKEV
     Resilience -->|"guarded_fetch"| NVD
+    Resilience -->|"guarded_fetch"| VulnCheck
     FanOut -->|"merged + deduped IOCs\npartial/open-circuit -> coverage_ledger"| Server
     VulnFanOut -->|"merged + deduped CVEs\npartial/open-circuit -> coverage_ledger"| Server
     Server --> EnvCred
@@ -140,6 +141,11 @@ flowchart TD
     VaultCred -.->|"api_key (Phase 2)"| Intel471
     VaultCred -.->|"api_key (Phase 2)"| Censys
     VaultCred -.->|"api_key (Phase 2, optional)"| NVD
+    VaultCred -.->|"api_key (Phase 2)"| VulnCheck
+    VaultCred -.->|"auth_key (Phase 2)"| URLhaus
+    VaultCred -.->|"auth_key (Phase 2, optional)"| ThreatFox
+    VaultCred -.->|"auth_key (Phase 2, optional)"| Feodo
+    VaultCred -.->|"api_key (Phase 2)"| Pulsedive
     QFeeds -->|"GET /api?feed_type=..&page=N"| QFeedsAPI
     QFeedsAPI -->|"plain-text indicators"| QFeeds
     AbuseIPDB -->|"GET /blacklist?confidenceMinimum=90"| AbuseIPDB_API
@@ -203,7 +209,7 @@ flowchart TD
     Output -->|"validated JSON"| User
     Resilience -.->|"guarded_fetch, when an operator\nwires it in (not in any registry)"| MISPZMQ
     MISPZMQ -->|"SUBSCRIBE b'' · single frame\ntopic SPACE json"| MISP_EP
-    Adapters -.->|"parse routes through\n(ThreatFox inlines the rule)"| GuardParsed
+    Adapters -.->|"parse routes through\n(ThreatFox and OSV inline the rule)"| GuardParsed
     VulnAdapters -.->|"parse routes through"| GuardParsed
     GuardParsed -->|"understood records"| Normalize
     GuardParsed -->|"understood records"| VulnNormalize
@@ -224,10 +230,10 @@ flowchart TD
 | Plugin manifest | `.claude-plugin/plugin.json` | Makes the repo installable as a Claude Code plugin — the only way a clone exposes the skill as a slash command, since a top-level `skills/` directory is not a skill-discovery location. Plugin skills resolve at `<plugin-root>/skills/<name>/SKILL.md`, matching the existing layout. Also declares the bundled `threat-intel` MCP server, launched as `python -m threat_intel_mcp`. `claude --plugin-dir .` loads it from a clone |
 | Module entry point | `mcp/src/threat_intel_mcp/__main__.py` | `python -m threat_intel_mcp`, re-exporting `server:main`. Resolves through the interpreter rather than `PATH`, so the server starts where the console-script shim is installed but unreachable (Windows Store Python) |
 | Live feed check | `.github/workflows/live-feed-check.yml` · `mcp/tests/test_live_feeds.py` | Weekly `pytest -m live` against real endpoints — the seven that run unconditionally (ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, Feodo Tracker) plus every credentialed adapter whose key is configured — asserting a non-empty parse for the unconditional feeds (credentialed ones assert the call completes; a quiet week may be 0) **and** survival through `finalize_iocs`/`finalize_vulns`. Deselected from PR CI by `addopts = -m 'not live'`. Opens/bumps a `Live feed check failing` issue, closes it on recovery |
-| MCP Server | `mcp/src/threat_intel_mcp/server.py` | FastMCP stdio server; exposes IOC tools `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`, `pulsedive_fetch_iocs`, `fetch_all_iocs`; CVE tools `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`, `fetch_all_cves`; enrichment tools `virustotal_enrich_iocs` (per-indicator, key required), `epss_enrich_cves` and `osv_enrich_cves` (per-CVE, both keyless) — none part of the IOC fan-out (#203); and `list_available_feeds` |
+| MCP Server | `mcp/src/threat_intel_mcp/server.py` | `MCPServer` stdio server (mcp 2.0's successor to FastMCP); exposes IOC tools `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`, `pulsedive_fetch_iocs`, `fetch_all_iocs`; CVE tools `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`, `fetch_all_cves`; enrichment tools `virustotal_enrich_iocs` (per-indicator, key required), `epss_enrich_cves` and `osv_enrich_cves` (per-CVE, both keyless) — none part of the IOC fan-out (#203); and `list_available_feeds` |
 | Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
 | Vuln fan-out + pipeline | `mcp/src/threat_intel_mcp/vulns.py` | `fetch_all_cves` backend: `fan_out_vulns` over the CVE sources (same `CircuitBreaker`/`guarded_fetch` resilience), plus `finalize_vulns` = sanitize → validate against the inline CVE-keyed vuln-record schema → dedupe by CVE ID (keeps highest CVSS, folds in KEV exploit-status/due-date). Emits vulnerability records, not `ioc_network` |
-| Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest. Whether a failure retries / trips the breaker follows the adapter **error taxonomy** in `adapters/base.py`: `ValueError` = caller error (surfaced), `CredentialError`/`KeyError` = config (degrade, no retry), anything else incl. a malformed body = upstream (degrade, retry) |
+| Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest. Whether a failure retries / trips the breaker follows the adapter **error taxonomy** in `adapters/base.py`: `ValueError` = caller error (surfaced), `CredentialError`/`KeyError` = config (degrade, no retry), `AccountLimitError` = account refused (degrade, no retry), anything else incl. a malformed body = upstream (degrade, retry) |
 | Protocol credentials | `mcp/src/threat_intel_mcp/vault/protocols.py` | Typed, validated credential bundles for gRPC / MQTT / WebSocket / GraphQL feeds, loaded via the same `CredentialProvider` |
 | Protocol adapter base | `mcp/src/threat_intel_mcp/transports/base.py` | `ProtocolAdapter`: abstract bring-your-own-endpoint `SourceAdapter` (impl `_collect` + `_normalize`); ships **no live feed / no hardcoded endpoint**. See [protocol-adapters.md](protocol-adapters.md) |
 | MISP ZeroMQ adapter | `mcp/src/threat_intel_mcp/transports/misp_zmq.py` | Issue #162, the first concrete `ProtocolAdapter`. Subscribes `zmq.SUB` for a bounded window and parses MISP's single-frame `topic SPACE json` framing (verified against `MISP/tools/misp-zmq/sub.py`, not assumed — a multipart reader gets nothing). Honours MISP's own `to_ids` flag, which is a **string** `"1"`/`"0"`: a truthiness check would treat `"0"` as True and emit every non-actionable attribute. **Uses no credentials** — MISP ZMQ has no auth — so it proves the transport, not the credential path. Endpoint is operator-supplied; no hostname is committed |

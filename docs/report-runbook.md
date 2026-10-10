@@ -106,9 +106,11 @@ which ranks `ANTHROPIC_API_KEY` higher. Passing both would let a leftover API
 key silently override the token the repo is actually configured for, so nobody
 has to delete a secret to make the configured one take effect.
 
-With neither set every step skips and the run succeeds with a notice, so the
-workflow is inert until you opt in — it will not fail on dispatch in an
-unconfigured repo.
+With neither set, a manual dispatch is a green no-op: the report steps skip
+with a notice, so the workflow will not fail on dispatch in an unconfigured
+repo or fork. The `prefetch` job still runs, since it needs no model
+credential. A **scheduled** run with neither set fails instead: the weekly
+report stopping silently is a fault, and nothing else would say so.
 
 > **Verified end to end in its current shape** -- two jobs, no MCP server in
 > the agent's job, published rather than committed -- by run `35511896414`

@@ -46,7 +46,7 @@ Tactics to cover if present: Reconnaissance, Resource Development, Initial Acces
 
 ## E. Predictive IOCs
 
-For each predicted indicator, state the basis (which observed pattern generated it) and mark `confidence: low` unless evidence supports higher.
+For each predicted indicator, state the basis (which observed pattern generated it) and mark `confidence: Low` unless evidence supports higher.
 
 - DGA domain patterns
 - ASN / hosting provider affinities

@@ -34,7 +34,7 @@ Set `chain_type` so the consumer knows the shape of the chain:
 
 ## `cwe_chain` field schema
 
-One object per distinct chain. Speculative links are marked `confidence: low`; every link names a `source` (R2/R3 apply to CWE IDs and chain claims exactly as they do to IOCs — do not invent a CWE ID or assert a link a source doesn't support).
+One object per distinct chain. Speculative links are marked `confidence: Low`; every link names a `source` (R2/R3 apply to CWE IDs and chain claims exactly as they do to IOCs — do not invent a CWE ID or assert a link a source doesn't support).
 
 `chain_id | name | chain_type | cwe_view | links[] | enabling_conditions | ai_assist_factor | time_to_exploit | break_points[] | terminal_impact | score | priority | confidence | source`
 
@@ -136,7 +136,7 @@ Set `evidence_basis` to record which of three worlds a chain came from:
   it in `source`.
 - **`inferred`** — nobody reported it; this analysis composed it from CWE-1000
   relationships and the operator's stack. **An inferred chain is a hypothesis
-  and MUST carry `confidence: low`.**
+  and MUST carry `confidence: Low`.**
 
 ### The discipline that keeps this honest
 
@@ -229,6 +229,6 @@ Reuse the threat-scoring engine ([scoring.md](scoring.md)) at the chain level: t
 ## Reporting
 
 - In the report body, present chains under Pattern Analysis / Exploit Chains (extraction §D), each with its `break_points`, `chain_type`, and `terminal_impact`.
-- Every chain carries a `source` and a `cwe_view`; links the evidence doesn't support are omitted or marked `confidence: low` (R3).
+- Every chain carries a `source` and a `cwe_view`; links the evidence doesn't support are omitted or marked `confidence: Low` (R3).
 - For each link's `detection_opportunity`, emit a matching hunting query per [siem-queries.md](siem-queries.md) (discovery-first, schema-driven).
 - The defensive recommendation (break-point control) is the deliverable. A chain reported without at least one `break_point` is incomplete.

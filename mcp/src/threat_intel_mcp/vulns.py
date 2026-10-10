@@ -1,7 +1,7 @@
 """Vulnerability-output pipeline: sanitise -> validate -> dedupe + fan-out.
 
 This is the vulnerability counterpart to the ``ioc_network`` pipeline in
-``normalize.py`` / ``fanout.py``. Government CVE feeds (CISA KEV, NVD) emit
+``normalize.py`` / ``fanout.py``. CVE feeds (CISA KEV, NVD, VulnCheck KEV) emit
 *vulnerability records* keyed by CVE ID rather than network indicators, so they
 need their own schema, sanitiser, deduplicator, and concurrent fan-out — the
 ``ioc_network`` schema has no place for a CVSS score or a KEV due-date.

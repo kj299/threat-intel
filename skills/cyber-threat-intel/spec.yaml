@@ -609,7 +609,8 @@ execution:
 metadata:
   created: "2026-03-30"
   last_updated: "2026-08-31"
-  # (1.20.0 URLhaus removed from Tier 9 and the live-feed loop at operator request)
+  # (URLhaus was removed in 1.20.0 at operator request and later returned as an
+  # MCP adapter; source-matrix.md lists it in Tier 9 again.)
 
   version_history:
     - version: "1.22.0"
@@ -681,7 +682,7 @@ metadata:
       changes: "Free-form IOC/intel search lookback. time_range is no longer limited to 48h/7d/30d/90d -- it accepts any positive integer + unit (h=hours, d=days, w=weeks, mo=months), e.g. 12h, 3w, 6mo. Schema time_range changed from enum to pattern ^[1-9][0-9]*(h|d|w|mo)$ (default still 7d; presets remain valid); prompt computes the report from/to window from the value. Updated the time_range guidance in SKILL.md, original-prompt.md, both standalone files, docs.md, and the spec user_inputs question (now a duration type). Added tests/invalid/time_range fixtures (7y, weekly, 0d)."
 
   support:
-    documentation: "https://github.com/kj299/threat-intel/blob/main/docs.md"
+    documentation: "https://github.com/kj299/threat-intel/blob/main/docs/index.md"
     issues: "https://github.com/kj299/threat-intel/issues"
 
   licensing:

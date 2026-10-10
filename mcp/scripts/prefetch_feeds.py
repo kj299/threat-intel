@@ -4,10 +4,12 @@
 Why this exists
 ---------------
 `scheduled-report.yml` runs an LLM agent whose job is ingesting untrusted
-content -- threat feeds, vendor blogs, leak-site aggregators -- with `contents:
-write` and the ability to open a PR. Any feed credential in that agent's
-environment is reachable by a prompt injection and can leave in a committed
-file, which log masking does not cover. So the agent never gets one.
+content -- threat feeds, vendor blogs, leak-site aggregators. Any feed
+credential in that agent's environment is reachable by a prompt injection and
+can leave in its output, which log masking does not cover. So the agent never
+gets one. (It ran with `contents: write` when this split was made; its job is
+now read-only too, and the split stays because a read-only agent can still
+print what it can read.)
 
 This script is the other half of that arrangement: a fixed program, no model in
 the loop, that holds the credentials, fetches, and writes **data only**. The
@@ -72,7 +74,7 @@ def assert_no_credentials(payload: str) -> None:
     """Refuse to write a file containing any credential this process holds.
 
     Belt and braces before bytes derived from an authenticated session are
-    handed to an agent that can commit files. The adapters put credentials in
+    handed to an agent whose output is published. The adapters put credentials in
     request headers, not responses, so this should never fire -- which is
     exactly why it is worth asserting rather than assuming.
 
@@ -113,8 +115,8 @@ async def _score_with_epss(vulns: dict) -> dict | None:
     not exist.
 
     EPSS is the enrichment that needs no cost decision at all:
-    it is keyless, free, and batched 100 CVEs per request, so scoring a whole
-    weekly window is a handful of requests against no quota. (VirusTotal costs
+    it is keyless, free, and batched 100 CVEs per request, so the bounded
+    sample below (`_MAX_CVES_TO_SCORE`) costs ten requests against no quota. (VirusTotal costs
     one lookup per indicator against 500/day, so it is bounded and selective --
     see `_enrich_with_virustotal`.)
 

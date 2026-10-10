@@ -56,7 +56,7 @@ If you've cloned this repo and want to invoke the skill in-place, the standard C
 
 When invoked it produces a structured report with:
 
-- A **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) in the header — an honest self-report of how many source tiers were actually consulted. `MINIMAL` on a genuinely sparse scope/time range is the correct outcome, not a failure.
+- A **Coverage badge** (`FULL` / `PARTIAL` / `MINIMAL`) in the header — an honest self-report of how many preferred sources were actually consulted. `MINIMAL` on a genuinely sparse scope/time range is the correct outcome, not a failure.
 - A **Source Coverage Ledger** in Appendix A listing which sources were queried per tier, which were skipped, and why.
 - A prioritized threat list with MITRE ATT&CK mappings -- every item carries a `source` field (no unsourced claims).
 - (Optional, default on) IOCs (IPs, domains, hashes, behavioral indicators) formatted for SIEM/EDR import, toggled by the `build_iocs_and_queries` input.
@@ -110,7 +110,7 @@ threat-intel/
 +-- mcp/                                             # threat-intel-mcp server (v0.15.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
     +-- src/threat_intel_mcp/
-    |   +-- server.py                                # FastMCP entry point (22 tools)
+    |   +-- server.py                                # MCPServer entry point (22 tools)
     |   +-- __main__.py                              # python -m threat_intel_mcp entry point
     |   +-- audit.py                                 # structured audit logging + secret redaction
     |   +-- fanout.py                                # fetch_all_iocs: concurrent multi-source IOC merge
@@ -211,7 +211,9 @@ export GREYNOISE_API_KEY=...
 export ANYRUN_API_KEY=... INTEL471_EMAIL=... INTEL471_API_KEY=... CENSYS_API_ID=... CENSYS_API_SECRET=...
 export NVD_API_KEY=...        # optional — NVD works without a key at a lower rate limit
 export VULNCHECK_API_KEY=...  # required for VulnCheck KEV (free community account)
-# ThreatFox and CISA KEV are free public feeds and need no key
+export ABUSECH_AUTH_KEY=...   # required for URLhaus; ThreatFox and Feodo Tracker send it when set
+export PULSEDIVE_API_KEY=...
+# Several sources need no key at all — see "Nothing here needs a key to start" below
 python -m threat_intel_mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
 ```
 

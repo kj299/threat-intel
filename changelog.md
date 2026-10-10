@@ -35,6 +35,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **ThreatFox never sent the abuse.ch key (#232).** The server built it without the credential provider while six places said it sent one. A test now fails if any adapter that reads credentials is built without one.
 - **The README file tree listed 25 files twice (#219),** a splice left by #216. A guard now rejects duplication as well as omission and invention.
 - **Stale counts and cadence rationale (#220, #221, #233).** Doc counts after the recent recordings, the runbook's manual-only argument, and a concept-by-concept sweep of cadence, credential and keyless-source claims. The fan-out log now shows `partial_failure` reasons (#220), and the `partial_failure` field comment says what it carries.
+- **A repo-wide drift sweep (2026-10-10)** compared prose against code and workflows, beyond what CI checks:
+  - **Two keys were never leak-scanned in recorded cassettes.** `record_cassettes.py` checked each configured key as a literal against every cassette, but its list missed `ABUSECH_AUTH_KEY` and `PULSEDIVE_API_KEY`, so a leaked URLhaus key would have passed. Both are added, and so is the workflow's re-verify step. A test now derives the list from the adapters' `credentials.get()` calls; it fails on the old list.
+  - **`confidence: low` in the prompt files would fail schema validation**: every `confidence` enum is `High`/`Medium`/`Low`. Now `Low` everywhere.
+  - **The Vault examples for Intel 471 and Censys stored values under `api_key`**, while the provider reads a field named after the key, so all three would have raised `CredentialNotFoundError`. Fixed, and examples were added for NVD, VulnCheck, abuse.ch and Pulsedive.
+  - **Prompt files:**
+    - Input #9 listed ThreatFox, which needs no key, as an authenticated feed, and omitted URLhaus, Pulsedive and VulnCheck KEV.
+    - Step 2a cited CVEs to CISA KEV or NVD only.
+    - The long-form prompts lacked the never-upgrade and sample-not-coverage rules.
+    - Two priority scales went unexplained. They are now labelled: the response time is when work starts, the Actions Matrix timeline is when it completes.
+    - `original-prompt.md` referred to a scoring engine it does not contain; it now links `scoring.md`.
+  - **Docs and comments:**
+    - `AccountLimitError` was missing from the error-taxonomy tables.
+    - The README described `server.py` as FastMCP; it uses `MCPServer`, because mcp 2.0 removed FastMCP.
+    - The diagrams were missing VulnCheck and five Vault credential edges.
+    - Several stale workflow and prefetch comments assumed the report agent could still write.
+    - The runbook said a run with no credential always succeeds; a scheduled one fails.
+    - The README key setup lacked the abuse.ch and Pulsedive keys.
+    - `spec.yaml`'s documentation link pointed at the removed `docs.md`.
+    - `CLAUDE.md`'s list of `validate.yml` checks was missing eight.
 - **The Feodo live test imported a name that no longer existed (#227).** PR CI deselects live tests, so only the weekly check saw the `ImportError`.
 
 ### Added
