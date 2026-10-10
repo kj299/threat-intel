@@ -20,7 +20,7 @@ name: record-cassettes
 # the corresponding secrets are configured.
 #
 # tests/vcr_config.py scrubs credentials out of what gets written, and the
-# recorder greps its own output for credential-shaped strings before this
+# recorder scans its own output for credential-shaped strings before this
 # workflow is allowed to commit anything. Both must pass. Review the diff
 # anyway — a cassette is a file of upstream bytes going into version control.
 
@@ -113,6 +113,8 @@ jobs:
           CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           VULNCHECK_API_KEY: ${{ secrets.VULNCHECK_API_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+          PULSEDIVE_API_KEY: ${{ secrets.PULSEDIVE_API_KEY || secrets.PULSEDRIVE_API_KEY }}
         # Belt and braces before bytes from an authenticated session enter
         # version control. Uses the same structural + literal scanner as the
         # recorder, NOT a text grep: response bodies legitimately contain words

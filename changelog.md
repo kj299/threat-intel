@@ -8,6 +8,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **Feed keys could reach the fan-out's degraded reasons (#230).** #220 widened a degraded source's reason from the exception's class name to its full message. Shodan and Pulsedive authenticate with a `?key=` query parameter, and an `httpx` status error embeds the full request URL, so a 401/403/5xx from either would have put the plaintext key into the WARNING log line and into `sources_degraded[].error`. Both `fanout.py` and `vulns.py` now pass the reason through `audit.redact_url()`. The prefetch's credential scan also gained the `_AUTH_KEY` suffix, which it had missed for `ABUSECH_AUTH_KEY`.
+- **The report agent's job is read-only (#232).** `generate` reads adversary-controlled feed text, yet it held the workflow `GITHUB_TOKEN` with write scope (persisted by checkout) and a Claude GitHub App token with contents/PR/issue write. The workflow is now `contents: read` with no `id-token`, the action is handed `github_token: ${{ github.token }}` (which skips its OIDC exchange for the app token), and the checkout sets `persist-credentials: false`. Verified on run 37120720027: token permissions Contents:read and Metadata:read, with a report written and the invariants passing.
+- **Dependencies bumped past 22 published advisories (#232).** `httpx2`, `PyJWT` and `urllib3`, all installed by the credential-holding prefetch job. `httpcore2` is no longer pinned beside `httpx2`, which pins it exactly. `pip-audit` reports none.
+
+### Added
+
+- **Each report is echoed into the job log (#229).** A run's summary page has no API, and the artifact host is unreachable from agent sandboxes, so the log is the only copy a session can read back. The report derives from untrusted feeds and runner stdout is parsed for workflow commands, so it is printed inside `::stop-commands::` with a per-run random token.
+- **`AccountLimitError` (#231).** A `RuntimeError` subclass in `adapters/base.py` for an upstream refusing the *account*: quota spent, or a plan that excludes the endpoint. Tools still degrade on it, the fan-outs no longer retry it, and the weekly live check xfails it with its reason. Pulsedive raises it on its 429, which had held the live alarm (#228) red for three weeks and could have hidden a real breakage.
+- **A 90% coverage gate (#225, #226).** The enrichment tools' degrade paths and the last uncovered tool success paths are now tested. `validate.yml` fails below 90%.
+
+### Changed
+
+- **The weekly report cron is back (#224):** Mondays 05:23 UTC. #169's trigger, three or more additional sources configured, fired once OpenPhish, EPSS, OSV and Feodo Tracker landed keyless and the prefetch began reaching every configured credentialed feed (#221). `report-staleness.yml` deliberately stays manual-only: `reports/` is a frozen corpus, so its alarm condition would be permanently true.
+- **EPSS and OSV are bounded samples in the prefetch (#232).** EPSS took a plain slice of a CISA-KEV-first list, so it only ever scored CVEs KEV already ranks. It now scores up to 1000 CVEs, those not in KEV first by CVSS. OSV, documented as called but never called, now looks up the 100 highest-EPSS CVEs. Both record `selected_from` and `selection`, so the ledger cannot present a sample as coverage.
+- **Adapter tiers follow the source matrix (#233).** AlienVault OTX and VirusTotal moved from Tier 2 to Tier 3 and Intel 471 from Tier 2 to Tier 7, so their ledger rows had been landing in the wrong tier. Each adapter now holds its tier once, and the registry and results read it.
+- **The text a model reads names every registered source (#233).** The MCP instructions and `fetch_all_*` descriptions had listed 8 of 13 IOC feeds and 2 of 3 CVE feeds. The phase counts now derive from the registries.
+- **Doc guards cover every maintained markdown file (#222, #233).** The count-parity scan derives its file set instead of using a hand-picked list. "Recorded for N of M" must appear in each of its three docs, and `docs/architecture.md` joined the tool-name parity check (its tool list had drifted to 17 of 22).
+- **The runtime IOC schema is pinned to the published one (#218).** `.claude/settings.local.json` is no longer tracked (#217).
+
+### Fixed
+
+- **A scheduled run with no credential, or a configured run that wrote no report, now fails (#231)** instead of finishing green with nothing to show.
+- **ThreatFox never sent the abuse.ch key (#232).** The server built it without the credential provider while six places said it sent one. A test now fails if any adapter that reads credentials is built without one.
+- **The README file tree listed 25 files twice (#219),** a splice left by #216. A guard now rejects duplication as well as omission and invention.
+- **Stale counts and cadence rationale (#220, #221, #233).** Doc counts after the recent recordings, the runbook's manual-only argument, and a concept-by-concept sweep of cadence, credential and keyless-source claims. The fan-out log now shows `partial_failure` reasons (#220), and the `partial_failure` field comment says what it carries.
+- **A repo-wide drift sweep (2026-10-10)** compared prose against code and workflows, beyond what CI checks:
+  - **Two keys were never leak-scanned in recorded cassettes.** `record_cassettes.py` checked each configured key as a literal against every cassette, but its list missed `ABUSECH_AUTH_KEY` and `PULSEDIVE_API_KEY`, so a leaked URLhaus key would have passed. Both are added, and so is the workflow's re-verify step. A test now derives the list from the adapters' `credentials.get()` calls; it fails on the old list.
+  - **`confidence: low` in the prompt files would fail schema validation**: every `confidence` enum is `High`/`Medium`/`Low`. Now `Low` everywhere.
+  - **The Vault examples for Intel 471 and Censys stored values under `api_key`**, while the provider reads a field named after the key, so all three would have raised `CredentialNotFoundError`. Fixed, and examples were added for NVD, VulnCheck, abuse.ch and Pulsedive.
+  - **Prompt files:**
+    - Input #9 listed ThreatFox, which needs no key, as an authenticated feed, and omitted URLhaus, Pulsedive and VulnCheck KEV.
+    - Step 2a cited CVEs to CISA KEV or NVD only.
+    - The long-form prompts lacked the never-upgrade and sample-not-coverage rules.
+    - Two priority scales went unexplained. They are now labelled: the response time is when work starts, the Actions Matrix timeline is when it completes.
+    - `original-prompt.md` referred to a scoring engine it does not contain; it now links `scoring.md`.
+  - **Docs and comments:**
+    - `AccountLimitError` was missing from the error-taxonomy tables.
+    - The README described `server.py` as FastMCP; it uses `MCPServer`, because mcp 2.0 removed FastMCP.
+    - The diagrams were missing VulnCheck and five Vault credential edges.
+    - Several stale workflow and prefetch comments assumed the report agent could still write.
+    - The runbook said a run with no credential always succeeds; a scheduled one fails.
+    - The README key setup lacked the abuse.ch and Pulsedive keys.
+    - `spec.yaml`'s documentation link pointed at the removed `docs.md`.
+    - `CLAUDE.md`'s list of `validate.yml` checks was missing eight.
+- **The Feodo live test imported a name that no longer existed (#227).** PR CI deselects live tests, so only the weekly check saw the `ImportError`.
+
 ### Added
 
 - **Four IOC feeds, two CVE enrichments, and every enrichment now actually called.** The server went from 9 IOC feeds to 13 and from one enrichment (which nothing invoked) to three (all invoked by the report path).
@@ -25,7 +73,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   **One free abuse.ch Auth-Key covers four sources**, and adding it removed a standing risk rather than only adding coverage: abuse.ch has gated its APIs since 2025-06-30, and ThreatFox kept answering only because it reads the CSV *export*. That is a grandfathered route, not a promise, so the key is now sent there too — optionally, because breaking a feed that works in order to authenticate it would be a net loss.
 
-  **`prefetch_feeds.py` calls all three enrichments.** The `generate` job holds no MCP server by design, so an enrichment nobody calls does not exist. EPSS and OSV are unbounded; VirusTotal is a deliberate sample of 40 indicators chosen corroborated-first, and its payload block carries `selected_from` so a sample can never be recorded as feed-wide coverage.
+  **`prefetch_feeds.py` calls all three enrichments.** The `generate` job holds no MCP server by design, so an enrichment nobody calls does not exist. EPSS and OSV are bounded samples too (see *Changed* above); VirusTotal is a deliberate sample of 40 indicators chosen corroborated-first, and its payload block carries `selected_from` so a sample can never be recorded as feed-wide coverage.
 
 - **Recorded cassettes for five more adapters**, and they contradicted the code four times. A recording is the only check in this repository that cannot agree with a misconception:
 
@@ -48,7 +96,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Known issues
 
-- **Pulsedive is built but unverified.** The first real call returned HTTP 429 on request one of one, with a well-formed request and a configured key. The adapter makes exactly one request per fetch, so this is not self-inflicted: either the account's quota is spent (50/day, 500/month) or the free plan does not include the Explore endpoint. Until that is settled the adapter degrades to `unverified` and is marked accordingly in `mcp/README.md`. If Explore turns out to be paid-only it needs re-targeting to `info.php`, which would make it an enrichment of at most 50 indicators a day rather than a feed.
+- **Pulsedive is built but unverified.** The first real call returned HTTP 429 on request one of one, with a well-formed request and a configured key. The adapter makes exactly one request per fetch, so this is not self-inflicted: either the account's quota is spent (50/day, 500/month) or the free plan does not include the Explore endpoint. Until that is settled the adapter degrades to `unverified` and is marked accordingly in `mcp/README.md`. If Explore turns out to be paid-only it needs re-targeting to `info.php`, which would make it an enrichment of at most 50 indicators a day rather than a feed. It has answered 429 to every request since; as of #231 that raises `AccountLimitError`, so it is no longer retried and the live check xfails it instead of holding its alarm red.
 
 
 - **The report path now asserts its own honesty rules.** `scheduled-report.yml` published a report and checked nothing about it. `--corpus` proves the invariants hold over the frozen eleven — all but one generated *without* live feeds — so no live-feed report had ever been checked at all. The generate job now runs the same assertions over what it just produced.

@@ -476,3 +476,29 @@ class TestSecretScan:
         monkeypatch.setenv("SHODAN_API_KEY", "")
         rec = self._cassette(tmp_path, monkeypatch, "ordinary feed content")
         assert rec.verify_scrubbed(["nvd"]) == []
+
+
+def test_literal_scan_covers_every_credential_an_adapter_reads():
+    """The recorder checks each configured key as a literal against every
+    cassette, but only for the names in _CREDENTIAL_ENV_VARS -- a hand-kept
+    list that had missed ABUSECH_AUTH_KEY and PULSEDIVE_API_KEY, so a leaked
+    URLhaus key would have passed while URLhaus cassettes were recorded. The
+    names here come from the adapters' own credentials.get() calls, mapped the
+    way EnvCredentialProvider maps them."""
+    import re
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    import scripts.record_cassettes as rec
+
+    adapters = pathlib.Path(__file__).resolve().parents[1] / "src" / "threat_intel_mcp" / "adapters"
+    read = {
+        f"{source.upper()}_{key.upper()}"
+        for path in adapters.glob("*.py")
+        for source, key in re.findall(
+            r'_credentials\.get\(\s*"([a-z0-9_]+)"\s*,\s*"([a-z0-9_]+)"', path.read_text(encoding="utf-8")
+        )
+    }
+    assert len(read) >= 10, f"only {len(read)} credential names found -- adapter layout drift?"
+    missing = sorted(read - set(rec._CREDENTIAL_ENV_VARS))
+    assert not missing, f"record_cassettes._CREDENTIAL_ENV_VARS does not literal-scan: {missing}"

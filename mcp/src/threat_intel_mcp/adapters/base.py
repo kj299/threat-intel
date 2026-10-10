@@ -46,8 +46,9 @@ Raising correctly is only half the contract. An adapter must also refuse to
 report a confident ``0 records`` from a body it could not read, because an
 empty result set is indistinguishable from a quiet week. Every adapter enforces
 this; all but ThreatFox and OSV do it through ``guard_parsed`` below (see its
-docstring for the rule), and those two raise ``UpstreamFormatError`` inline with
-a more specific message.
+docstring for the rule). Those two apply the rule inline with a more specific
+message: ThreatFox raises ``RuntimeError``, OSV ``UpstreamFormatError`` (a
+``RuntimeError`` subclass), so both degrade and retry the same way.
 """
 
 from __future__ import annotations

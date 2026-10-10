@@ -924,9 +924,9 @@ jobs:
           # would only look like protection.
           #
           # The invariant this check enforces: feed credentials never enter the
-          # agent's process environment. Paid feeds belong in a separate step
+          # agent's process environment. Paid feeds belong in a separate job
           # that fetches first and hands the agent a data file -- the shape
-          # record-cassettes.yml already uses. See docs/report-runbook.md.
+          # scheduled-report.yml's prefetch job uses. See docs/report-runbook.md.
           #
           # Model credentials (ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN) are
           # deliberately exempt: the agent authenticates with them by
