@@ -286,7 +286,10 @@ async def test_credentialed_enrichment_answers_its_api(name, adapter_key, env_va
     _skip_unless_configured(name, env_vars)
 
     adapter = VirusTotalAdapter(credential_provider_from_env(), _rate_limit_delay=0)
-    result = await adapter.enrich(["8.8.8.8"], indicator_type="ip")
+    try:
+        result = await adapter.enrich(["8.8.8.8"], indicator_type="ip")
+    except AccountLimitError as exc:
+        pytest.xfail(f"{name}: account limit, not a code or feed fault -- {exc}")
 
     assert result["record_count"] == 1, "a well-known IP must resolve"
     record = result["enrichments"][0]
@@ -308,7 +311,10 @@ async def test_credentialed_cve_feed_answers_its_api(name, adapter_key, env_vars
     _skip_unless_configured(name, env_vars)
 
     adapter = _CVE_ADAPTERS[adapter_key](credential_provider_from_env())
-    result = await adapter.fetch(time_range="7d")
+    try:
+        result = await adapter.fetch(time_range="7d")
+    except AccountLimitError as exc:
+        pytest.xfail(f"{name}: account limit, not a code or feed fault -- {exc}")
 
     assert result.source == name
     assert result.record_count >= 0

@@ -498,7 +498,7 @@ Include this table in every report so the reader can see what was and wasn't con
 | 4    | 2            |           |                      | yes/no |
 | 5    | 2            |           |                      | yes/no |
 | 6    | 3            |           |                      | yes/no |
-| 7    | best-effort  |           |                      | n/a  |
+| 7    | best-effort  |           |                      | yes (nothing required) |
 | 8    | 3            |           |                      | yes/no |
 | 9    | 3            |           |                      | yes/no |
 
@@ -511,11 +511,13 @@ Include this table in every report so the reader can see what was and wasn't con
 ## Output Configuration
 
 **Format** (default: Technical IOC Package):
-- Technical IOC Package — IOCs + TTPs + detection rules
-- Full Report — all sections, 8-12 pages
-- Executive Brief — summary + dashboard + actions, 2 pages
-- Board Presentation — business impact, 1 page + appendix
-- CISO Briefing — balanced, 3-4 pages
+- Technical IOC Package (`technical_ioc_package`) — IOCs + TTPs + detection rules
+- Full Report (`technical_report`) — all sections, 8-12 pages
+- Executive Brief (`executive_brief`) — summary + dashboard + actions, 2 pages
+- Board Presentation (`board_presentation`) — business impact, 1 page + appendix
+- CISO Briefing (`ciso_briefing`) — balanced, 3-4 pages
+- Personal Security Guide (`personal_security_guide`) — jargon-free, for individuals
+- SMB Checklist (`checklist`) — prioritised actions for a small team
 
 **Exports:** CSV, STIX 2.1, OpenIOC, JSON, MISP, MITRE ATT&CK Navigator layer. For any delimited/batch export, emit clean structured rows and rely on the consuming tool to validate and sanitize its own input.
 

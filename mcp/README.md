@@ -294,7 +294,7 @@ Claude will call the relevant `*_fetch_iocs` tools, blend live IOCs with its tra
 
 ## Implementing a paid-subscription feed adapter
 
-Most Tier 2–3 sources in the [Source Matrix](../skills/cyber-threat-intel/references/source-matrix.md) are subscription APIs. Adding one is a well-worn path: every *feed* adapter here (`qfeeds.py`, `abuseipdb.py`, `otx.py`, `shodan.py`) is the same shape, and the fan-out, resilience, sanitization, and Coverage-Ledger plumbing come for free once you conform to the `SourceAdapter` protocol.
+Most Tier 2–3 sources in the [Source Matrix](../skills/cyber-threat-intel/references/source-matrix.md) are subscription APIs. Adding one is a well-worn path: every *feed* adapter here (e.g. `qfeeds.py`, `abuseipdb.py`, `otx.py`, `shodan.py`) is the same shape, and the fan-out, resilience, sanitization, and Coverage-Ledger plumbing come for free once you conform to the `SourceAdapter` protocol.
 
 > `virustotal.py` is **not** an example to copy for a feed. It is an *enrichment* adapter — `enrich(indicators, …)`, not `fetch(time_range=…)` — because it scores indicators the caller supplies rather than discovering any. It is also this repository's cautionary tale for the warning below: it spent months calling `/api/v3/feeds/{feed_type}`, a path assembled from our own labels rather than VirusTotal's, and returned a 404 the first time anyone made the call for real (#203).
 

@@ -584,7 +584,7 @@ Include this table in every report so the reader can see what was and wasn't con
 | 4    | 2            |           |                       | yes/no |
 | 5    | 2            |           |                       | yes/no |
 | 6    | 3            |           |                       | yes/no |
-| 7    | best-effort  |           |                       | n/a    |
+| 7    | best-effort  |           |                       | yes (nothing required) |
 | 8    | 3            |           |                       | yes/no |
 | 9    | 3            |           |                       | yes/no |
 

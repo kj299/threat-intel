@@ -44,7 +44,7 @@ git status
 "exit code: $LASTEXITCODE"      # 0 means success regardless of colour
 ```
 
-**2. TLS defaults to 1.0.** All three feed hosts require TLS 1.2 or better, so
+**2. TLS defaults to 1.0.** The three feed hosts probed below (ThreatFox, CISA KEV, NVD — three of the seven keyless sources) require TLS 1.2 or better, so
 `Invoke-WebRequest` fails with an unhelpful "underlying connection was closed"
 until you raise it. The setting lasts for the session only.
 
@@ -274,7 +274,9 @@ personal or project install. Typing either at the PowerShell prompt gives
 `The term '/cyber-threat-intel' is not recognized`, and `claude
 /cyber-threat-intel` gives `Unknown command` — both were seen in the #76 run.
 
-Defaults are the `enterprise_soc` persona over a `7d` window.
+Defaults are the `enterprise_soc` persona over a `7d` window. Ask for the
+report to be saved as `report-output\<today>-threat-intel.md` (the directory
+is git-ignored); Step 8 checks that path.
 
 ---
 

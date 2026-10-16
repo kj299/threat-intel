@@ -35,6 +35,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **ThreatFox never sent the abuse.ch key (#232).** The server built it without the credential provider while six places said it sent one. A test now fails if any adapter that reads credentials is built without one.
 - **The README file tree listed 25 files twice (#219),** a splice left by #216. A guard now rejects duplication as well as omission and invention.
 - **Stale counts and cadence rationale (#220, #221, #233).** Doc counts after the recent recordings, the runbook's manual-only argument, and a concept-by-concept sweep of cadence, credential and keyless-source claims. The fan-out log now shows `partial_failure` reasons (#220), and the `partial_failure` field comment says what it carries.
+- **A two-pass drift retrospective (2026-10-16)**, eight sweeps over every maintained file, each finding verified against the code before it was changed. The ones that changed behaviour or a contract:
+  - **A failed OTX fetch wrote a Tier 2 ledger row** while OTX is Tier 3: the degrade paths passed a literal tier that the F50 alignment did not reach. `server.py` now states no tier as a literal anywhere, and a guard fails on one, positional or keyword.
+  - **CI's "examples validate" step checked nothing.** It validated each `{persona, input, output}` object against the root schema, which requires nothing. It now validates `{skill_input, skill_output}`, which exposed placeholder CVE ids (`CVE-2024-XXXX`) in the SOC example; that example now cites CVE-2023-4966 (Citrix Bleed, CVSS 9.4) with LockBit 3.0 affiliates per CISA AA23-325A.
+  - **Five of six examples had no Coverage Ledger or badge**, against R5. All six now carry both, use the matrix's exact source names, and every top-level `skill_output` property is exercised by at least one example.
+  - **The ledger template and the honesty invariants disagreed twice.** The template writes the count as `` `<N>` `` and the regex did not allow the backtick, so a verbatim report skipped the badge check; and the badge line listed all three badges, which a verbatim copy parsed as FULL. Regex widened, template shows one placeholder, test added.
+  - **Schema:** `skill_input` gains `cwe_chaining`, `search_scope`, `assets_of_concern` and `detail_level` (all defined in the spec and SKILL.md, none settable before); `output_format`'s enum now matches the spec's options, with `technical_report` added so "Full Report" maps to a value; `ioc_email`, `ioc_behavioral` and `ttp_mapping` gain `source`, so R2 is enforceable there too; `delimited_batch_export` rows require `source` and `confidence` as the spec says; the hunting-query default status is `needs_validation` as the spec says; `confidence: low` in a description is `Low`.
+  - **The cassette recorder's documented validation command never enabled the format checker**, so the malformed date-time cases `tests/invalid` exists for passed it. Both docs now show the API call CI uses.
+  - **The `separate` executive overview was pointed at the frozen `reports/`**, in nine copies; it now lands beside the report in `report-output/`. The Windows runbook's Step 8 committed into `reports/` too.
+  - **The live check's `AccountLimitError` xfail covered IOC feeds only**; the enrichment and CVE tests now carry it as the prose already claimed.
+
+  Prose, by the dozen: `extraction-framework.md` now uses the schema's field names and enum spellings; SKILL.md names alert levels, vulnerability fields, output-format values and the VulnCheck/CISA distinction as the schema and tools have them; one MCP server name (`threat-intel`) across every registration command; `.mcp.json`, not `.claude/mcp.json`; the Vault example no longer uses the bare console script; a worked `_collect` example that raised `TypeError`; the README layout tree and mcp/README tests tree complete; `evals/README` lists all seven scenarios; cassette docs say which recordings are trimmed and why; stale "no response anyone has seen" test docstrings cite the recordings; `spec.yaml`'s execution modes match the schema's `query_mode`; and earlier Unreleased entries that later entries superseded say so.
 - **A repo-wide drift sweep (2026-10-10)** compared prose against code and workflows, beyond what CI checks:
   - **Two keys were never leak-scanned in recorded cassettes.** `record_cassettes.py` checked each configured key as a literal against every cassette, but its list missed `ABUSECH_AUTH_KEY` and `PULSEDIVE_API_KEY`, so a leaked URLhaus key would have passed. Both are added, and so is the workflow's re-verify step. A test now derives the list from the adapters' `credentials.get()` calls; it fails on the old list.
   - **`confidence: low` in the prompt files would fail schema validation**: every `confidence` enum is `High`/`Medium`/`Low`. Now `Low` everywhere.
@@ -129,7 +140,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- **An empty credential was treated as a credential**, found by the first real prefetch run (2026-09-06). An unset GitHub Actions secret interpolates to the **empty string**, not to nothing. `EnvCredentialProvider` raised only on `None`, so the new `prefetch` job — which wires up all twelve feed credentials — handed every *unconfigured* adapter a `""` to authenticate with.
+- **An empty credential was treated as a credential**, found by the first real prefetch run (2026-09-06). An unset GitHub Actions secret interpolates to the **empty string**, not to nothing. `EnvCredentialProvider` raised only on `None`, so the new `prefetch` job — which wires up all feed credentials (twelve at the time) — handed every *unconfigured* adapter a `""` to authenticate with.
 
   The feed rejected it, and the adapter reported `HTTPStatusError`: an upstream failure, and therefore **retryable**. The truth was a missing credential, which is configuration and not retryable. Two costs, both real in that run:
 
@@ -172,7 +183,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **README now says which context reads which keys.** The recurring question is why Actions secrets appear unused: they exist only inside a running workflow, and `scheduled-report.yml` — the workflow that runs the prompt — is deliberately denied feed credentials (CI enforces it), so the only workflow that receives them is `record-cassettes`. A short table maps each way of running the skill to where its keys come from; the three working routes for a local run live in `mcp/README.md`, per the #166 split.
+- **README now says which context reads which keys.** The recurring question is why Actions secrets appear unused: they exist only inside a running workflow, and `scheduled-report.yml` — the workflow that runs the prompt — has its agent job deliberately denied feed credentials (CI enforces it); the contexts that receive them are its `prefetch` job, `record-cassettes` and `live-feed-check`. A short table maps each way of running the skill to where its keys come from; the three working routes for a local run live in `mcp/README.md`, per the #166 split.
 
   Written to the README's size ceiling rather than around it: the first draft ran 38 lines against the 30-line cap and the #166 check caught it, which is the drift that check exists to stop.
 
@@ -230,9 +241,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Known
 
-- **`evals/run.py --scenario` can lose the report it is meant to assert over — it did so in 2 of the 6 runs.** `claude -p` prints only the final assistant message. `ledger_consistency` composed its report across intermediate turns and ended with a short note about not committing to `reports/`; `overview_agrees_with_report` produced both artifacts, was denied the write, and ended with a summary of what it had made. In both cases stdout carried the closing note and not the report, and the harness reported hard failures against a few sentences of prose. The verdicts are not wrong about what they saw; the harness is wrong about what it captured. A third of the scenario suite therefore cannot currently return a meaningful result, which makes this the limiting defect in `evals/`, not a footnote. Recorded rather than patched because the fix is a design choice between capturing every assistant message, constraining the skill's final message, and letting the run write to a scratch directory — and each candidate costs a multi-minute model call to verify, so it should be chosen deliberately.
+- _(Superseded — fixed by the `evals/run.py` entries above.)_ **`evals/run.py --scenario` could lose the report it is meant to assert over — it did so in 2 of the 6 runs.** `claude -p` prints only the final assistant message. `ledger_consistency` composed its report across intermediate turns and ended with a short note about not committing to `reports/`; `overview_agrees_with_report` produced both artifacts, was denied the write, and ended with a summary of what it had made. In both cases stdout carried the closing note and not the report, and the harness reported hard failures against a few sentences of prose. The verdicts are not wrong about what they saw; the harness is wrong about what it captured. A third of the scenario suite therefore cannot currently return a meaningful result, which makes this the limiting defect in `evals/`, not a footnote. Recorded rather than patched because the fix is a design choice between capturing every assistant message, constraining the skill's final message, and letting the run write to a scratch directory — and each candidate costs a multi-minute model call to verify, so it should be chosen deliberately.
 
-- **`run_scenario` asserts the wrong property for `overview_agrees_with_report`.** The scenario declares seven `pair_*` invariants and its own notes say they must be checked "with `check_paired_artifacts` over both artifacts, not `check_report` over either alone — the property is a relation between them and is invisible in each on its own." The runner calls only `check_report`, and has no way to split one stdout stream into the two artifacts the relation holds between. So scenario 6 remains effectively unexecuted: the run happened, but nothing asserted what the scenario exists to assert. Blocked behind the capture defect above, since splitting requires having both artifacts in the first place.
+- _(Superseded — fixed by the `check_paired_artifacts` entry above.)_ **`run_scenario` asserted the wrong property for `overview_agrees_with_report`.** The scenario declares seven `pair_*` invariants and its own notes say they must be checked "with `check_paired_artifacts` over both artifacts, not `check_report` over either alone — the property is a relation between them and is invisible in each on its own." The runner calls only `check_report`, and has no way to split one stdout stream into the two artifacts the relation holds between. So scenario 6 remains effectively unexecuted: the run happened, but nothing asserted what the scenario exists to assert. Blocked behind the capture defect above, since splitting requires having both artifacts in the first place.
 
 ### Fixed
 
@@ -301,7 +312,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **A "Setting up credentials" section in `README.md`**, for anyone forking this and running it themselves. Everything a forker needs already existed — `mcp/.env.example` has every key and signup URL, `mcp/README.md` covers local and Vault setup, `docs/report-runbook.md` covers the model credential and the isolation rule — but it was spread across three files with no entry point, and the rule CI actually enforces was findable only in the runbook.
 
-  The section orients rather than restates, per #166: nothing needs a key to start and three feeds are keyless; there are **two kinds of credential** (feed keys vs the model credential) that go in different places; a feed key must never enter `scheduled-report.yml`, because that workflow runs an agent reading untrusted content whose output is published — CI fails the PR; fork secrets are not inherited from upstream. It links onward for the detail, and names the three gotchas worth knowing before debugging one (ANY.RUN's `API-Key ` prefix, Censys/Intel 471 being two secrets each that fail resolution when half-set, NVD's key being genuinely optional). Each claim was checked against the adapters, not carried over from an issue.
+  The section orients rather than restates, per #166: nothing needs a key to start and three feeds are keyless; there are **two kinds of credential** (feed keys vs the model credential) that go in different places; a feed key must never enter the agent's job in `scheduled-report.yml`, because that job runs an agent reading untrusted content whose output is published — CI fails the PR; fork secrets are not inherited from upstream. It links onward for the detail, and names the three gotchas worth knowing before debugging one (ANY.RUN's `API-Key ` prefix, Censys/Intel 471 being two secrets each that fail resolution when half-set, NVD's key being genuinely optional). Each claim was checked against the adapters, not carried over from an issue.
 
 ### Fixed
 
@@ -325,41 +336,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **`server.py` covered from 82% to 99%, closing #82.** The uncovered code turned out to be the *success* path of every single-feed tool — the `finalize → status → return` block a report actually takes when a feed works. `test_server_smoke.py` proves each tool degrades correctly on a malformed body, a missing credential, a tripped breaker; nothing had ever driven a tool through a fetch that *succeeds*, so the layer that emits `consulted`/`partial`/`unverified` — what Appendix A's Coverage Ledger is built from — was asserted nowhere.
 
-  `test_server_success_paths.py` patches each adapter's `fetch` and drives all twelve tools through clean, partial, and empty-with-failures results, asserting the ledger status each yields, plus the `ValueError`-surfaces-verbatim contract and NVD's provider-failure degrade. 43 tests; two skipped with the reason stated (below).
+  `test_server_success_paths.py` patches each adapter's `fetch` and drives all twelve tools of the time through clean, partial, and empty-with-failures results, asserting the ledger status each yields, plus the `ValueError`-surfaces-verbatim contract and NVD's provider-failure degrade. 43 tests; two skipped with the reason stated (below).
 
 ### Fixed
 
-- **`abuseipdb_fetch_blocklist` did not re-raise `ValueError`.** The other nine IOC tools do, per the error taxonomy in `adapters/base.py`: a caller error surfaces verbatim rather than degrading into an honest-looking `unverified`. Harmless today only because the AbuseIPDB adapter ignores `time_range` and `feed_types` and so cannot raise one — added so the tool matches its siblings and a future validation in the adapter is not silently swallowed. Found by the new parametrised test, not by reading.
+- **`abuseipdb_fetch_blocklist` did not re-raise `ValueError`.** The other IOC tools (nine at the time) do, per the error taxonomy in `adapters/base.py`: a caller error surfaces verbatim rather than degrading into an honest-looking `unverified`. Harmless today only because the AbuseIPDB adapter ignores `time_range` and `feed_types` and so cannot raise one — added so the tool matches its siblings and a future validation in the adapter is not silently swallowed. Found by the new parametrised test, not by reading.
 
   AbuseIPDB is also the one tool that hardcodes `consulted` instead of computing a partial status. That is **correct**: it is a single endpoint returning a single list, so `partial_failure` is empty by construction. The partial/unverified tests exempt it with that reason rather than force a status block onto a feed that can never be partial.
 
 
 ### Fixed
 
-- **Five documents still described a weekly report cadence that #170 removed.** `docs/report-runbook.md` said the skill "runs weekly (Mondays 05:23 UTC)" and "runs weekly forever", and that the staleness alarm "runs weekly"; `README.md` said reports are "produced by running the skill on a schedule" and referred to "the weekly staleness alarm"; `CLAUDE.md` called `report-staleness.yml` a "weekly alarm". All corrected to say both workflows are manual-only, why (each run is a full agent session; the alarm's condition is permanently true without a cadence), and that #169 records the re-enable condition.
+- **Five documents still described a weekly report cadence that #170 removed.** _(Superseded: the cron was restored on 2026-09-20 — see *Changed* above.)_ `docs/report-runbook.md` said the skill "runs weekly (Mondays 05:23 UTC)" and "runs weekly forever", and that the staleness alarm "runs weekly"; `README.md` said reports are "produced by running the skill on a schedule" and referred to "the weekly staleness alarm"; `CLAUDE.md` called `report-staleness.yml` a "weekly alarm". All corrected to say both workflows are manual-only, why (each run is a full agent session; the alarm's condition is permanently true without a cadence), and that #169 records the re-enable condition.
 
   This was a retrospective finding, and the cause is worth stating: #170 corrected the workflow *header comments* and left the operator-facing runbook untouched. The check that pins `docs/index.md` to `spec.yaml` (#166) does not reach the runbook, and nothing does.
 
-- `CLAUDE.md` said `scenarios.py` defines **six** golden scenarios; #175 added a seventh. Corrected, with the fact that none of the seven has ever been executed stated alongside rather than left for the reader to discover.
+- `CLAUDE.md` said `scenarios.py` defines **six** golden scenarios; #175 added a seventh. Corrected, with the fact that none of the seven had been executed at the time stated alongside rather than left for the reader to discover. _(All seven have since run — see *Verified* above.)_
 
 ### Changed
 
-- **CI now prints a coverage report on every MCP test run** (non-gating). Issue #82 was closed with `server.py` at 82% against a 90% target and no coverage visible in CI — its third acceptance criterion — so the shortfall went unnoticed for a month. `coverage run -m pytest` replaces the bare pytest invocation, using the `coverage` package already pinned in the dev extra rather than adding `pytest-cov`. #82 is reopened for the `server.py` gap.
+- **CI now prints a coverage report on every MCP test run** (non-gating at the time; #225 later gated it at 90%). Issue #82 was closed with `server.py` at 82% against a 90% target and no coverage visible in CI — its third acceptance criterion — so the shortfall went unnoticed for a month. `coverage run -m pytest` replaces the bare pytest invocation, using the `coverage` package already pinned in the dev extra rather than adding `pytest-cov`. #82 is reopened for the `server.py` gap.
 
 
 ### Fixed
 
 - **`threat_intel_mcp.__version__` was `"0.1.0"` while the package was `0.15.0`** — fourteen minor releases stale. Nothing caught it because nothing read it: `MCPServer` was constructed without a version, so the server advertised `"version": ""` in its initialize response and no client could tell which build it was talking to. `__version__` now derives from installed package metadata, the server passes it through, and two tests pin both.
 
-  Found by probing the running server rather than by reading the code — it starts, exposes 15 tools, and now reports `{'name': 'threat-intel-mcp', 'version': '0.15.0'}`.
+  Found by probing the running server rather than by reading the code — it starts, exposed 15 tools at the time (22 today), and now reports `{'name': 'threat-intel-mcp', 'version': '0.15.0'}`.
 
 - **Documentation carried three claims that were no longer true**, each now corrected and, where checkable, enforced:
 
   | Claim | Was | Is |
   |---|---|---|
   | `README.md` server version (2 places) | v0.13.0 | v0.15.0 |
-  | `CLAUDE.md` single-feed IOC tools | 11 | 10 (15 tools total) |
-  | `CLAUDE.md` cassette coverage | "at least one test per adapter" | 3 of 12 adapters; the nine credentialed ones are blocked on #169 |
+  | `CLAUDE.md` single-feed IOC tools | 11 | 10 (15 tools total, at the time) |
+  | `CLAUDE.md` cassette coverage | "at least one test per adapter" | 3 of 12 adapters at the time (10 of 19 today); the credentialed ones were blocked on #169 |
 
   The version drift is now a test (`test_docs_name_the_current_server_version`), verified by reverting the fix and watching it fail. The tool count was already covered for the skill files by `test_skill_docs_name_exactly_the_registered_tools`; `CLAUDE.md` prose was not, and now says the number the server actually exposes.
 

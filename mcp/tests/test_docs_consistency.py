@@ -833,4 +833,7 @@ def test_server_states_no_tier_as_a_literal():
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "_degraded_tool_result":
             if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
                 literal.append(f"line {node.lineno}: _degraded_tool_result(..., {node.args[1].value!r}, ...)")
+            for kw in node.keywords:
+                if kw.arg == "tier" and isinstance(kw.value, ast.Constant):
+                    literal.append(f"line {node.lineno}: _degraded_tool_result(..., tier={kw.value.value!r})")
     assert not literal, "server.py states a tier as a literal instead of <adapter>.tier:\n  " + "\n  ".join(literal)

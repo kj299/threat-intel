@@ -27,7 +27,7 @@
         },
         "coverage_ledger": [
           { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "CVE.org", "MITRE ATT&CK", "Exploit-DB", "GitHub Security Advisories"], "skipped": [], "met": true },
-          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant", "CrowdStrike", "Microsoft Threat Intelligence", "Cisco Talos"], "skipped": [], "met": true },
+          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant / Google TI", "CrowdStrike Falcon Intelligence", "Microsoft Threat Intelligence", "Cisco Talos"], "skipped": [], "met": true },
           { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan", "Censys"], "skipped": [], "met": true },
           { "tier": 4, "required_min": 2, "consulted": ["HackerOne", "Bugcrowd"], "skipped": [], "met": true },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps"], "skipped": [], "met": true },
@@ -43,7 +43,7 @@
           "message": "Active ransomware campaigns targeting financial sector detected"
         },
         "executive_summary": {
-          "headline": "LockBit 3.0 and BlackCat/ALPHV actively targeting financial services with new TTPs",
+          "headline": "LockBit 3.0 affiliates actively targeting financial services with new TTPs",
           "key_points": [
             "3 active ransomware campaigns targeting financial sector in past 7 days",
             "LockBit 3.0 introduced new evasion technique bypassing EDR solutions",
@@ -63,7 +63,8 @@
             "mitre_attack_id": "T1486",
             "attack_vector": "Impact",
             "cve_ids": ["CVE-2023-4966"],
-            "cvss_score": 9.8,
+            "cvss_score": 9.4,
+            "cvss_version": "3.1",
             "exploit_availability": "In-The-Wild",
             "first_observed": "2026-03-22",
             "sources": ["Recorded Future", "Mandiant", "CISA", "FS-ISAC"],
@@ -145,6 +146,40 @@
               "urgency": 80
             },
             "response_time": "4-24 hours"
+          }
+        ],
+        "vulnerabilities": [
+          {
+            "cve_id": "CVE-2023-4966",
+            "cvss_score": 9.4,
+            "days_since_disclosure": 14,
+            "exploit_maturity": "In-The-Wild",
+            "greynoise_activity": true,
+            "greynoise_classification": "malicious",
+            "cisa_kev_listed": true,
+            "org_exposure": "High",
+            "affected_products": ["Citrix NetScaler ADC", "Citrix NetScaler Gateway"],
+            "priority": "P1-CRITICAL"
+          }
+        ],
+        "threat_actors": [
+          {
+            "name": "LockBit",
+            "aliases": ["LockBit 3.0", "LockBit Black"],
+            "type": "Criminal",
+            "motivation": "Financial",
+            "target_sectors": ["Financial Services", "Healthcare", "Manufacturing"],
+            "target_regions": ["Global"],
+            "associated_ttps": ["T1190", "T1486", "T1562.001"],
+            "associated_malware": ["LockBit 3.0"],
+            "confidence": "High"
+          }
+        ],
+        "intelligence_gaps": [
+          {
+            "gap": "No telemetry on whether the Citrix Bleed session-token theft reached this organisation's NetScaler fleet",
+            "impact": "Cannot confirm or rule out a pre-patch compromise",
+            "recommended_action": "Review NetScaler session logs for anomalous session reuse since 2023-10-10 before declaring the patch sufficient"
           }
         ],
         "recommendations": {
@@ -282,7 +317,7 @@
         },
         "coverage_ledger": [
           { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK", "Exploit-DB"], "skipped": [{ "source": "CVE.org", "reason": "not consulted \u2014 covered by NVD for this scope" }], "met": false },
-          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant", "CrowdStrike", "Microsoft Threat Intelligence"], "skipped": [], "met": true },
+          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant / Google TI", "CrowdStrike Falcon Intelligence", "Microsoft Threat Intelligence"], "skipped": [], "met": true },
           { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan"], "skipped": [{ "source": "Censys", "reason": "not consulted in this run" }], "met": false },
           { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "no sector-relevant disclosures in window" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero"], "skipped": [{ "source": "SpecterOps blog", "reason": "not consulted in this run" }], "met": false },
@@ -807,7 +842,7 @@
         },
         "coverage_ledger": [
           { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK", "Exploit-DB", "GitHub Security Advisories"], "skipped": [], "met": true },
-          { "tier": 2, "required_min": 4, "consulted": ["CrowdStrike", "Mandiant"], "skipped": [{ "source": "Recorded Future", "reason": "subscription required" }], "met": false },
+          { "tier": 2, "required_min": 4, "consulted": ["CrowdStrike Falcon Intelligence", "Mandiant / Google TI"], "skipped": [{ "source": "Recorded Future", "reason": "subscription required" }], "met": false },
           { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan", "Censys"], "skipped": [], "met": true },
           { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "not consulted in this run" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps blog", "Rapid7 blog"], "skipped": [], "met": true },
@@ -831,6 +866,12 @@
             "name": "SSRF to cloud credential exposure",
             "chain_type": "multi_branch",
             "cwe_view": "CWE-1000",
+            "evidence_basis": "osint_reported",
+            "contributing_cves": [],
+            "max_component_cvss": 6.5,
+            "chain_severity": "Critical",
+            "severity_uplift_rationale": "Each weakness is Medium in isolation; composed, an unauthenticated SSRF reaches the instance metadata service and yields role credentials, which is a full cloud-account compromise path.",
+            "stack_relevance": ["AWS EC2 with IMDSv1 enabled", "web tier making server-side HTTP requests"],
             "links": [
               { "cwe_id": "CWE-918", "role": "primary", "mitre_id": "T1190", "tactic": "Initial Access", "evidence": "SSRF reaching IMDS endpoint in web tier", "detection_opportunity": "Outbound request from web tier to 169.254.169.254 (link-local IMDS)", "data_source": "VPC flow logs / web proxy", "source": "The DFIR Report" },
               { "cwe_id": "CWE-200", "role": "resultant", "mitre_id": "T1552.005", "tactic": "Credential Access", "evidence": "IMDS returns role credentials", "detection_opportunity": "GetCallerIdentity / first-seen API calls from an instance role outside its baseline", "data_source": "CloudTrail", "source": "MITRE ATT&CK" },

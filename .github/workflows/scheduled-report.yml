@@ -314,7 +314,7 @@ jobs:
           name: feed-data
           path: ${{ runner.temp }}/feeds
 
-      - name: Verify the keyless feeds are reachable from this runner
+      - name: Verify ThreatFox and CISA KEV are reachable from this runner
         if: steps.guard.outputs.configured == 'true'
         # Fail fast and loudly here rather than producing a no-live-data report
         # that silently looks like every previous one.

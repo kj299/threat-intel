@@ -6,7 +6,7 @@ Field schemas for every emitted finding. One row per item that actually exists �
 
 `technique_name | mitre_attack_id | attack_vector (the ATT&CK tactic) | cve_ids | cwe_ids | cvss_score | cvss_version | exploit_availability (None/PoC/Weaponized/In-The-Wild) | first_observed | last_observed | sources | sophistication (Basic/Intermediate/Advanced/Nation-State) | targeted_sectors | targeted_technologies | technical_description | business_impact`
 
-Field names and enum spellings here are the `output.schema.json` ones; a row emitted with another spelling fails validation (step 7).
+Field names and enum spellings here are the `output.schema.json` ones. An enum value spelled another way fails validation (step 7); an unknown field name is ignored rather than rejected, which is worse — the data silently never arrives.
 
 `cwe_ids` is the list of underlying weakness classes (e.g. `CWE-89`, `CWE-502`) the technique exploits — the bridge to CWE-chain analysis (§D).
 
@@ -26,13 +26,13 @@ The same discrimination and correct-classification rules apply to the other host
 - `Process_Name` — a single bare executable name (`evil.exe`), not a path, not a command line, and not a ubiquitous LOLBin (`svchost.exe`, `explorer.exe`, `powershell.exe`, `cmd.exe`, `rundll32.exe`, `regsvr32.exe`, `mshta.exe`, `wscript.exe`, `cscript.exe`) on its own — the discriminating signal there is the command line or a hash.
 - `Command_Line` — must carry the distinguishing arguments (the flags / encoded payload / abuse pattern that make the invocation malicious); a bare interpreter name with no arguments is a misclassified `Process_Name`, not a command line.
 
-**Email IOCs** — `type (Sender_Address/Sender_Domain/Reply_To/Subject_Pattern/Attachment_Name/Attachment_Hash/Header_X-Originating-IP/Header_X-Mailer) | value | confidence | campaign | threat_type (Phishing/Spear_Phishing/BEC/Malware_Distribution/Credential_Harvesting) | action`
+**Email IOCs** — `type (Sender_Address/Sender_Domain/Reply_To/Subject_Pattern/Attachment_Name/Attachment_Hash/Header_X-Originating-IP/Header_X-Mailer) | value | confidence | source | campaign | threat_type (Phishing/Spear_Phishing/BEC/Malware_Distribution/Credential_Harvesting) | action`
 
-**Behavioral IOCs** — `behavior | data_source | detection_logic | mitre_technique | alert_threshold | siem_query`
+**Behavioral IOCs** — `behavior | data_source | detection_logic | mitre_technique | alert_threshold | siem_query | source`
 
 ## C. TTP Mapping (MITRE ATT&CK)
 
-One row per technique observed. `tactic | technique_id | technique_name | sub_technique_id | sub_technique_name | procedure_details | detection_method | data_sources | platforms | permissions_required | mitigations`
+One row per technique observed. `tactic | technique_id | technique_name | sub_technique_id | sub_technique_name | procedure_details | detection_method | data_sources | platforms | permissions_required | mitigations | source`
 
 Tactics to cover if present: Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration, Impact.
 
