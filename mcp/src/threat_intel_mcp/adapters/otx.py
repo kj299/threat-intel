@@ -79,9 +79,9 @@ def _to_rfc3339(raw: Any) -> str | None:
     feed provides. An unreadable value yields None and the field is omitted,
     which costs one field rather than the record.
 
-    ``cisa_kev._date_to_rfc3339`` and ``vulncheck._to_rfc3339`` do the same job
-    for their feeds; this is the third copy of a three-line idea, which is
-    cheaper than a shared helper that has to know each feed's quirks.
+    Most adapters carry their own copy of this three-line idea (``cisa_kev``,
+    ``vulncheck``, ``feodo``, ``pulsedive``, ``urlhaus``, ...), which is cheaper
+    than a shared helper that has to know each feed's quirks.
     """
     if not isinstance(raw, str) or not raw.strip():
         return None

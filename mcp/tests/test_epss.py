@@ -2,11 +2,9 @@
 
 Uses pytest-httpx — no live network in CI.
 
-The mock body follows FIRST.org's published API reference. ``api.first.org`` is
-unreachable from the development sandbox, so the field mapping is documented
-rather than observed, and a cassette is what will settle it. The tests that
-carry weight until then are the ones that hold whatever the field names turn
-out to be: an unreadable body raises, an empty one does not, a caller error
+The mock body follows FIRST.org's published API reference, which the recorded
+``epss.yaml`` has since confirmed. These tests cover what a cassette cannot
+replay: an unreadable body raises, an empty one does not, a caller error
 raises, and "no score" never masquerades as a failure.
 """
 

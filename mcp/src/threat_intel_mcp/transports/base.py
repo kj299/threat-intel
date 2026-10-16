@@ -35,8 +35,10 @@ from ..normalize import finalize_iocs
 class ProtocolAdapter(ABC):
     """Abstract base for a protocol-transport intel feed.
 
-    Subclasses set ``name``, ``tier``, and ``protocol`` (one of the keys in
-    ``vault.protocols.PROTOCOL_CREDENTIALS``) and implement :meth:`_collect` and
+    Subclasses set ``name``, ``tier``, and ``protocol`` (a key in
+    ``vault.protocols.PROTOCOL_CREDENTIALS`` when the transport carries
+    credentials; ``misp_zmq`` names ``"zmq"``, which has no bundle because MISP
+    ZeroMQ has no auth) and implement :meth:`_collect` and
     :meth:`_normalize`. The base supplies a complete :meth:`fetch` that validates
     and deduplicates output and returns a ``FetchResult`` identical in shape to
     the REST adapters'.

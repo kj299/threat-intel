@@ -245,6 +245,7 @@ user_inputs:
       default: technical_ioc_package
       options:
         - technical_ioc_package
+        - technical_report
         - executive_brief
         - ciso_briefing
         - board_presentation
@@ -290,7 +291,7 @@ user_inputs:
 
         R3 applies with full force: evidence_basis distinguishes a CWE-709
         catalog entry from a publicly reported composition from an inferred
-        hypothesis, and an inferred chain must carry confidence: low.
+        hypothesis, and an inferred chain must carry confidence: Low.
 
     - name: executive_overview
       type: single_select
@@ -304,7 +305,7 @@ user_inputs:
         by output_format. "off" (default) is today's behaviour, unchanged.
         "attached" places the rendered dashboard at the head of the technical
         report. "separate" writes it as a companion artifact
-        (reports/<date>-threat-intel-executive.html) via
+        (report-output/<date>-threat-intel-executive.html) via
         python -m threat_intel_mcp.render.
 
         This is additive rather than a widening of output_format, which names
@@ -474,7 +475,7 @@ analysis_modules:
         CWE-1003: nvd_cve_mapping
         CWE_top_25: prioritize_primary_links_to_harden_first
       link_fields: [cwe_id, role, mitre_id, tactic, evidence, detection_opportunity, data_source, source]
-      chain_fields: [chain_id, name, chain_type, cwe_view, enabling_conditions, ai_assist_factor, time_to_exploit, terminal_impact, score, priority, confidence, source]
+      chain_fields: [chain_id, name, chain_type, cwe_view, evidence_basis, contributing_cves, max_component_cvss, chain_severity, severity_uplift_rationale, stack_relevance, enabling_conditions, ai_assist_factor, time_to_exploit, terminal_impact, score, priority, confidence, source]
       break_point_required: true              # every chain ships >=1 defensive break-point
       break_point_fields: [at_link, control, control_type, rationale, mapped_mitigation, detection_telemetry]
       break_point_selection:                  # rank by downstream-tail-invalidated x feasibility
@@ -589,8 +590,10 @@ compliance_mapping:
 # =============================================================================
 execution:
   workflow_modes:
+    # Keys match the schema's skill_input.query_mode enum.
+    natural_language: { sources: [critical, high], depth: moderate }
+    guided:          { sources: [critical, high], depth: moderate }
     quick_scan:      { sources: critical_only, depth: shallow }
-    standard:        { sources: [critical, high], depth: moderate }
     deep_research:   { sources: all, depth: deep }
     continuous:      { sources: [feeds, real_time], depth: adaptive }
 
@@ -608,7 +611,7 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-08-31"
+  last_updated: "2026-10-16"
   # (URLhaus was removed in 1.20.0 at operator request and later returned as an
   # MCP adapter; source-matrix.md lists it in Tier 9 again.)
 

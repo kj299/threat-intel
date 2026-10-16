@@ -122,18 +122,20 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 
 ## Output Formats
 
-### Reports
-- Executive Brief (2 pages)
-- Full Technical Report
-- Personal Security Guide
-- SOC IOC Package
-- Actionable Checklist
+### Reports (`output_format` values)
+- Technical IOC Package (`technical_ioc_package`, the default)
+- Full Report (`technical_report`)
+- Executive Brief (`executive_brief`, 2 pages)
+- Board Presentation (`board_presentation`)
+- CISO Briefing (`ciso_briefing`)
+- Personal Security Guide (`personal_security_guide`)
+- SMB Checklist (`checklist`)
 
 `output_format` names **one** primary deliverable. To get a technical report *and* an
 executive overview from a single run, leave it at the technical value and set the
 `executive_overview` input: `off` (default, unchanged), `attached` (the rendered dashboard
 opens the technical report), or `separate` (a companion
-`reports/<date>-threat-intel-executive.html`, produced by
+`report-output/<date>-threat-intel-executive.html`, produced by
 [`python -m threat_intel_mcp.render`](../mcp/README.md)).
 
 The overview is a *projection* of the same validated output object, not a second document —
@@ -198,7 +200,13 @@ Use [skills/cyber-threat-intel/schemas/output.schema.json](../skills/cyber-threa
 
 ```bash
 pip install jsonschema rfc3339-validator
-jsonschema -i output.json skills/cyber-threat-intel/schemas/output.schema.json
+python - <<'PY'
+import json, jsonschema
+schema = json.load(open("skills/cyber-threat-intel/schemas/output.schema.json"))
+instance = json.load(open("output.json"))
+jsonschema.validate(instance, schema, format_checker=jsonschema.FormatChecker())
+print("valid")
+PY
 ```
 
 ### Valid Output Shape

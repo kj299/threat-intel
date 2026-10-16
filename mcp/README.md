@@ -116,6 +116,8 @@ cp .env.example .env
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 #   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
 #   VULNCHECK_API_KEY   — https://vulncheck.com (free Community account; REQUIRED for VulnCheck KEV)
+#   ABUSECH_AUTH_KEY    — https://auth.abuse.ch/ (free; REQUIRED for URLhaus, optional for ThreatFox and Feodo Tracker)
+#   PULSEDIVE_API_KEY   — https://pulsedive.com/account (free tier: 50 requests/day)
 
 # Load it into your shell. `set -a` exports everything the file defines.
 # Do NOT use `export $(grep -v '^#' .env | xargs)`: it splits on whitespace,
@@ -170,7 +172,7 @@ claude mcp add threat-intel \
 > package is importable:
 >
 > ```bash
-> claude mcp add threat-intel-mcp -- python -m threat_intel_mcp
+> claude mcp add threat-intel -- python -m threat_intel_mcp
 > ```
 >
 > If you installed into a virtualenv, point at that interpreter explicitly
@@ -180,7 +182,7 @@ claude mcp add threat-intel \
 ```json
 {
   "mcpServers": {
-    "threat-intel-mcp": {
+    "threat-intel": {
       "command": "python",
       "args": ["-m", "threat_intel_mcp"],
       "env": {
@@ -256,8 +258,9 @@ key name — the provider reads field `api_key` from the secret at
 ```json
 {
   "mcpServers": {
-    "threat-intel-mcp": {
-      "command": "threat-intel-mcp",
+    "threat-intel": {
+      "command": "python",
+      "args": ["-m", "threat_intel_mcp"],
       "env": {
         "VAULT_ADDR": "https://vault.example.com:8200",
         "VAULT_ROLE_ID": "your-role-id",
@@ -291,7 +294,7 @@ Claude will call the relevant `*_fetch_iocs` tools, blend live IOCs with its tra
 
 ## Implementing a paid-subscription feed adapter
 
-Most Tier 2–3 sources in the [Source Matrix](../skills/cyber-threat-intel/references/source-matrix.md) are subscription APIs. Adding one is a well-worn path: every *feed* adapter here (`qfeeds.py`, `abuseipdb.py`, `otx.py`, `shodan.py`) is the same shape, and the fan-out, resilience, sanitization, and Coverage-Ledger plumbing come for free once you conform to the `SourceAdapter` protocol.
+Most Tier 2–3 sources in the [Source Matrix](../skills/cyber-threat-intel/references/source-matrix.md) are subscription APIs. Adding one is a well-worn path: every *feed* adapter here (e.g. `qfeeds.py`, `abuseipdb.py`, `otx.py`, `shodan.py`) is the same shape, and the fan-out, resilience, sanitization, and Coverage-Ledger plumbing come for free once you conform to the `SourceAdapter` protocol.
 
 > `virustotal.py` is **not** an example to copy for a feed. It is an *enrichment* adapter — `enrich(indicators, …)`, not `fetch(time_range=…)` — because it scores indicators the caller supplies rather than discovering any. It is also this repository's cautionary tale for the warning below: it spent months calling `/api/v3/feeds/{feed_type}`, a path assembled from our own labels rather than VirusTotal's, and returned a 404 the first time anyone made the call for real (#203).
 
@@ -563,7 +566,9 @@ tests/
 ├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests
 ├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
 ├── test_normalize.py      Normaliser / validator tests
-└── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── vcr_config.py          Cassette recorder/replayer config: credential scrubbing, clock-free request matching
+└── cassettes/             Recorded feed responses replayed offline (#105); see its README
 ```
 
 ## Relationship to threat-intel

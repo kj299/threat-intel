@@ -220,7 +220,7 @@ When the threat is tied to a known product, map its raw `sourcetype` to a CIM da
 
 ## Detection output shape
 
-When the report emits a **detection** (not just a hunt), attach the operational metadata that makes it deployable. Match the structured `hunting_queries` schema (objective, platform, query, schema_dependency, assumptions, tuning, validation, status):
+When the report emits a **detection** (not just a hunt), attach the operational metadata that makes it deployable. Match the structured `hunting_queries` schema (objective, platform, query, schema_dependency, assumptions, tuning, validation, status, source):
 
 - **Objective** — the analyst goal in one line.
 - **Query** — the normalized starter above with placeholders for env-specific bits.

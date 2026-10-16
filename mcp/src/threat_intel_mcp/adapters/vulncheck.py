@@ -9,7 +9,8 @@ its own catalog.
 Why a second KEV
 ----------------
 VulnCheck's catalog is broader than CISA's binding-directive list: the recorded
-index holds 5,229 entries against CISA KEV's ~1,400. The two are complements,
+index holds 5,229 entries against the ~1,700 in CISA KEV's recording of the
+week before. The two are complements,
 not substitutes. ``finalize_vulns`` dedupes by CVE ID and preserves
 corroboration, so a CVE in both becomes one record naming both sources — which
 is exactly the signal an analyst wants. Entries also carry

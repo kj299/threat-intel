@@ -14,8 +14,8 @@ A cassette is bytes the service actually sent. It cannot encode a misconception.
 What this module guarantees
 ---------------------------
 **Nothing recorded here may contain a credential.** Several feeds authenticate
-by header (``x-apikey``, ``Authorization``) and two by query string (Shodan's
-``key=``, NVD's ``apiKey=``), so a naive recording writes live keys into a file
+by header (``x-apikey``, ``Authorization``, NVD's ``apiKey``) and two by query
+string (Shodan's and Pulsedive's ``key=``), so a naive recording writes live keys into a file
 destined for version control. ``audit.py`` redacts *logs*; it has never touched
 test fixtures. The scrubbing below is the only thing standing between a
 recording session and a committed secret, so it fails closed: unknown auth-ish

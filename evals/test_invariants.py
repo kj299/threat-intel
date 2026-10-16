@@ -399,7 +399,7 @@ def test_canonical_label_still_rejects_a_different_word():
 
 # ─── The pair check, first exercised against real output on 2026-09-06 ───────
 
-from invariants import overview_badge, source_count  # noqa: E402
+from invariants import overview_badge, source_count
 
 _REP = (
     "Report ID: r-1\nGenerated: 2026-09-06T00:00:00Z\nCoverage: MINIMAL\n\n"
@@ -469,3 +469,17 @@ def test_a_cve_only_in_the_overview_still_fails():
     ov = _OV + " CVE-2099-9999 is the top risk."
     result = check_paired_artifacts(_REP, ov, "invented-cve")
     assert any(f.invariant == "pair_no_cve_only_in_overview" for f in result.failures)
+
+
+def test_total_consulted_accepts_the_templates_backticked_count():
+    """The ledger template writes the count as `<N>`; a report that follows it
+    verbatim must still parse, or the badge check skips itself silently."""
+    from invariants import _TOTAL_CONSULTED
+
+    for line in (
+        "**Total preferred-source targets consulted:** `3` / ≈25",
+        "**Total preferred-source targets consulted:** 3 / ≈25",
+        "Total preferred-source targets consulted: ≈ 14 / 25",
+    ):
+        m = _TOTAL_CONSULTED.search(line)
+        assert m and m.group(1) in {"3", "14"}, line

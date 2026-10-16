@@ -2,11 +2,10 @@
 
 Uses pytest-httpx — no live network in CI.
 
-Every abuse.ch host is unreachable from the development sandbox, so the bodies
-below follow abuse.ch's published documentation rather than a response anyone
-has seen. That is the #203 setup, so the tests that carry the most weight are
-the ones that hold whatever the field names turn out to be, plus the ones
-asserting the credential reaches the wire at all — a key that is configured but
+The bodies below follow abuse.ch's published documentation; the recorded
+cassettes (``feodo.yaml``, ``urlhaus.yaml``, ``threatfox.yaml``) have since
+confirmed the field names, so these tests cover the failure modes a cassette
+cannot replay, plus the ones asserting the credential reaches the wire at all — a key that is configured but
 never sent is the #197 failure, and no mock can see repository settings.
 """
 
@@ -172,8 +171,7 @@ async def test_feodo_a_non_array_body_raises(httpx_mock: HTTPXMock):
 
 @pytest.mark.asyncio
 async def test_feodo_entries_in_an_unknown_shape_raise(httpx_mock: HTTPXMock):
-    """The scenario the module warning is about: if the JSON uses neither
-    documented IP key, every entry drops — and that must raise, not report an
+    """If the JSON does not carry the recorded IP key, every entry drops — and that must raise, not report an
     empty blocklist."""
     httpx_mock.add_response(url=_FEODO, json=[{"address": "203.0.113.9"}])
 

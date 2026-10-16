@@ -37,4 +37,4 @@ Both files embed everything previously split across `skills/cyber-threat-intel/r
 
 ## Versioning
 
-These files are regenerated from the canonical sources in [`../skills/cyber-threat-intel/`](../skills/cyber-threat-intel/) whenever the protocol, source matrix, scoring, or personas change. They are not the source of truth — they're flattened distributions.
+These files are hand-maintained mirrors of the canonical sources in [`../skills/cyber-threat-intel/`](../skills/cyber-threat-intel/), updated whenever the protocol, source matrix, scoring, or personas change. They are not the source of truth — they're flattened distributions, and CI's source-list and user-input parity checks fail when they drift.

@@ -79,7 +79,7 @@ class AbuseIPDBAdapter:
 
     def __init__(self, credentials: CredentialProvider) -> None:
         self._credentials = credentials
-        # Simple in-process cache. Replaced by Redis/Memcached in Phase 4.
+        # Simple in-process cache; one server instance per process.
         self._cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
 
     def _make_client(self) -> httpx.AsyncClient:

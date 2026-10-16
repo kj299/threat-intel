@@ -176,7 +176,7 @@ flowchart TD
     AnyRun_API -->|"STIX objects"| AnyRun
     Intel471 -->|"GET /indicators/stream"| Intel471_API
     Intel471_API -->|"JSON indicators"| Intel471
-    Censys -->|"GET /hosts/search?q=labels:malware"| Censys_API
+    Censys -->|"GET /hosts/search?q=labels: malware or labels: c2"| Censys_API
     Censys_API -->|"JSON result.hits"| Censys
     CISAKEV -->|"GET known_exploited_vulnerabilities.json (no auth)"| CISAKEV_API
     CISAKEV_API -->|"JSON vulnerabilities[]"| CISAKEV

@@ -84,10 +84,12 @@ Emit **typed values only** — the consuming tool does the delimiting, escaping,
 | 4    | 2            |           |                        | yes/no |
 | 5    | 2            |           |                        | yes/no |
 | 6    | 3            |           |                        | yes/no |
-| 7    | best-effort  |           |                        | n/a    |
+| 7    | best-effort  |           |                        | yes (nothing required) |
 | 8    | 3            |           |                        | yes/no |
 | 9    | 3            |           |                        | yes/no |
 
+A best-effort tier (Tier 7) has nothing required, so its `met` is `true` by definition; list what was tried under *Skipped*.
+
 **Total preferred-source targets consulted:** `<N>` / ≈25
-**Coverage badge (honest self-report):** `FULL` (≈25+) | `PARTIAL` (13–24) | `MINIMAL` (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
+**Coverage badge (honest self-report):** `<ONE OF: FULL | PARTIAL | MINIMAL>` — write the single word that matches the count above: FULL (≈25+), PARTIAL (13–24), MINIMAL (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
 **Fabrication check:** `PASS` — write that literal word once you have confirmed no IOC, CVE, hash, or actor attribution was invented. Any `status: unverified` items are listed below with reason. If little was retrievable for the requested scope and time range, state that plainly here.

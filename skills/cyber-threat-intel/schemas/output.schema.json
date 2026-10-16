@@ -467,6 +467,18 @@
             "alert",
             "hunt"
           ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "unknown",
+              "general knowledge",
+              "n/a"
+            ]
+          },
+          "description": "The source this row cites (R2). Placeholder sources are rejected."
         }
       }
     },
@@ -498,6 +510,18 @@
         "siem_query": {
           "type": "string",
           "description": "KQL, SPL, or Sigma query for detection"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "unknown",
+              "general knowledge",
+              "n/a"
+            ]
+          },
+          "description": "The source this row cites (R2). Placeholder sources are rejected."
         }
       }
     },
@@ -691,6 +715,18 @@
           "items": {
             "type": "string"
           }
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "unknown",
+              "general knowledge",
+              "n/a"
+            ]
+          },
+          "description": "The source this row cites (R2). Placeholder sources are rejected."
         }
       }
     },
@@ -937,14 +973,13 @@
     "output_format": {
       "type": "string",
       "enum": [
-        "auto",
-        "executive_brief",
         "technical_ioc_package",
-        "board_presentation",
+        "technical_report",
+        "executive_brief",
         "ciso_briefing",
+        "board_presentation",
         "personal_security_guide",
-        "checklist",
-        "dashboard"
+        "checklist"
       ],
       "default": "technical_ioc_package"
     },
@@ -986,17 +1021,34 @@
         "separate"
       ],
       "default": "off",
-      "description": "Produce an executive overview alongside the primary deliverable named by output_format. 'off' (default) is prior behaviour, unchanged. 'attached' places the rendered dashboard at the head of the technical report. 'separate' writes it as a companion artifact (reports/<date>-threat-intel-executive.html). The overview is a projection of this same validated output object and may contain no finding the technical report does not; each artifact names the other."
+      "description": "Produce an executive overview alongside the primary deliverable named by output_format. 'off' (default) is prior behaviour, unchanged. 'attached' places the rendered dashboard at the head of the technical report. 'separate' writes it as a companion artifact (report-output/<date>-threat-intel-executive.html). The overview is a projection of this same validated output object and may contain no finding the technical report does not; each artifact names the other."
     }
   },
   "properties": {
     "skill_input": {
       "type": "object",
-      "description": "User input to the skill. If no input is provided, defaults are used: search_scope=all_emerging_threats, time_range=7d, assets=network edge/endpoints/mobile/APIs/payment systems, detail=full_technical, output=technical_ioc_package",
+      "description": "User input to the skill. If no input is provided, defaults are used: search_scope=all_emerging_threats, time_range=7d, assets_of_concern=network edge/endpoints/mobile/APIs/payment systems, detail_level=full_technical, output_format=technical_ioc_package",
       "required": [],
       "properties": {
         "user_persona": {
           "$ref": "#/definitions/persona"
+        },
+        "search_scope": {
+          "type": "string",
+          "default": "all_emerging_threats",
+          "description": "What to search for: all emerging threats, or a named actor, sector, technology or campaign."
+        },
+        "assets_of_concern": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Asset classes to prioritise; default: network edge devices, endpoints, mobile, APIs, payment systems."
+        },
+        "detail_level": {
+          "type": "string",
+          "default": "full_technical",
+          "description": "How deep the report goes; default full_technical (IOCs + TTPs + detection rules)."
         },
         "query_mode": {
           "type": "string",
@@ -1080,6 +1132,16 @@
           "default": true,
           "description": "When true (default), the report includes generated IOCs and detection/hunting queries in the standard formats. When false, the report stays narrative without generated indicator/query artifacts."
         },
+        "cwe_chaining": {
+          "type": "string",
+          "enum": [
+            "off",
+            "catalog",
+            "osint"
+          ],
+          "default": "osint",
+          "description": "Weakness-class (CWE) chain analysis: off = report vulnerabilities individually; catalog = chains only from MITRE's own relationship data (CWE-709, CWE-1000); osint = also chains evidenced in public reporting. An inferred chain must carry confidence Low."
+        },
         "executive_overview": {
           "$ref": "#/definitions/executive_overview"
         },
@@ -1088,7 +1150,7 @@
         },
         "feed_integrations": {
           "type": "array",
-          "description": "Named threat intelligence feed services the operator has authenticated API access to. When a feed is listed here, treat it as accessible and cite its data without marking findings as unverified \u2014 the operator is responsible for querying the feed API before invoking the skill and passing relevant data as context. Omit (or leave empty) when no authenticated feeds are configured.",
+          "description": "Named threat intelligence feed services the operator has authenticated API access to. When a feed is listed here, treat it as accessible and cite its data without marking findings as unverified. With the threat-intel-mcp tools connected the skill retrieves these feeds itself (workflow step 2a); otherwise the operator queries the feed API before invoking the skill and passes relevant data as context. Omit (or leave empty) when no authenticated feeds are configured.",
           "items": {
             "type": "object",
             "required": [
@@ -1198,7 +1260,8 @@
                 }
               },
               "met": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether required_min was reached. A best-effort tier (required_min is a string, e.g. Tier 7) has nothing required, so it is met: true by definition."
               }
             }
           }
@@ -1432,7 +1495,7 @@
                   "osint_reported",
                   "inferred"
                 ],
-                "description": "Where the chain comes from. named_chain_catalog=MITRE CWE-709 entry; osint_reported=a named public report describes this composition; inferred=composed by this analysis from CWE-1000 relationships. An 'inferred' chain is a hypothesis and MUST carry confidence: low (R3) \u2014 it has not been observed, only reasoned about."
+                "description": "Where the chain comes from. named_chain_catalog=MITRE CWE-709 entry; osint_reported=a named public report describes this composition; inferred=composed by this analysis from CWE-1000 relationships. An 'inferred' chain is a hypothesis and MUST carry confidence: Low (R3) \u2014 it has not been observed, only reasoned about."
               },
               "contributing_cves": {
                 "type": "array",
@@ -1707,7 +1770,7 @@
                   "needs_schema",
                   "needs_validation"
                 ],
-                "default": "ready"
+                "default": "needs_validation"
               },
               "source": {
                 "type": "string",
@@ -1730,7 +1793,9 @@
             "type": "object",
             "required": [
               "mitre_id",
-              "name"
+              "name",
+              "source",
+              "confidence"
             ],
             "properties": {
               "mitre_id": {

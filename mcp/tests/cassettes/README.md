@@ -34,8 +34,8 @@ python mcp/scripts/record_cassettes.py --only threatfox
 ## Credentials
 
 **Nothing in this directory may contain a credential.** Several feeds
-authenticate by header (`x-apikey`, `Authorization`) and two by query string
-(Shodan's `key=`, NVD's `apiKey=`), so a naive recording writes live keys into
+authenticate by header (`x-apikey`, `Authorization`, NVD's `apiKey`) and two by
+query string (Shodan's and Pulsedive's `key=`), so a naive recording writes live keys into
 a file destined for version control. `audit.py` redacts logs; it has never
 touched test fixtures.
 
@@ -74,7 +74,7 @@ cannot quietly become a live test.
 Tests **skip** when a cassette is missing. Recording requires egress that CI does
 not have, so an absent cassette is a coverage gap, not a broken build.
 
-## NVD recordings are trimmed; the others are whole
+## NVD, VulnCheck and ThreatFox recordings are trimmed; the others are whole
 
 A 7-day NVD window is four pages of ~2000 verbose CVE records — the first
 successful recording produced a **40 MB** `nvd.yaml`. Committed cassettes are
@@ -86,7 +86,7 @@ permanent, and every re-recording adds that again, so `shrink_nvd_cassette` in
 is load-bearing, not tidiness: the adapter advances with
 `start_index += resultsPerPage` and stops at `start_index >= totalResults`, so
 those two fields alone decide the request sequence. Untouched, the recorded
-four-page walk (0 → 2000 → 4000 → 6000, real `totalResults` of 7241) replays
+four-page walk (0 → 2000 → 4000 → 6000, real `totalResults` of 6354) replays
 exactly — which matters because **no mock test covers NVD pagination**; this
 cassette is the only thing that does.
 
@@ -94,9 +94,14 @@ Entry selection keeps the first 25 of each page plus, if not already present,
 one entry carrying each CVSS block (v3.1, v3.0, v4.0, v2) and one carrying none,
 so trimming cannot quietly drop the branch that parses a less common score.
 
-ThreatFox (~1.3 MB) and CISA KEV (~1.9 MB) are committed **whole**: single
-responses of a size git handles fine, and an untrimmed cassette is the stronger
-artefact wherever it is affordable.
+VulnCheck is trimmed the same way (`shrink_vulncheck_cassette`: six pages kept
+with `_meta.page` / `total_pages` verbatim, per-entry evidence lists capped), and
+ThreatFox's CSV export is trimmed on raw text lines (`shrink_threatfox_cassette`),
+keeping every comment line and at least one row per `ioc_type` so the
+comma-then-space dialect that #100 turned on is still what gets parsed.
+CISA KEV (~1.9 MB) and the small feeds are committed **whole**: single responses
+of a size git handles fine, and an untrimmed cassette is the stronger artefact
+wherever it is affordable.
 
 ## Requests are matched with the clock excluded
 

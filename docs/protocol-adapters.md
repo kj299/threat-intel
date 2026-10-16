@@ -2,7 +2,7 @@
 
 Phase 3 of [issue #1](https://github.com/kj299/threat-intel/issues/1) adds secure
 credential storage and an adapter abstraction for non-REST intel transports, so
-the MCP server is "ready for diverse integrations" without changing how the four
+the MCP server is "ready for diverse integrations" without changing how the
 shipped REST feeds work.
 
 ## What ships, and what does not
@@ -85,8 +85,9 @@ class MyGraphQLFeed(ProtocolAdapter):
         # Pulls endpoint/token from env or Vault under adapter name "acme_graphql".
         self._creds = GraphQLCredentials.from_provider(credentials, "acme_graphql")
 
-    async def _collect(self, *, time_range, feed_types):
+    async def _collect(self, *, time_range, feed_types, partial_failure):
         # Open the operator's real endpoint and run the operator's real query.
+        # Append a note to `partial_failure` for anything the window could not cover.
         # headers = {self._creds.auth_header: f"{self._creds.auth_scheme} {self._creds.token}"}
         # transport = AIOHTTPTransport(url=self._creds.endpoint, headers=headers)
         # async with Client(transport=transport) as session:

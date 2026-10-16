@@ -812,3 +812,28 @@ async def test_adapter_tiers_follow_the_source_matrix():
     for source in [*server._FEED_SOURCES, *server._VULN_SOURCES]:
         assert source.name == source.adapter.name, f"registry renames {source.adapter.name}"
         assert source.tier == source.adapter.tier, f"registry restates {source.name}'s tier"
+
+
+def test_server_states_no_tier_as_a_literal():
+    """A failed OTX fetch wrote a Tier 2 ledger row while OTX is Tier 3: the
+    degrade paths passed a literal that F50's adapter-tier alignment did not
+    reach. Every tier server.py emits -- success dict, degrade call, listing --
+    must be read off an adapter (`_x.tier`), so there is exactly one place a
+    tier can be wrong, and the matrix test above checks that place."""
+    import ast
+
+    src = (_REPO_ROOT / "mcp" / "src" / "threat_intel_mcp" / "server.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    literal = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            for k, v in zip(node.keys, node.values):
+                if isinstance(k, ast.Constant) and k.value == "tier" and isinstance(v, ast.Constant):
+                    literal.append(f"line {v.lineno}: \"tier\": {v.value!r}")
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "_degraded_tool_result":
+            if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
+                literal.append(f"line {node.lineno}: _degraded_tool_result(..., {node.args[1].value!r}, ...)")
+            for kw in node.keywords:
+                if kw.arg == "tier" and isinstance(kw.value, ast.Constant):
+                    literal.append(f"line {node.lineno}: _degraded_tool_result(..., tier={kw.value.value!r})")
+    assert not literal, "server.py states a tier as a literal instead of <adapter>.tier:\n  " + "\n  ".join(literal)
