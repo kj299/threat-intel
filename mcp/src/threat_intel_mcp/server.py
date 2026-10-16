@@ -256,7 +256,7 @@ async def qfeeds_fetch_iocs(
         logger.warning("Q-Feeds credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Q-Feeds",
-            2,
+            _qfeeds.tier,
             feed_types or list(QFEEDS_FEED_TYPES.keys()),
             "Q-Feeds credential not configured. Set QFEEDS_API_KEY.",
         )
@@ -266,7 +266,7 @@ async def qfeeds_fetch_iocs(
         logger.warning("Q-Feeds upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Q-Feeds",
-            2,
+            _qfeeds.tier,
             feed_types or list(QFEEDS_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -287,7 +287,7 @@ async def qfeeds_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 2,
+            "tier": _qfeeds.tier,
             "source": "Q-Feeds",
             "status": status,
         },
@@ -327,7 +327,7 @@ async def abuseipdb_fetch_blocklist(
     except ValueError:
         # Caller error: surface verbatim, never degrade (adapters/base.py
         # taxonomy). The adapter ignores time_range/feed_types today so this
-        # cannot fire yet; it is here so the tool matches the other nine and a
+        # cannot fire yet; it is here so the tool matches the other single-feed tools and a
         # future validation in the adapter does not get swallowed into a
         # misleading `unverified`.
         raise
@@ -335,14 +335,14 @@ async def abuseipdb_fetch_blocklist(
         logger.warning("AbuseIPDB credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
             "AbuseIPDB",
-            3,
+            _abuseipdb.tier,
             ["blacklist"],
             "AbuseIPDB credential not configured. Set ABUSEIPDB_API_KEY.",
         )
     except Exception as exc:
         logger.warning("AbuseIPDB upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "AbuseIPDB", 3, ["blacklist"], f"upstream fetch failed: {type(exc).__name__}"
+            "AbuseIPDB", _abuseipdb.tier, ["blacklist"], f"upstream fetch failed: {type(exc).__name__}"
         )
 
     deduped = finalize_iocs(result.iocs)
@@ -357,7 +357,7 @@ async def abuseipdb_fetch_blocklist(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 3,
+            "tier": _abuseipdb.tier,
             "source": "AbuseIPDB",
             "status": "consulted",
         },
@@ -476,7 +476,7 @@ async def epss_enrich_cves(
         return {
             "enrichments": [],
             "source": "EPSS",
-            "tier": 1,
+            "tier": _epss.tier,
             "retrieved_at": "",
             "record_count": 0,
             "latency_ms": 0.0,
@@ -519,7 +519,7 @@ async def osv_enrich_cves(cves: list[str]) -> dict[str, Any]:
         return {
             "enrichments": [],
             "source": "OSV",
-            "tier": 1,
+            "tier": _osv.tier,
             "retrieved_at": "",
             "record_count": 0,
             "latency_ms": 0.0,
@@ -564,7 +564,7 @@ async def otx_fetch_iocs(
         logger.warning("OTX credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
             "AlienVault OTX",
-            2,
+            _otx.tier,
             ["subscribed"],
             "OTX credentials not configured. Set OTX_API_KEY environment variable.",
         )
@@ -574,7 +574,7 @@ async def otx_fetch_iocs(
         logger.warning("OTX upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "AlienVault OTX",
-            2,
+            _otx.tier,
             ["subscribed"],
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -641,7 +641,7 @@ async def shodan_fetch_iocs(
         logger.warning("Shodan credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Shodan",
-            3,
+            _shodan.tier,
             feed_types or list(SHODAN_FEED_TYPES.keys()),
             "Shodan credential not configured. Set SHODAN_API_KEY.",
         )
@@ -651,7 +651,7 @@ async def shodan_fetch_iocs(
         logger.warning("Shodan upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Shodan",
-            3,
+            _shodan.tier,
             feed_types or list(SHODAN_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -672,7 +672,7 @@ async def shodan_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 3,
+            "tier": _shodan.tier,
             "source": "Shodan",
             "status": status,
         },
@@ -717,7 +717,7 @@ async def greynoise_fetch_iocs(
         logger.warning("GreyNoise credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
             "GreyNoise",
-            3,
+            _greynoise.tier,
             feed_types or list(GREYNOISE_FEED_TYPES.keys()),
             "GreyNoise credential not configured. Set GREYNOISE_API_KEY.",
         )
@@ -727,7 +727,7 @@ async def greynoise_fetch_iocs(
         logger.warning("GreyNoise upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "GreyNoise",
-            3,
+            _greynoise.tier,
             feed_types or list(GREYNOISE_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -748,7 +748,7 @@ async def greynoise_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 3,
+            "tier": _greynoise.tier,
             "source": "GreyNoise",
             "status": status,
         },
@@ -776,7 +776,7 @@ async def anyrun_fetch_iocs(
     except (CredentialError, KeyError) as exc:
         logger.warning("ANY.RUN credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "ANY.RUN", 9, feed_types or list(ANYRUN_FEED_TYPES.keys()),
+            "ANY.RUN", _anyrun.tier, feed_types or list(ANYRUN_FEED_TYPES.keys()),
             "ANY.RUN credential not configured. Set ANYRUN_API_KEY.",
         )
     except ValueError:
@@ -784,7 +784,7 @@ async def anyrun_fetch_iocs(
     except Exception as exc:
         logger.warning("ANY.RUN upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "ANY.RUN", 9, feed_types or list(ANYRUN_FEED_TYPES.keys()),
+            "ANY.RUN", _anyrun.tier, feed_types or list(ANYRUN_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
 
@@ -801,7 +801,7 @@ async def anyrun_fetch_iocs(
         "latency_ms": result.latency_ms,
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
-        "coverage_ledger_entry": {"tier": 9, "source": "ANY.RUN", "status": status},
+        "coverage_ledger_entry": {"tier": _anyrun.tier, "source": "ANY.RUN", "status": status},
     }
 
 
@@ -876,7 +876,7 @@ async def censys_fetch_iocs(
     except (CredentialError, KeyError) as exc:
         logger.warning("Censys credential error: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "Censys", 3, feed_types or list(CENSYS_FEED_TYPES.keys()),
+            "Censys", _censys.tier, feed_types or list(CENSYS_FEED_TYPES.keys()),
             "Censys credentials not configured. Set CENSYS_API_ID and CENSYS_API_SECRET.",
         )
     except ValueError:
@@ -884,7 +884,7 @@ async def censys_fetch_iocs(
     except Exception as exc:
         logger.warning("Censys upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
-            "Censys", 3, feed_types or list(CENSYS_FEED_TYPES.keys()),
+            "Censys", _censys.tier, feed_types or list(CENSYS_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
 
@@ -901,7 +901,7 @@ async def censys_fetch_iocs(
         "latency_ms": result.latency_ms,
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
-        "coverage_ledger_entry": {"tier": 3, "source": "Censys", "status": status},
+        "coverage_ledger_entry": {"tier": _censys.tier, "source": "Censys", "status": status},
     }
 
 
@@ -939,7 +939,7 @@ async def threatfox_fetch_iocs(
         logger.warning("ThreatFox upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "ThreatFox",
-            9,
+            _threatfox.tier,
             feed_types or list(THREATFOX_FEED_TYPES.keys()),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -958,7 +958,7 @@ async def threatfox_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 9,
+            "tier": _threatfox.tier,
             "source": "ThreatFox",
             "status": status,
         },
@@ -1004,7 +1004,7 @@ async def openphish_fetch_iocs(
         logger.warning("OpenPhish upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "OpenPhish",
-            6,
+            _openphish.tier,
             feed_types or list(OPENPHISH_FEED_TYPES),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -1023,7 +1023,7 @@ async def openphish_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 6,
+            "tier": _openphish.tier,
             "source": "OpenPhish",
             "status": status,
         },
@@ -1060,7 +1060,7 @@ async def urlhaus_fetch_iocs(
         logger.warning("URLhaus upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "URLhaus",
-            9,
+            _urlhaus.tier,
             feed_types or list(URLHAUS_FEED_TYPES),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -1079,7 +1079,7 @@ async def urlhaus_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 9,
+            "tier": _urlhaus.tier,
             "source": "URLhaus",
             "status": status,
         },
@@ -1117,7 +1117,7 @@ async def feodo_fetch_iocs(
         logger.warning("Feodo Tracker upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Feodo Tracker",
-            9,
+            _feodo.tier,
             feed_types or list(FEODO_FEED_TYPES),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -1136,7 +1136,7 @@ async def feodo_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 9,
+            "tier": _feodo.tier,
             "source": "Feodo Tracker",
             "status": status,
         },
@@ -1180,7 +1180,7 @@ async def pulsedive_fetch_iocs(
         logger.warning("Pulsedive upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
             "Pulsedive",
-            3,
+            _pulsedive.tier,
             feed_types or list(PULSEDIVE_FEED_TYPES),
             f"upstream fetch failed: {type(exc).__name__}",
         )
@@ -1200,7 +1200,7 @@ async def pulsedive_fetch_iocs(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 3,
+            "tier": _pulsedive.tier,
             "source": "Pulsedive",
             "status": status,
         },
@@ -1314,7 +1314,7 @@ async def cisa_kev_fetch_cves(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 1,
+            "tier": _cisa_kev.tier,
             "source": "CISA KEV",
             "status": status,
         },
@@ -1391,7 +1391,7 @@ async def vulncheck_fetch_cves(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 1,
+            "tier": _vulncheck.tier,
             "source": "VulnCheck KEV",
             "status": status,
         },
@@ -1464,7 +1464,7 @@ async def nvd_fetch_cves(
         "feed_types_fetched": result.feed_types_fetched,
         "partial_failure": result.partial_failure,
         "coverage_ledger_entry": {
-            "tier": 1,
+            "tier": _nvd.tier,
             "source": "NVD",
             "status": status,
         },
@@ -1618,7 +1618,7 @@ async def list_available_feeds() -> dict[str, Any]:
         "feeds": [
             {
                 "name": "Q-Feeds",
-                "tier": 2,
+                "tier": _qfeeds.tier,
                 "domain": "qfeeds.com",
                 "description": "Real-time IP/domain CTI feeds, MITRE ATT&CK mapped, 2500+ sources",
                 "feed_types": list(QFEEDS_FEED_TYPES.keys()),
@@ -1627,7 +1627,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "AbuseIPDB",
-                "tier": 3,
+                "tier": _abuseipdb.tier,
                 "domain": "abuseipdb.com",
                 "description": "IP blacklist with crowd-sourced abuse reports; up to 10,000 IPs per request",
                 "feed_types": ["blacklist"],
@@ -1645,7 +1645,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "Shodan",
-                "tier": 3,
+                "tier": _shodan.tier,
                 "domain": "shodan.io",
                 "description": "Malware Hunter C2/infrastructure detections via documented search API (category:malware)",
                 "feed_types": list(SHODAN_FEED_TYPES.keys()),
@@ -1654,7 +1654,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "GreyNoise",
-                "tier": 3,
+                "tier": _greynoise.tier,
                 "domain": "greynoise.io",
                 "description": "GNQL classification:malicious — confirmed-malicious internet scanners/attackers",
                 "feed_types": list(GREYNOISE_FEED_TYPES.keys()),
@@ -1663,7 +1663,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "ANY.RUN",
-                "tier": 9,
+                "tier": _anyrun.tier,
                 "domain": "any.run",
                 "description": "TAXII 2.1 STIX feed of sandbox-derived malicious IPs, domains, and URLs",
                 "feed_types": list(ANYRUN_FEED_TYPES.keys()),
@@ -1681,7 +1681,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "Censys",
-                "tier": 3,
+                "tier": _censys.tier,
                 "domain": "censys.io",
                 "description": "Search v2 hosts labelled malware/C2 (attack-surface observations, action=alert)",
                 "feed_types": list(CENSYS_FEED_TYPES.keys()),
@@ -1690,7 +1690,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "ThreatFox",
-                "tier": 9,
+                "tier": _threatfox.tier,
                 "domain": "threatfox.abuse.ch",
                 "description": "Free public feed of recent malicious IOCs, network types (no credential required)",
                 "feed_types": list(THREATFOX_FEED_TYPES.keys()),
@@ -1699,7 +1699,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "OpenPhish",
-                "tier": 6,
+                "tier": _openphish.tier,
                 "domain": "openphish.com",
                 "description": "Free Community feed of the 300 most recent confirmed phishing URLs, refreshed every 12h (no credential required; non-commercial use only)",
                 "feed_types": list(OPENPHISH_FEED_TYPES),
@@ -1708,7 +1708,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "URLhaus",
-                "tier": 9,
+                "tier": _urlhaus.tier,
                 "domain": "urlhaus.abuse.ch",
                 "description": "Recently submitted malware-distribution URLs (abuse.ch; requires the shared ABUSECH_AUTH_KEY)",
                 "feed_types": list(URLHAUS_FEED_TYPES),
@@ -1717,7 +1717,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "Feodo Tracker",
-                "tier": 9,
+                "tier": _feodo.tier,
                 "domain": "feodotracker.abuse.ch",
                 "description": "Confirmed botnet C2 IPs for named malware families — Emotet, QakBot, Dridex (abuse.ch; key optional)",
                 "feed_types": list(FEODO_FEED_TYPES),
@@ -1726,7 +1726,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "Pulsedive",
-                "tier": 3,
+                "tier": _pulsedive.tier,
                 "domain": "pulsedive.com",
                 "description": "High-risk community indicators via Explore — one page per fetch, because the free tier allows only 50 requests/day",
                 "feed_types": list(PULSEDIVE_FEED_TYPES),
@@ -1750,7 +1750,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "EPSS",
-                "tier": 1,
+                "tier": _epss.tier,
                 "domain": "first.org",
                 "description": "Per-CVE exploitation probability (0-1) and percentile from FIRST.org, batched 100 per request (no credential required)",
                 "indicator_types": ["cve"],
@@ -1759,7 +1759,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "OSV",
-                "tier": 1,
+                "tier": _osv.tier,
                 "domain": "osv.dev",
                 "description": "Per-CVE affected open-source packages, fixed versions and upstream advisories from Google/OpenSSF (no credential required)",
                 "indicator_types": ["cve"],
@@ -1770,7 +1770,7 @@ async def list_available_feeds() -> dict[str, Any]:
         "cve_sources": [
             {
                 "name": "CISA KEV",
-                "tier": 1,
+                "tier": _cisa_kev.tier,
                 "domain": "cisa.gov",
                 "description": "Known Exploited Vulnerabilities catalog — CVEs with confirmed in-the-wild exploitation (no credential required)",
                 "feed_types": list(CISA_KEV_FEED_TYPES.keys()),
@@ -1779,7 +1779,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "NVD",
-                "tier": 1,
+                "tier": _nvd.tier,
                 "domain": "nvd.nist.gov",
                 "description": "NIST National Vulnerability Database CVE 2.0 API — recently-modified CVEs with CVSS, CWEs, references (credential optional)",
                 "feed_types": list(NVD_FEED_TYPES.keys()),
@@ -1788,7 +1788,7 @@ async def list_available_feeds() -> dict[str, Any]:
             },
             {
                 "name": "VulnCheck KEV",
-                "tier": 1,
+                "tier": _vulncheck.tier,
                 "domain": "vulncheck.com",
                 "description": "VulnCheck Known Exploited Vulnerabilities catalog — broader than CISA KEV, carries the URLs reporting exploitation (credential required)",
                 "feed_types": list(VULNCHECK_FEED_TYPES.keys()),

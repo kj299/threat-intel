@@ -245,6 +245,7 @@ user_inputs:
       default: technical_ioc_package
       options:
         - technical_ioc_package
+        - technical_report
         - executive_brief
         - ciso_briefing
         - board_presentation
@@ -290,7 +291,7 @@ user_inputs:
 
         R3 applies with full force: evidence_basis distinguishes a CWE-709
         catalog entry from a publicly reported composition from an inferred
-        hypothesis, and an inferred chain must carry confidence: low.
+        hypothesis, and an inferred chain must carry confidence: Low.
 
     - name: executive_overview
       type: single_select
@@ -474,7 +475,7 @@ analysis_modules:
         CWE-1003: nvd_cve_mapping
         CWE_top_25: prioritize_primary_links_to_harden_first
       link_fields: [cwe_id, role, mitre_id, tactic, evidence, detection_opportunity, data_source, source]
-      chain_fields: [chain_id, name, chain_type, cwe_view, enabling_conditions, ai_assist_factor, time_to_exploit, terminal_impact, score, priority, confidence, source]
+      chain_fields: [chain_id, name, chain_type, cwe_view, evidence_basis, contributing_cves, max_component_cvss, chain_severity, severity_uplift_rationale, stack_relevance, enabling_conditions, ai_assist_factor, time_to_exploit, terminal_impact, score, priority, confidence, source]
       break_point_required: true              # every chain ships >=1 defensive break-point
       break_point_fields: [at_link, control, control_type, rationale, mapped_mitigation, detection_telemetry]
       break_point_selection:                  # rank by downstream-tail-invalidated x feasibility

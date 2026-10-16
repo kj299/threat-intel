@@ -281,8 +281,8 @@ class NVDAdapter:
         """Fetch CVEs modified within ``time_range`` (capped at NVD's 120-day max).
 
         Pagination follows NVD's ``totalResults`` / ``resultsPerPage`` contract up
-        to ``MAX_PAGES`` pages; the first page is cached per window to keep
-        repeated report runs cheap.
+        to ``MAX_PAGES`` pages; the whole windowed result (all pages) is cached per
+        window to keep repeated report runs cheap.
         """
         requested = feed_types or DEFAULT_FEED_TYPES
         unknown = [t for t in requested if t not in FEED_TYPES]

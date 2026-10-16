@@ -230,5 +230,5 @@ Reuse the threat-scoring engine ([scoring.md](scoring.md)) at the chain level: t
 
 - In the report body, present chains under Pattern Analysis / Exploit Chains (extraction §D), each with its `break_points`, `chain_type`, and `terminal_impact`.
 - Every chain carries a `source` and a `cwe_view`; links the evidence doesn't support are omitted or marked `confidence: Low` (R3).
-- For each link's `detection_opportunity`, emit a matching hunting query per [siem-queries.md](siem-queries.md) (discovery-first, schema-driven).
+- For each link's `detection_opportunity`, emit a matching hunting query per [siem-queries.md](siem-queries.md) (starter-first, schema-driven, with a discovery query alongside).
 - The defensive recommendation (break-point control) is the deliverable. A chain reported without at least one `break_point` is incomplete.

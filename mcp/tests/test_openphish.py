@@ -8,9 +8,9 @@ shape this repository read from OpenPhish's own published mirror
 text, one absolute URL per line, no header and no comments. All 300 real lines
 parsed and all 300 survived ``finalize_iocs``.
 
-That still is not the same as having called ``openphish.com/feed.txt``, so the
-tests that carry the most weight are the ones that hold whatever the canonical
-endpoint turns out to serve: an unreadable body raises, an empty one does not,
+The recorded ``openphish.yaml`` has since confirmed the canonical endpoint
+serves the same bytes (via a redirect to that mirror); these tests cover what a
+cassette cannot replay: an unreadable body raises, an empty one does not,
 a caller error raises, and the licence-driven TLP does not drift.
 """
 

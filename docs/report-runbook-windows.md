@@ -265,11 +265,12 @@ this directory — remove it with `claude mcp remove threat-intel-mcp` when done
 Inside the interactive `claude` session — **not at the PowerShell prompt**:
 
 ```
-/cyber-threat-intel
+/threat-intel:cyber-threat-intel
 ```
 
-Or `/threat-intel:cyber-threat-intel` if another command has claimed the short
-name. Typing this at the PowerShell prompt gives
+That is the name a `claude --plugin-dir .` load exposes (plugin skills are
+namespaced by plugin name); the bare `/cyber-threat-intel` only exists after a
+personal or project install. Typing either at the PowerShell prompt gives
 `The term '/cyber-threat-intel' is not recognized`, and `claude
 /cyber-threat-intel` gives `Unknown command` — both were seen in the #76 run.
 
@@ -277,7 +278,7 @@ Defaults are the `enterprise_soc` persona over a `7d` window.
 
 ---
 
-## Step 7 — Review before committing
+## Step 7 — Review before sharing
 
 The honesty markers are the point of the report, so check them rather than
 skimming:
@@ -293,26 +294,24 @@ skimming:
 
 ---
 
-## Step 8 — Commit
+## Step 8 — Keep it out of `reports/`
 
-Only after a report file actually exists. In the #76 run this step ran against
-a report that had never been generated, which pushed an empty branch:
+`reports/` is a frozen eval corpus: `validate.yml` pins it at exactly 11 files
+and fails any PR that changes the count. Save the report under `report-output\`
+(git-ignored) and share it from there; do not commit it. Confirm a file actually
+exists before calling the run done — in the #76 run this step ran against a
+report that had never been generated:
 
 ```powershell
 $today = Get-Date -Format 'yyyy-MM-dd'
-$report = "reports\$today-threat-intel.md"
+$report = "report-output\$today-threat-intel.md"
 
 if (-not (Test-Path $report)) {
-  Write-Warning "No report at $report - nothing to commit. Go back to Step 6."
+  Write-Warning "No report at $report - nothing was generated. Go back to Step 6."
 } else {
-  git checkout -b "feat/report-$today" origin/main
-  git add $report
-  git commit -m "Add scheduled threat-intel report: $today (enterprise_soc, 7d)"
-  git push -u origin "feat/report-$today"
+  python evals\run.py --files $report   # the same honesty invariants CI applies
 }
 ```
-
-Then open a PR for the pushed branch.
 
 ---
 
@@ -341,5 +340,5 @@ Every row here was observed on a real Windows 11 host during #76.
 | Here-string never closes | Closing `'@` is indented | It must sit at column 0 |
 | `Invoke-WebRequest`: "underlying connection was closed" | TLS 1.0 default | Set `SecurityProtocol` to `Tls12` (Step 0) |
 | Red `NativeCommandError` around ordinary output | PS 5.1 renders native stderr as an error | Check `$LASTEXITCODE`; `0` is success |
-| `pathspec 'reports\...' did not match any files` | No report was generated | Go back to Step 6; do not push the branch |
+| `No report at report-output\...` | No report was generated | Go back to Step 6 |
 | Feed returns `OK` with `0 records` | Genuinely empty feed, or a format break | Since #100 a ThreatFox format break raises instead of reporting zero, so `0` here means genuinely empty |

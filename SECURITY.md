@@ -1,8 +1,8 @@
 # Security Policy
 
 This repository is a packaged [Anthropic Agent Skill](https://code.claude.com/docs/en/skills)
-plus `threat-intel-mcp`, an MCP server that holds API credentials for up to ten
-commercial threat-intelligence feeds. The credential handling is the part most
+plus `threat-intel-mcp`, an MCP server that holds API credentials for the credentialed
+threat-intelligence feeds it queries. The credential handling is the part most
 worth reporting a bug in.
 
 It is a small project maintained by one person. The commitments below are

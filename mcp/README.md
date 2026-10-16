@@ -116,6 +116,8 @@ cp .env.example .env
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 #   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
 #   VULNCHECK_API_KEY   — https://vulncheck.com (free Community account; REQUIRED for VulnCheck KEV)
+#   ABUSECH_AUTH_KEY    — https://auth.abuse.ch/ (free; REQUIRED for URLhaus, optional for ThreatFox and Feodo Tracker)
+#   PULSEDIVE_API_KEY   — https://pulsedive.com/account (free tier: 50 requests/day)
 
 # Load it into your shell. `set -a` exports everything the file defines.
 # Do NOT use `export $(grep -v '^#' .env | xargs)`: it splits on whitespace,

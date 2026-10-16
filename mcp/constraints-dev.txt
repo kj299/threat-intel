@@ -1,6 +1,6 @@
 # Pinned dependency set for reproducible CI and dev installs.
 #
-# WHY: pyproject.toml declares open ranges (`mcp>=1.0`, `httpx>=0.27`, ...) —
+# WHY: pyproject.toml declares open ranges (`mcp>=2.0`, `httpx>=0.27`, ...) —
 # correct for a library's consumer contract, but it means CI resolves fresh
 # versions on every run. That has broken this repo before: an unpinned ruff
 # 0.16.0 expanded its default rule set and failed the build mid-PR, and

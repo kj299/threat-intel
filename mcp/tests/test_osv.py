@@ -4,10 +4,10 @@ Uses pytest-httpx — no live network in CI.
 
 The load-bearing uncertainty in this adapter is whether ``/v1/vulns/{id}``
 accepts a CVE id at all: OSV's FAQ says yes, an issue in the same repository
-says "Bug not found". ``api.osv.dev`` is unreachable from the development
-sandbox, so this file cannot settle it — but it does assert the behaviour that
-makes a wrong guess fail loudly instead of quietly, which is the lesson #203
-cost.
+says "Bug not found". The recorded ``osv.yaml`` settled it (yes, returning the
+CVE-derived record whose GHSA alias carries the packages); this file asserts
+the behaviour that makes a wrong guess fail loudly instead of quietly, which is
+the lesson #203 cost.
 """
 
 from __future__ import annotations

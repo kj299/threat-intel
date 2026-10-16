@@ -2,7 +2,7 @@
 
 Phase 3 of [issue #1](https://github.com/kj299/threat-intel/issues/1) adds secure
 credential storage and an adapter abstraction for non-REST intel transports, so
-the MCP server is "ready for diverse integrations" without changing how the four
+the MCP server is "ready for diverse integrations" without changing how the
 shipped REST feeds work.
 
 ## What ships, and what does not

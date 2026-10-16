@@ -60,7 +60,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Four IOC feeds, two CVE enrichments, and every enrichment now actually called.** The server went from 9 IOC feeds to 13 and from one enrichment (which nothing invoked) to three (all invoked by the report path).
 
-  **Keyless first, deliberately.** A source needing no key is `consulted` on every run forever, where a credentialed one degrades to `unverified` the moment a subscription lapses. Before this there was exactly **one** keyless IOC feed; there are now two, plus two keyless CVE enrichments.
+  **Keyless first, deliberately.** A source needing no key is `consulted` on every run forever, where a credentialed one degrades to `unverified` the moment a subscription lapses. Before this there was exactly **one** keyless IOC feed; there are now three, plus two keyless CVE enrichments.
 
   | Source | Kind | Key |
   | --- | --- | --- |
@@ -148,7 +148,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   `scheduled-report.yml` is now **two jobs**. `prefetch` holds every feed credential, runs a fixed script (`mcp/scripts/prefetch_feeds.py`, no model in the loop), and uploads a `feed-data.json` artifact. `generate` runs `needs: prefetch`, downloads that file, and holds no feed credential at all.
 
-  **A job, not a step**, and that is the whole point. The runbook originally prescribed a separate *step*, but steps share a runner: the credential would still be on the agent's machine, in a prior process and possibly on disk. Jobs get separate machines, so the agent's runner never holds a feed credential in any form at any moment. The `prefetch` job is also narrowed to `contents: read` — the job that can write is the one with no credentials, and vice versa.
+  **A job, not a step**, and that is the whole point. The runbook originally prescribed a separate *step*, but steps share a runner: the credential would still be on the agent's machine, in a prior process and possibly on disk. Jobs get separate machines, so the agent's runner never holds a feed credential in any form at any moment. The `prefetch` job is also narrowed to `contents: read` (and, since #232, so is the agent's job).
 
   The script refuses to write a payload containing any credential it holds, rather than trusting that responses never echo a key. It passes `sources_consulted`, `sources_degraded` with reasons, and the `coverage_ledger` straight through, because a feed that failed must reach the report as `unverified` with its reason — flattening it into silence is the "confident report of incomplete data" the honesty rules exist to prevent.
 
@@ -301,7 +301,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **A "Setting up credentials" section in `README.md`**, for anyone forking this and running it themselves. Everything a forker needs already existed — `mcp/.env.example` has every key and signup URL, `mcp/README.md` covers local and Vault setup, `docs/report-runbook.md` covers the model credential and the isolation rule — but it was spread across three files with no entry point, and the rule CI actually enforces was findable only in the runbook.
 
-  The section orients rather than restates, per #166: nothing needs a key to start and three feeds are keyless; there are **two kinds of credential** (feed keys vs the model credential) that go in different places; a feed key must never enter `scheduled-report.yml`, because that workflow runs an agent reading untrusted content with write access — CI fails the PR; fork secrets are not inherited from upstream. It links onward for the detail, and names the three gotchas worth knowing before debugging one (ANY.RUN's `API-Key ` prefix, Censys/Intel 471 being two secrets each that fail resolution when half-set, NVD's key being genuinely optional). Each claim was checked against the adapters, not carried over from an issue.
+  The section orients rather than restates, per #166: nothing needs a key to start and three feeds are keyless; there are **two kinds of credential** (feed keys vs the model credential) that go in different places; a feed key must never enter `scheduled-report.yml`, because that workflow runs an agent reading untrusted content whose output is published — CI fails the PR; fork secrets are not inherited from upstream. It links onward for the detail, and names the three gotchas worth knowing before debugging one (ANY.RUN's `API-Key ` prefix, Censys/Intel 471 being two secrets each that fail resolution when half-set, NVD's key being genuinely optional). Each claim was checked against the adapters, not carried over from an issue.
 
 ### Fixed
 

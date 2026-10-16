@@ -103,9 +103,12 @@ _APPENDIX_HEADING = re.compile(
     r"^#{1,4}\s+Appendix\s+A\b|^#{1,4}\s+.*Source\s+Coverage\s+Ledger", re.MULTILINE | re.IGNORECASE
 )
 
-# "Total preferred-source targets consulted: 2 / ≈25" — the leading count.
+# "Total preferred-source targets consulted: 2 / ≈25" — the leading count. The
+# ledger template writes it as `<N>`, so a backtick before the digits is allowed;
+# without that, a report following the template verbatim parsed as "no count"
+# and the badge check was silently skipped.
 _TOTAL_CONSULTED = re.compile(
-    r"Total\s+preferred[- ]source[s]?[^:]*:\*{0,2}\s*~?≈?\s*(\d+)", re.IGNORECASE
+    r"Total\s+preferred[- ]source[s]?[^:]*:\*{0,2}\s*`?~?≈?\s*(\d+)", re.IGNORECASE
 )
 
 # A no-fabrication claim, however phrased. Substance, not label.

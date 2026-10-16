@@ -269,7 +269,7 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 |---|---|---|
 | Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
 | `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — every feed credential |
-| `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run |
+| `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run (an account-side limit such as a spent quota xfails instead) |
 | `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 

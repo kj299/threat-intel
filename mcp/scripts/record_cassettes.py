@@ -78,10 +78,9 @@ FEEDS = {
     "anyrun": (lambda c: AnyRunAdapter(c), True),
     "intel471": (lambda c: Intel471Adapter(c), True),
     "censys": (lambda c: CensysAdapter(c), True),
-    # Keyed, and the reason this recorder matters most right now: the VulnCheck
-    # adapter's field mapping was written from published SDK signatures, not
-    # from a response anyone has seen. This recording is what turns it from
-    # belief into verified -- see the warning in adapters/vulncheck.py.
+    # Keyed. The VulnCheck field mapping was written from SDK signatures and
+    # verified against the 2026-09-07 recording (adapters/vulncheck.py); a
+    # re-record is what re-verifies it after an upstream change.
     "vulncheck": (lambda c: VulnCheckAdapter(c), True),
     # abuse.ch: one Auth-Key. URLhaus requires it, so it is keyed; Feodo
     # answers without one, so it records like any keyless feed.
@@ -201,9 +200,9 @@ def shrink_nvd_cassette(path: pathlib.Path) -> tuple[int, int]:
     return before, path.stat().st_size
 
 
-# Feeds whose recordings are trimmed. ThreatFox (~1 MB) and CISA KEV (~1.6 MB)
-# are committed whole: they are single responses of a size git handles fine, and
-# an untrimmed cassette is the stronger artefact where it is affordable.
+# Feeds whose recordings are trimmed. CISA KEV (~1.9 MB) is committed whole: a
+# single response of a size git handles fine, and an untrimmed cassette is the
+# stronger artefact where it is affordable.
 # A few VulnCheck entries carry enormous evidence lists -- the largest observed
 # is 215 KB against a 1-6 KB median, and six of those alone took a trimmed
 # recording to 3.35 MB against the 4 MB ceiling. Capping the lists keeps every
@@ -375,9 +374,9 @@ _RECORD_ACTIONS = {
     "epss": lambda adapter: adapter.enrich(
         ["CVE-2021-44228", "CVE-2022-22965"]
     ),
-    # The recording that settles whether /v1/vulns/ accepts a CVE id at all --
-    # see the warning in adapters/osv.py. If this records two 404s, the
-    # endpoint is wrong and the adapter needs re-targeting.
+    # Settled 2026-09-12 (adapters/osv.py): /v1/vulns/ accepts a CVE id and
+    # returns the CVE-derived record, whose GHSA alias carries the packages.
+    # If a re-record returns two 404s, the endpoint has moved.
     "osv": lambda adapter: adapter.enrich(
         ["CVE-2021-44228", "CVE-2022-22965"]
     ),

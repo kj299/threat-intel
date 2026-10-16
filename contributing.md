@@ -82,12 +82,14 @@ grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CHANGELOG
 - If you modify source coverage rules (R1-R6), update all references in `SKILL.md`, `references/`, `original-prompt.md`, `spec.yaml`, and both `standalone/` distributions
 
 **If you bumped the version:**
-The version string lives in four places. CI fails if they disagree. Bump all four together (source of truth: `skills/cyber-threat-intel/spec.yaml` -> `skill.version`):
+The version string lives in six places. CI fails if they disagree. Bump all six together (source of truth: `skills/cyber-threat-intel/spec.yaml` -> `skill.version`):
 
 1. `skills/cyber-threat-intel/spec.yaml` -> `skill.version`
 2. `skills/cyber-threat-intel/schemas/output.schema.json` -> `version`
 3. `changelog.md` -> add a new `## [X.Y.Z] - YYYY-MM-DD` section above existing entries
 4. `skills/cyber-threat-intel/examples/outputs.json` -> every example's `metadata.skill_version`
+5. `.claude-plugin/plugin.json` -> `version`
+6. `docs/index.md` -> the `**Version:**` stamp
 
 **If you added or removed a persona:**
 The set of personas in `skills/cyber-threat-intel/spec.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `skills/cyber-threat-intel/examples/outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift. Update `skills/cyber-threat-intel/references/personas.md` to match.
@@ -224,7 +226,7 @@ Do not include in contributions:
 - Internal URLs or PII
 - Active exploit code without clear educational context
 
-For security vulnerabilities, open a private issue or contact the maintainer directly.
+For security vulnerabilities, use GitHub's private vulnerability reporting (see [Security](#security) below).
 
 ---
 

@@ -589,7 +589,7 @@ Include this table in every report so the reader can see what was and wasn't con
 | 9    | 3            |           |                       | yes/no |
 
 **Total preferred-source targets consulted:** `<N>` / ≈25
-**Coverage badge (honest self-report):** `FULL` (≈25+) | `PARTIAL` (13–24) | `MINIMAL` (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
+**Coverage badge (honest self-report):** `<ONE OF: FULL | PARTIAL | MINIMAL>` — write the single word that matches the count above: FULL (≈25+), PARTIAL (13–24), MINIMAL (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
 **Fabrication check:** `PASS` — write that literal word once you have confirmed no IOC, CVE, hash, or actor attribution was invented. Any `status: unverified` items are listed below with reason. If little was retrievable for the requested scope and time range, state that plainly here.
 
 ---

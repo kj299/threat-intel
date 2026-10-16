@@ -18,7 +18,6 @@ import subprocess
 import types
 
 import pytest
-
 import run as harness
 from scenarios import INJECTION_PAYLOAD
 

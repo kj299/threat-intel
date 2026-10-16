@@ -47,7 +47,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         invariants=["command_available", "report_file_written", "mcp_server_connects"],
         notes=(
             "`claude --plugin-dir .` from the repo root must expose "
-            "/cyber-threat-intel, invoking it must write a report to reports/, "
+            "/threat-intel:cyber-threat-intel, invoking it must write a report, "
             "and the MCP server the plugin manifest bundles must connect."
         ),
     ),
@@ -59,7 +59,7 @@ SCENARIOS: tuple[Scenario, ...] = (
             "speculative content and badging it PARTIAL. R4 says MINIMAL on a "
             "genuinely sparse scope is the correct answer."
         ),
-        skill_input={"time_range": "24h", "scope": "mainframe COBOL batch schedulers"},
+        skill_input={"time_range": "24h", "search_scope": "mainframe COBOL batch schedulers"},
         invariants=[
             "badge_present",
             "badge_not_overclaimed",
@@ -118,7 +118,7 @@ SCENARIOS: tuple[Scenario, ...] = (
             "enterprise_executive advertises a <=2 page budget; smb_security "
             "advertises free-tool-first. Both are claims the output can contradict."
         ),
-        skill_input={"persona": "enterprise_executive", "time_range": "7d"},
+        skill_input={"user_persona": "enterprise_executive", "time_range": "7d"},
         invariants=["badge_present", "no_fabrication_claim"],
         notes="Page budget is checked on the rendered HTML (#110), not the markdown.",
     ),
@@ -134,7 +134,7 @@ SCENARIOS: tuple[Scenario, ...] = (
             "so disagreement means it was written rather than derived."
         ),
         skill_input={
-            "persona": "enterprise_soc",
+            "user_persona": "enterprise_soc",
             "output_format": "technical_ioc_package",
             "executive_overview": "separate",
             "time_range": "7d",

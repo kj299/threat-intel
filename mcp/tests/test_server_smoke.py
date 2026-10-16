@@ -569,7 +569,7 @@ def test_runtime_text_names_every_registered_source():
 
 
 def test_every_registered_tool_is_exposed_by_the_server():
-    """Guards the migration itself: 16 @mcp.tool() decorators must survive.
+    """Guards the migration itself: every @mcp.tool() decorator must survive.
 
     mcp 2.0 kept a compatible .tool() decorator, so the decorators were left
     untouched. This asserts that compatibility rather than assuming it.

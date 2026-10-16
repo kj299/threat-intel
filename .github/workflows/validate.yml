@@ -170,17 +170,28 @@ jobs:
               data = json.load(f)
           examples = data.get('examples', data)
           items = list(examples.items()) if isinstance(examples, dict) else list(enumerate(examples))
+          # Each example is {persona, name, description, input, output}; the schema
+          # describes {skill_input, skill_output}. Validating the example object
+          # itself against the root -- which requires nothing -- checked nothing
+          # for every release before this, and let placeholder CVE ids through.
           fails = []
+          fmt = jsonschema.FormatChecker()
           for k, v in items:
-              try:
-                  jsonschema.validate(instance=v, schema=schema)
-              except jsonschema.ValidationError as e:
+              if not isinstance(v, dict) or 'input' not in v or 'output' not in v:
+                  fails.append(f"  [{k}] has no input/output pair")
+                  continue
+              instance = {'skill_input': v['input'], 'skill_output': v['output']}
+              errs = sorted(jsonschema.Draft7Validator(schema, format_checker=fmt).iter_errors(instance), key=lambda e: list(e.absolute_path))
+              for e in errs:
                   fails.append(f"  [{k}] path={list(e.absolute_path)} :: {e.message[:240]}")
           if fails:
               print("FAIL: examples do not validate against schema:")
               print(*fails, sep="\n")
               sys.exit(1)
-          print(f"OK: all {len(items)} examples validate against schema")
+          if not items:
+              print("FAIL: no examples found -- the check would pass vacuously")
+              sys.exit(1)
+          print(f"OK: all {len(items)} examples validate as {{skill_input, skill_output}} against the schema")
           PY
 
       - name: Cross-file version consistency

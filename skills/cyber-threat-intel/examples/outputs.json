@@ -47,12 +47,12 @@
           "key_points": [
             "3 active ransomware campaigns targeting financial sector in past 7 days",
             "LockBit 3.0 introduced new evasion technique bypassing EDR solutions",
-            "BlackCat affiliates exploiting CVE-2024-XXXX in Citrix ADC",
+            "LockBit 3.0 affiliates exploiting CVE-2023-4966 (Citrix Bleed) in NetScaler ADC/Gateway",
             "Average ransom demand: $4.2M (up 35% from Q4)",
             "Digital asset custodians experiencing 2.3x higher targeting rate"
           ],
           "critical_actions": [
-            "Patch Citrix ADC immediately (CVE-2024-XXXX)",
+            "Patch NetScaler ADC/Gateway immediately (CVE-2023-4966)",
             "Deploy provided YARA rules to EDR",
             "Block 47 high-confidence IOCs at perimeter"
           ]
@@ -62,7 +62,7 @@
             "technique_name": "LockBit 3.0 Ransomware",
             "mitre_attack_id": "T1486",
             "attack_vector": "Impact",
-            "cve_ids": ["CVE-2024-XXXX", "CVE-2024-YYYY"],
+            "cve_ids": ["CVE-2023-4966"],
             "cvss_score": 9.8,
             "exploit_availability": "In-The-Wild",
             "first_observed": "2026-03-22",
@@ -120,7 +120,7 @@
             "tactic": "Initial Access",
             "technique_id": "T1190",
             "technique_name": "Exploit Public-Facing Application",
-            "procedure_details": "Exploitation of Citrix ADC CVE-2024-XXXX for initial foothold",
+            "procedure_details": "Exploitation of NetScaler ADC CVE-2023-4966 for initial foothold",
             "detection_method": "Monitor for unusual Citrix ADC process spawning, web shell artifacts",
             "data_sources": ["Application Log: Application Log Content", "Network Traffic: Network Traffic Content"]
           },
@@ -153,7 +153,7 @@
               "action": "Patch Citrix ADC to latest version",
               "owner": "Infrastructure Team",
               "timeline": "0-24 hours",
-              "risk_addressed": "CVE-2024-XXXX exploitation"
+              "risk_addressed": "CVE-2023-4966 exploitation"
             },
             {
               "action": "Deploy IOCs to SIEM and EDR",
@@ -276,8 +276,21 @@
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
           "skill_version": "1.22.0",
-          "persona_used": "enterprise_executive"
+          "persona_used": "enterprise_executive",
+          "sources_referenced": 18,
+          "coverage_badge": "PARTIAL"
         },
+        "coverage_ledger": [
+          { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK", "Exploit-DB"], "skipped": [{ "source": "CVE.org", "reason": "not consulted \u2014 covered by NVD for this scope" }], "met": false },
+          { "tier": 2, "required_min": 4, "consulted": ["Recorded Future", "Mandiant", "CrowdStrike", "Microsoft Threat Intelligence"], "skipped": [], "met": true },
+          { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan"], "skipped": [{ "source": "Censys", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "no sector-relevant disclosures in window" }], "met": false },
+          { "tier": 5, "required_min": 2, "consulted": ["Project Zero"], "skipped": [{ "source": "SpecterOps blog", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "The DFIR Report"], "skipped": [{ "source": "Bleeping Computer", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories", "FBI IC3 / Flash Alerts", "FS-ISAC"], "skipped": [], "met": true },
+          { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [{ "source": "ThreatFox", "reason": "not consulted in this run" }], "met": false }
+        ],
         "alert_level": {
           "level": "elevated",
           "icon": "🟡",
@@ -367,8 +380,21 @@
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
           "skill_version": "1.22.0",
-          "persona_used": "smb_security"
+          "persona_used": "smb_security",
+          "sources_referenced": 13,
+          "coverage_badge": "PARTIAL"
         },
+        "coverage_ledger": [
+          { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK"], "skipped": [{ "source": "Exploit-DB", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 2, "required_min": 4, "consulted": ["Microsoft Threat Intelligence", "Cisco Talos"], "skipped": [{ "source": "Recorded Future", "reason": "subscription required" }], "met": false },
+          { "tier": 3, "required_min": 3, "consulted": ["Shodan", "AbuseIPDB"], "skipped": [], "met": false },
+          { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not relevant to SMB scope this run" }], "met": false },
+          { "tier": 5, "required_min": 2, "consulted": [], "skipped": [{ "source": "Project Zero", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "Bleeping Computer", "Have I Been Pwned"], "skipped": [], "met": true },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories", "FBI IC3 / Flash Alerts"], "skipped": [], "met": false },
+          { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [], "met": false }
+        ],
         "alert_level": {
           "level": "elevated",
           "icon": "🟡",
@@ -489,8 +515,21 @@
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
           "skill_version": "1.22.0",
-          "persona_used": "individual_researcher"
+          "persona_used": "individual_researcher",
+          "sources_referenced": 12,
+          "coverage_badge": "MINIMAL"
         },
+        "coverage_ledger": [
+          { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK", "Exploit-DB"], "skipped": [], "met": false },
+          { "tier": 2, "required_min": 4, "consulted": ["Cisco Talos"], "skipped": [{ "source": "Recorded Future", "reason": "subscription required" }], "met": false },
+          { "tier": 3, "required_min": 3, "consulted": ["Shodan"], "skipped": [{ "source": "Censys", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps blog"], "skipped": [], "met": true },
+          { "tier": 6, "required_min": 3, "consulted": ["The DFIR Report", "Bleeping Computer"], "skipped": [], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories"], "skipped": [{ "source": "NCSC UK", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [{ "source": "ThreatFox", "reason": "not consulted in this run" }], "met": false }
+        ],
         "executive_summary": {
           "headline": "APT29 Evolution: New Cloud-Focused TTPs and Detection Opportunities",
           "key_points": [
@@ -609,8 +648,21 @@
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
           "skill_version": "1.22.0",
-          "persona_used": "individual_privacy"
+          "persona_used": "individual_privacy",
+          "sources_referenced": 8,
+          "coverage_badge": "MINIMAL"
         },
+        "coverage_ledger": [
+          { "tier": 1, "required_min": 5, "consulted": ["CISA KEV"], "skipped": [{ "source": "NVD", "reason": "not relevant to a consumer scope this run" }], "met": false },
+          { "tier": 2, "required_min": 4, "consulted": ["Microsoft Threat Intelligence"], "skipped": [], "met": false },
+          { "tier": 3, "required_min": 3, "consulted": [], "skipped": [{ "source": "Shodan", "reason": "not relevant to a consumer scope" }], "met": false },
+          { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not relevant to a consumer scope" }], "met": false },
+          { "tier": 5, "required_min": 2, "consulted": [], "skipped": [{ "source": "Project Zero", "reason": "not relevant to a consumer scope" }], "met": false },
+          { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "Bleeping Computer", "Malwarebytes Labs", "Have I Been Pwned"], "skipped": [], "met": true },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 8, "required_min": 3, "consulted": ["FBI IC3 / Flash Alerts", "CISA Advisories"], "skipped": [], "met": false },
+          { "tier": 9, "required_min": 3, "consulted": [], "skipped": [{ "source": "MalwareBazaar", "reason": "not relevant to a consumer scope" }], "met": false }
+        ],
         "alert_level": {
           "level": "normal",
           "icon": "🟢",
@@ -749,8 +801,21 @@
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
           "skill_version": "1.22.0",
-          "persona_used": "red_team"
+          "persona_used": "red_team",
+          "sources_referenced": 18,
+          "coverage_badge": "PARTIAL"
         },
+        "coverage_ledger": [
+          { "tier": 1, "required_min": 5, "consulted": ["NVD", "CISA KEV", "MITRE ATT&CK", "Exploit-DB", "GitHub Security Advisories"], "skipped": [], "met": true },
+          { "tier": 2, "required_min": 4, "consulted": ["CrowdStrike", "Mandiant"], "skipped": [{ "source": "Recorded Future", "reason": "subscription required" }], "met": false },
+          { "tier": 3, "required_min": 3, "consulted": ["GreyNoise", "Shodan", "Censys"], "skipped": [], "met": true },
+          { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps blog", "Rapid7 blog"], "skipped": [], "met": true },
+          { "tier": 6, "required_min": 3, "consulted": ["The DFIR Report"], "skipped": [{ "source": "Krebs on Security", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories"], "skipped": [{ "source": "NCSC UK", "reason": "not consulted in this run" }], "met": false },
+          { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar", "ThreatFox"], "skipped": [], "met": false }
+        ],
         "executive_summary": {
           "headline": "AWS Attack Chains: Initial Access to Data Exfiltration",
           "key_points": [

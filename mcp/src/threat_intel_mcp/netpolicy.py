@@ -7,9 +7,9 @@ stolen credentials or scraped data off the box. This module provides an httpx
 per-adapter allowlist, before the request leaves the process.
 
 Each adapter declares the single host it legitimately talks to and installs the
-hook on its client. Because the adapters do not follow redirects, the host never
-changes mid-request, so a one-host allowlist per adapter is both correct and
-tight. This is the application-level half of the issue #1 security checklist's
+hook on its client. The guard runs on every hop, so an adapter that follows a
+redirect (OpenPhish, whose feed URL 30x's to its GitHub mirror) must allowlist
+each host it may land on; every other adapter talks to one host and allows one. This is the application-level half of the issue #1 security checklist's
 "egress allowlist"; a network/proxy-level allowlist remains recommended in
 production as defence in depth.
 """

@@ -68,8 +68,7 @@ class QFeedsAdapter:
 
     def __init__(self, credentials: CredentialProvider) -> None:
         self._credentials = credentials
-        # Simple in-process cache keyed by feed_type. Replaced by Redis/Memcached
-        # in Phase 4 when multiple MCP server instances run behind a load balancer.
+        # Simple in-process cache keyed by feed_type; one server instance per process.
         self._cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
 
     def _make_client(self) -> httpx.AsyncClient:

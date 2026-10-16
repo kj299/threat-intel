@@ -147,11 +147,21 @@ def test_investment_projections_are_labelled_modelled(rendered: str):
 # ─── Coverage honesty ────────────────────────────────────────────────────────
 
 
-def test_absent_coverage_badge_is_reported_as_absent(rendered: str):
-    """The committed example carries no coverage_badge. Defaulting it would
-    manufacture confidence the data does not support."""
-    assert "COVERAGE NOT REPORTED" in rendered
-    assert "completeness as unknown" in rendered
+def test_absent_coverage_badge_is_reported_as_absent(executive_output: dict):
+    """An output with no coverage_badge must say so. Defaulting it would
+    manufacture confidence the data does not support. (The committed example
+    carries a badge, as every report must, so the absence is staged here.)"""
+    record = json.loads(json.dumps(executive_output))
+    del record["metadata"]["coverage_badge"]
+    html = render_executive_overview(record)
+    assert "COVERAGE NOT REPORTED" in html
+    assert "completeness as unknown" in html
+
+
+def test_committed_example_renders_its_own_badge(rendered: str, executive_output: dict):
+    """The example carries a real badge; the page must show that one, not a default."""
+    assert f"COVERAGE: {executive_output['metadata']['coverage_badge']}" in rendered
+    assert "COVERAGE NOT REPORTED" not in rendered
 
 
 def test_minimal_coverage_renders_visibly_thinner(executive_output: dict):

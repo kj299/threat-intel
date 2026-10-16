@@ -6,8 +6,8 @@ branches. Neither touches the three **enrichment** tools —
 ``virustotal_enrich_iocs``, ``epss_enrich_cves`` and ``osv_enrich_cves`` — which
 are wired differently: they score indicators the caller already holds rather
 than discovering any, so they are absent from the fan-out and from both
-parametrized suites. Their ``try/except`` blocks (``server.py`` 402-421,
-462-479, 505-523) sat uncovered as a result.
+parametrized suites. Their ``try/except`` blocks in ``server.py`` sat uncovered
+as a result.
 
 Those blocks are the error-taxonomy contract from ``adapters/base.py`` applied
 at the tool layer:

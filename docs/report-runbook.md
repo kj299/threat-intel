@@ -209,8 +209,9 @@ described or ran it.
 1. **Environment.** A Claude Code session on this repository. For a
    live-data report, configure the `threat-intel-mcp` server first (see
    [`mcp/README.md`](../mcp/README.md) — Quick start / Wire into Claude Code).
-   The keyless feeds (ThreatFox, CISA KEV; NVD also works
-   unkeyed at a lower rate limit) are enough for a first live run.
+   Even the original keyless feeds (ThreatFox, CISA KEV; NVD also works
+   unkeyed at a lower rate limit) are enough for a first live run, and
+   OpenPhish, Feodo Tracker, EPSS and OSV need no key either.
 
    > **Egress requirement:** the session's network policy must allow HTTPS to
    > the feed hosts (`threatfox.abuse.ch`, `www.cisa.gov`,

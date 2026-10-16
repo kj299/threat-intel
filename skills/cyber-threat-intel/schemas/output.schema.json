@@ -937,14 +937,13 @@
     "output_format": {
       "type": "string",
       "enum": [
-        "auto",
-        "executive_brief",
         "technical_ioc_package",
-        "board_presentation",
+        "technical_report",
+        "executive_brief",
         "ciso_briefing",
+        "board_presentation",
         "personal_security_guide",
-        "checklist",
-        "dashboard"
+        "checklist"
       ],
       "default": "technical_ioc_package"
     },
@@ -1079,6 +1078,16 @@
           "type": "boolean",
           "default": true,
           "description": "When true (default), the report includes generated IOCs and detection/hunting queries in the standard formats. When false, the report stays narrative without generated indicator/query artifacts."
+        },
+        "cwe_chaining": {
+          "type": "string",
+          "enum": [
+            "off",
+            "catalog",
+            "osint"
+          ],
+          "default": "osint",
+          "description": "Weakness-class (CWE) chain analysis: off = report vulnerabilities individually; catalog = chains only from MITRE's own relationship data (CWE-709, CWE-1000); osint = also chains evidenced in public reporting. An inferred chain must carry confidence Low."
         },
         "executive_overview": {
           "$ref": "#/definitions/executive_overview"
