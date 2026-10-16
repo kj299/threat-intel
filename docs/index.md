@@ -133,7 +133,7 @@ Score = (Exploitability x 0.25) + (Impact x 0.25) +
 executive overview from a single run, leave it at the technical value and set the
 `executive_overview` input: `off` (default, unchanged), `attached` (the rendered dashboard
 opens the technical report), or `separate` (a companion
-`reports/<date>-threat-intel-executive.html`, produced by
+`report-output/<date>-threat-intel-executive.html`, produced by
 [`python -m threat_intel_mcp.render`](../mcp/README.md)).
 
 The overview is a *projection* of the same validated output object, not a second document —
@@ -198,7 +198,13 @@ Use [skills/cyber-threat-intel/schemas/output.schema.json](../skills/cyber-threa
 
 ```bash
 pip install jsonschema rfc3339-validator
-jsonschema -i output.json skills/cyber-threat-intel/schemas/output.schema.json
+python - <<'PY'
+import json, jsonschema
+schema = json.load(open("skills/cyber-threat-intel/schemas/output.schema.json"))
+instance = json.load(open("output.json"))
+jsonschema.validate(instance, schema, format_checker=jsonschema.FormatChecker())
+print("valid")
+PY
 ```
 
 ### Valid Output Shape

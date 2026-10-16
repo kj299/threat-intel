@@ -172,7 +172,7 @@ claude mcp add threat-intel \
 > package is importable:
 >
 > ```bash
-> claude mcp add threat-intel-mcp -- python -m threat_intel_mcp
+> claude mcp add threat-intel -- python -m threat_intel_mcp
 > ```
 >
 > If you installed into a virtualenv, point at that interpreter explicitly
@@ -182,7 +182,7 @@ claude mcp add threat-intel \
 ```json
 {
   "mcpServers": {
-    "threat-intel-mcp": {
+    "threat-intel": {
       "command": "python",
       "args": ["-m", "threat_intel_mcp"],
       "env": {
@@ -258,8 +258,9 @@ key name — the provider reads field `api_key` from the secret at
 ```json
 {
   "mcpServers": {
-    "threat-intel-mcp": {
-      "command": "threat-intel-mcp",
+    "threat-intel": {
+      "command": "python",
+      "args": ["-m", "threat_intel_mcp"],
       "env": {
         "VAULT_ADDR": "https://vault.example.com:8200",
         "VAULT_ROLE_ID": "your-role-id",
@@ -565,7 +566,9 @@ tests/
 ├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests
 ├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
 ├── test_normalize.py      Normaliser / validator tests
-└── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── vcr_config.py          Cassette recorder/replayer config: credential scrubbing, clock-free request matching
+└── cassettes/             Recorded feed responses replayed offline (#105); see its README
 ```
 
 ## Relationship to threat-intel

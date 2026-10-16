@@ -238,7 +238,7 @@ Inside the session, confirm the server connected:
 ### If you would rather register the server persistently
 
 ```powershell
-claude mcp add threat-intel-mcp -- python -m threat_intel_mcp
+claude mcp add threat-intel -- python -m threat_intel_mcp
 claude mcp list      # expect: threat-intel-mcp - √ Connected
 ```
 
@@ -251,11 +251,11 @@ is installed in:
 
 ```powershell
 $venvPython = (Resolve-Path .\.venv\Scripts\python.exe).Path
-claude mcp add threat-intel-mcp -- $venvPython -m threat_intel_mcp
+claude mcp add threat-intel -- $venvPython -m threat_intel_mcp
 ```
 
 Registering persistently means the server launches on every future session in
-this directory — remove it with `claude mcp remove threat-intel-mcp` when done
+this directory — remove it with `claude mcp remove threat-intel` when done
 (see [#96](https://github.com/kj299/threat-intel/issues/96)).
 
 ---
@@ -333,7 +333,7 @@ Every row here was observed on a real Windows 11 host during #76.
 | `Activate.ps1 ... is not recognized` | The venv was never created, because the previous command failed | Re-run Step 2 and check for `(.venv)` in the prompt |
 | `Defaulting to user installation because normal site-packages is not writeable` | Installing outside a venv | Activate the venv first (Step 2) |
 | `WARNING: The script threat-intel-mcp.exe is installed in '...' which is not on PATH` | Store Python's user scripts directory is not on `PATH` | Harmless inside a venv. Otherwise register with `python -m threat_intel_mcp` |
-| `threat-intel-mcp: × Failed to connect` | Registered the bare command name, which the host cannot resolve | `claude mcp remove threat-intel-mcp`, then re-add with `-- python -m threat_intel_mcp` |
+| `threat-intel: × Failed to connect` | Registered the bare command name, which the host cannot resolve | `claude mcp remove threat-intel`, then re-add with `-- python -m threat_intel_mcp` |
 | `The term '/cyber-threat-intel' is not recognized` | Typed at the PowerShell prompt | It is a slash command *inside* an interactive `claude` session |
 | `Unknown command: /cyber-threat-intel` | Repo not loaded as a plugin | Start with `claude --plugin-dir .` from the repository root |
 | `SyntaxError: invalid non-printable character U+FEFF` | `Set-Content` wrote a UTF-8 BOM | Add `-Encoding ASCII` |

@@ -15,7 +15,7 @@ Usage::
 
 Keyed feeds are opt-in because recording one requires a live credential in the
 environment. The scrubbing in ``tests/vcr_config.py`` removes credentials from
-what is written, and ``--verify-scrubbed`` (on by default) greps the output for
+what is written, and the scrub check (on unless ``--skip-verify``) scans the output for
 anything that looks like a leaked secret before you can commit it.
 
 Cassettes land in ``mcp/tests/cassettes/`` and are meant to be committed.

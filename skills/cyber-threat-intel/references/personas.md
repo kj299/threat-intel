@@ -28,7 +28,7 @@ The `executive_overview` input (default `off`) is additive, so a single run can 
 |---|---|
 | `off` | Technical report only — prior behaviour, unchanged |
 | `attached` | The rendered dashboard opens the technical report |
-| `separate` | Companion artifact at `reports/<date>-threat-intel-executive.html` |
+| `separate` | Companion artifact at `report-output/<date>-threat-intel-executive.html` |
 
 This matters most for `enterprise_soc` teams who have to brief leadership: previously that
 meant two runs and two chances to diverge.

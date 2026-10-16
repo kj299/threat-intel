@@ -81,9 +81,18 @@ threat-intel/
 |   +-- index.md                                      # the deep reference (protocol, personas, scoring, validation)
 |   +-- architecture.md                               # Mermaid data-flow diagram
 |   +-- report-runbook.md                             # generating reports; the staleness alarm
+|   +-- report-runbook-windows.md                     # the same walkthrough for Windows PowerShell 5.1
+|   +-- protocol-adapters.md                          # bring-your-own-endpoint transports (gRPC/MQTT/WS/GraphQL/ZMQ)
+|   +-- releases/                                     # historical release notes (never edited to match today)
 +-- changelog.md
 +-- contributing.md
++-- SECURITY.md                                       # how to report a vulnerability; what is already asserted in CI
++-- reports/                                          # frozen eval corpus of 11 reports the honesty evals walk; never grows
 +-- .github/workflows/validate.yml                    # CI: layout + schema + parity checks
++-- .github/workflows/scheduled-report.yml            # weekly report: prefetch (credentials) -> generate (agent, read-only)
++-- .github/workflows/live-feed-check.yml             # weekly pytest -m live against the real feed endpoints
++-- .github/workflows/report-staleness.yml            # manual-only staleness alarm (see docs/report-runbook.md)
++-- .github/workflows/record-cassettes.yml            # records real feed responses into mcp/tests/cassettes/
 +-- tests/invalid/                                    # negative fixtures (must be rejected)
 +-- skills/
     +-- cyber-threat-intel/
@@ -214,10 +223,10 @@ export VULNCHECK_API_KEY=...  # required for VulnCheck KEV (free community accou
 export ABUSECH_AUTH_KEY=...   # required for URLhaus; ThreatFox and Feodo Tracker send it when set
 export PULSEDIVE_API_KEY=...
 # Several sources need no key at all — see "Nothing here needs a key to start" below
-python -m threat_intel_mcp   # stdio transport; wire into Claude Code via .claude/mcp.json
+python -m threat_intel_mcp   # stdio transport; wire into Claude Code via .mcp.json (below)
 ```
 
-Configure in Claude Code (`~/.claude/mcp.json` or project `.claude/mcp.json`):
+Configure in Claude Code (`claude mcp add -s project` writes this to the project's `.mcp.json`; the plugin manifest registers the same server automatically):
 
 ```json
 {
@@ -291,7 +300,13 @@ Deeper: [local setup and Vault](mcp/README.md#2-set-your-api-keys) · [why feed 
 
 ```bash
 pip install jsonschema rfc3339-validator
-jsonschema -i your-output.json skills/cyber-threat-intel/schemas/output.schema.json
+python - <<'PY'
+import json, jsonschema
+schema = json.load(open("skills/cyber-threat-intel/schemas/output.schema.json"))
+instance = json.load(open("your-output.json"))
+jsonschema.validate(instance, schema, format_checker=jsonschema.FormatChecker())
+print("valid")
+PY
 ```
 
 CI runs the same validation plus version, persona, user-input, tier and source-list parity checks across `spec.yaml`, the schema, the examples, the changelog and the mirrored prompt files. See [.github/workflows/validate.yml](.github/workflows/validate.yml).
