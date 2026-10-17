@@ -7,7 +7,7 @@ interactions:
       accept-encoding:
       - gzip, deflate
       auth-key:
-      - bc41d2de3484d88491d0bfe2e9870a5a178a765f6527df45
+      - '[REDACTED]'
       connection:
       - keep-alive
       host:

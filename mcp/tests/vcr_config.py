@@ -41,6 +41,7 @@ _SECRET_HEADERS = [
     "authorization",       # Intel 471, Censys (HTTP Basic)
     "x-apikey",            # VirusTotal
     "x-otx-api-key",       # AlienVault OTX
+    "auth-key",            # abuse.ch (URLhaus, Feodo Tracker, ThreatFox)
     "key",                 # GreyNoise
     "x-api-key",           # generic
     "x-auth-token",        # generic

@@ -34,7 +34,12 @@ import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from tests.vcr_config import CASSETTE_DIR, build_vcr, fresh_recording  # noqa: E402
+from tests.vcr_config import (  # noqa: E402
+    _SECRET_HEADERS,
+    CASSETTE_DIR,
+    build_vcr,
+    fresh_recording,
+)
 
 from threat_intel_mcp.adapters.abuseipdb import AbuseIPDBAdapter  # noqa: E402
 from threat_intel_mcp.adapters.anyrun import AnyRunAdapter  # noqa: E402
@@ -103,18 +108,11 @@ FEEDS = {
 #
 # Response bodies are public threat data and are the entire point of a cassette.
 # Credentials live in headers and query strings, so that is where we look.
-_SECRET_HEADER_NAMES = (
-    "authorization",
-    "x-apikey",
-    "x-otx-api-key",
-    "x-api-key",
-    "x-auth-token",
-    "apikey",
-    "key",
-    "cookie",
-    "set-cookie",
-    "proxy-authorization",
-)
+# The header names come from tests/vcr_config.py, so the recorder's structural
+# scan and vcrpy's redaction cannot disagree: a second hand-kept copy of this
+# list is how abuse.ch's ``Auth-Key`` went unscrubbed into two committed
+# cassettes (2026-09-12 to 2026-10-17).
+_SECRET_HEADER_NAMES = tuple(_SECRET_HEADERS)
 _SECRET_QUERY_PARAMS = ("key", "apikey", "api_key", "token", "auth", "password", "secret")
 
 # Every credential env var the adapters read. Any value actually configured is
