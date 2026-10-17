@@ -13,6 +13,11 @@ deliberately modest so they can actually be kept.
 **Use GitHub's private vulnerability reporting:**
 [Report a vulnerability](https://github.com/kj299/threat-intel/security/advisories/new).
 
+If that page says private reporting is not enabled, the maintainer has not yet
+turned it on (issue #164; it was off as of 2026-10-17) and there is no private
+channel until they do — this file does not invent one. Please wait for the
+setting rather than opening a public issue.
+
 That channel is used rather than an email address because this project has no
 security mailing list, and publishing a personal address here would be
 [fictional infrastructure](CLAUDE.md) of the kind the repository's own
@@ -81,9 +86,13 @@ Most valuable first:
 
 So you can tell the difference between a gap and a deliberate choice:
 
-- Credentials are never committed. `.env` is git-ignored, `mcp/.env.example`
+- Credentials are not committed. `.env` is git-ignored, `mcp/.env.example`
   carries names only, and vcrpy cassettes are scrubbed with the scrubbing
-  itself asserted in CI (issue #111).
+  itself asserted in CI (issue #111). That assertion has one known failure:
+  the abuse.ch Auth-Key sat in two cassettes from 2026-09-12 to 2026-10-17
+  because its header was not on the scrub list (see the changelog); the list
+  is now derived from what the adapters send, and every committed cassette is
+  re-scanned on each PR.
 - Audit logging redacts credential-shaped values (`audit.py`).
 - Each adapter carries an egress allowlist; feeds cannot be pointed elsewhere
   by configuration alone.
