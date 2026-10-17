@@ -20,7 +20,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T14:32:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "enterprise_soc",
           "sources_referenced": 27,
           "coverage_badge": "FULL"
@@ -310,7 +310,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T09:00:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "enterprise_executive",
           "sources_referenced": 18,
           "coverage_badge": "PARTIAL"
@@ -414,7 +414,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T11:15:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "smb_security",
           "sources_referenced": 13,
           "coverage_badge": "PARTIAL"
@@ -549,7 +549,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T16:45:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "individual_researcher",
           "sources_referenced": 12,
           "coverage_badge": "MINIMAL"
@@ -682,7 +682,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T19:20:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "individual_privacy",
           "sources_referenced": 8,
           "coverage_badge": "MINIMAL"
@@ -835,7 +835,7 @@
       "output": {
         "metadata": {
           "generated_at": "2026-03-29T22:10:00Z",
-          "skill_version": "1.22.0",
+          "skill_version": "1.23.0",
           "persona_used": "red_team",
           "sources_referenced": 18,
           "coverage_badge": "PARTIAL"

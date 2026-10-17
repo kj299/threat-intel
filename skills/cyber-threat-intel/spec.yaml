@@ -1,6 +1,6 @@
 # =============================================================================
 # CYBER THREAT INTELLIGENCE - STRUCTURED SKILL SPECIFICATION
-# Version: 1.22.0
+# Version: 1.23.0
 # =============================================================================
 # Defines personas, scoring models, source-coverage guidance, and output
 # templates. Consumed by CI validators (version/persona/coverage-ledger/tier
@@ -21,7 +21,7 @@ skill:
     professional-grade threat intelligence reports with strong source-coverage
     guidance, per-IOC source citations, and a strict no-fabrication rule
     (sparse findings are reported honestly, never padded).
-  version: "1.22.0"
+  version: "1.23.0"
   author: "kj299"
   license: "MIT"
   category: "Cybersecurity"
@@ -616,6 +616,9 @@ metadata:
   # MCP adapter; source-matrix.md lists it in Tier 9 again.)
 
   version_history:
+    - version: "1.23.0"
+      date: "2026-10-17"
+      changes: "Runtime and governance release. threat-intel-mcp grows from 9 to 13 IOC feeds (OpenPhish, URLhaus, Feodo Tracker, Pulsedive) and from one unused enrichment to three the report path actually calls (VirusTotal, EPSS, OSV.dev); every new source is named in the source matrix at its adapter's tier, and a test fails on any adapter the matrix does not name. The weekly report runs again (Mondays 05:23 UTC) as two jobs: prefetch holds every feed credential and runs a fixed script, generate runs the agent read-only with no credential, echoes the report into the job log, and asserts the honesty invariants over what it wrote. AccountLimitError joins the adapter error taxonomy (non-retryable; the live check xfails it). Cassettes recorded for 10 of 19 adapters. Schema (additive): skill_input gains cwe_chaining, search_scope, assets_of_concern and detail_level; output_format gains technical_report and drops the undocumented auto/dashboard; ioc_email, ioc_behavioral and ttp_mapping gain source; delimited_batch_export rows require source and confidence; hunting-query status defaults to needs_validation. A two-pass drift retrospective fixed ~180 contradictions between prose, examples, schema and code, including a Tier 2 ledger row on a failed OTX fetch and a CI example-validation step that validated nothing."
     - version: "1.22.0"
       date: "2026-08-31"
       changes: "Add the executive_overview input (off | attached | separate) — the input half of #110, whose renderer shipped in #157. One run can now produce both the technical report and the executive overview without output_format having to mean two things: it still names the primary deliverable, and this is additive. Default \"off\" is byte-identical to previous behaviour. The governing rule is that detail flows up as summary and summary flows down verbatim — the overview is a projection of the same validated output object and may contain no finding the technical report does not, guarding against the real failure mode of two documents that disagree. Five consistency invariants asserted in evals/. Mirrored into SKILL.md, references/original-prompt.md and both standalone files; a new CI check enforces input-list parity across all four, which caught that original-prompt.md never received input #10 (cwe_chaining) when 1.21.0 landed."

@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Branch-per-change (#87).** New work ships from a short-lived, descriptively named branch (`feat/<topic>`, `fix/<topic>`, `release/<version>`) that is deleted on merge, instead of one long-lived branch force-pushed across every squash-merge. The convention is in `contributing.md`; this release's own PR is the first to follow it.
+
+## [1.23.0] - 2026-10-17
+
 ### Security
 
 - **Feed keys could reach the fan-out's degraded reasons (#230).** #220 widened a degraded source's reason from the exception's class name to its full message. Shodan and Pulsedive authenticate with a `?key=` query parameter, and an `httpx` status error embeds the full request URL, so a 401/403/5xx from either would have put the plaintext key into the WARNING log line and into `sources_degraded[].error`. Both `fanout.py` and `vulns.py` now pass the reason through `audit.redact_url()`. The prefetch's credential scan also gained the `_AUTH_KEY` suffix, which it had missed for `ABUSECH_AUTH_KEY`.
