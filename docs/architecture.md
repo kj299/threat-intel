@@ -16,7 +16,7 @@ flowchart TD
     subgraph Verify["Offline verification (no live network in CI)"]
         Reports["reports/\nFROZEN corpus of 11\n(count pinned by CI)"]
         Evals["evals/\ninvariants.py — R1-R6 over real output\nrun.py --corpus (PR-gated)\nrun.py --scenario (model call)"]
-        Cassettes["tests/cassettes/ (vcrpy)\nbytes the feeds actually sent\nreplayed offline, record_mode=none\nRecorded for 10 of 19 adapters"]
+        Cassettes["tests/cassettes/ (vcrpy)\nbytes the feeds actually sent\nreplayed offline, record_mode=none\nRecorded for 15 of 19 adapters"]
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
