@@ -502,3 +502,52 @@ def test_literal_scan_covers_every_credential_an_adapter_reads():
     assert len(read) >= 10, f"only {len(read)} credential names found -- adapter layout drift?"
     missing = sorted(read - set(rec._CREDENTIAL_ENV_VARS))
     assert not missing, f"record_cassettes._CREDENTIAL_ENV_VARS does not literal-scan: {missing}"
+
+
+def _credential_header_names_adapters_send() -> set[str]:
+    """Every header name an adapter puts a credential into, read from the
+    adapters' own source: ``{"Header": api_key}``-shaped entries where the
+    value is a credential variable."""
+    import re
+
+    adapters = pathlib.Path(__file__).resolve().parents[1] / "src" / "threat_intel_mcp" / "adapters"
+    names = set()
+    for path in adapters.glob("*.py"):
+        for header in re.findall(
+            r'"([A-Za-z][A-Za-z0-9-]*)":\s*(?:api_key|auth_key|key|token)\b', path.read_text(encoding="utf-8")
+        ):
+            names.add(header.lower())
+    return names
+
+
+def test_scrubber_knows_every_credential_header_an_adapter_sends():
+    """abuse.ch's ``Auth-Key`` was sent by three adapters and scrubbed by none:
+    the header list was hand-kept and nobody added it, so the real key went
+    into two committed cassettes and passed every check for five weeks. The
+    list must cover every header the adapters actually use."""
+    from tests.vcr_config import _SECRET_HEADERS
+
+    sent = _credential_header_names_adapters_send()
+    assert len(sent) >= 4, f"only {len(sent)} credential headers found -- adapter layout drift?"
+    missing = sorted(sent - {h.lower() for h in _SECRET_HEADERS})
+    assert not missing, f"tests/vcr_config._SECRET_HEADERS does not scrub: {missing}"
+
+
+def test_committed_cassettes_carry_no_unredacted_credential_header():
+    """The structural scan the recorder runs, applied to what is actually in
+    version control, with no credential needed. It fails on the cassettes as
+    recorded on 2026-09-12."""
+    import sys
+
+    import yaml
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    import scripts.record_cassettes as rec
+
+    problems = []
+    for path in sorted(rec.CASSETTE_DIR.glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for interaction in doc.get("interactions", []):
+            problems += rec._header_problems(interaction.get("request", {}).get("headers"), "request", path.name)
+            problems += rec._header_problems(interaction.get("response", {}).get("headers"), "response", path.name)
+    assert not problems, "\n".join(problems)
