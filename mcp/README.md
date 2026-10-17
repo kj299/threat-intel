@@ -79,10 +79,10 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard on every adapter (`guard_parsed`; ThreatFox and OSV apply the rule inline) | ✅ #106 |
-| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker (Recorded for 10 of 19 adapters) | ✅ #105, #199, #208, #211 |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters) | ✅ #105, #199, #208, #211 |
 | Cassettes for ANY.RUN, Intel 471, Censys | blocked on feed credentials (#169) |
 | Cassette for Pulsedive | blocked on its 429 (account plan or quota) |
-| Cassettes for Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise | keys configured and passing the live check -- recordable now via `record-cassettes` |
+| Shodan's feed returns zero matches | `category:malware` (Malware Hunter) is a membership feature; the account's plan gets an empty page, recorded as such |
 | Live gRPC / MQTT / WebSocket / GraphQL **feeds** | needs a real named feed per protocol |
 
 ## Quick start

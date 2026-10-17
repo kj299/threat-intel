@@ -88,6 +88,7 @@ _VOLATILE_QUERY_PARAMS = frozenset(
         "lastmodenddate",  # NVD — now()
         "pubstartdate",  # NVD — same contract, unused today
         "pubenddate",
+        "modified_since",  # OTX — now() - window (adapters/otx.py)
     }
 )
 

@@ -460,3 +460,76 @@ async def test_threatfox_still_answers_with_the_auth_key_attached():
         result = await ThreatFoxAdapter(_AbuseChKey()).fetch(time_range="7d")
 
     assert result.record_count > 0
+
+
+# --- The five keyed IOC feeds, recorded 2026-10-17 ---------------------------
+
+
+class _AnyKey:
+    """A key for whichever adapter asks; the cassette scrubbed the real one."""
+
+    def get(self, adapter: str, key: str) -> str:
+        return "scrubbed-by-the-recorder"
+
+
+@_requires("qfeeds")
+@pytest.mark.asyncio
+async def test_qfeeds_parses_the_real_feed():
+    from threat_intel_mcp.adapters.qfeeds import QFeedsAdapter
+
+    result = await _play("qfeeds", QFeedsAdapter(_AnyKey()), time_range="7d")
+    assert result.record_count > 0
+    assert finalize_iocs(result.iocs), "every real Q-Feeds IOC was dropped by finalize_iocs"
+    # The recording hit Q-Feeds' page-2 rate limit on both feed types; that must
+    # surface as a partial, not be swallowed.
+    assert result.partial_failure, "the 429-truncated recording replayed as a clean full fetch"
+
+
+@_requires("abuseipdb")
+@pytest.mark.asyncio
+async def test_abuseipdb_parses_the_real_blocklist():
+    from threat_intel_mcp.adapters.abuseipdb import AbuseIPDBAdapter
+
+    result = await _play("abuseipdb", AbuseIPDBAdapter(_AnyKey()), time_range="7d")
+    assert result.record_count > 0
+    assert all(i["type"] in ("IPv4", "IPv6") for i in result.iocs)
+    assert finalize_iocs(result.iocs), "every real AbuseIPDB IOC was dropped by finalize_iocs"
+
+
+@_requires("otx")
+@pytest.mark.asyncio
+async def test_otx_parses_the_real_pulses():
+    from threat_intel_mcp.adapters.otx import OTXAdapter
+
+    result = await _play("otx", OTXAdapter(_AnyKey()), time_range="7d")
+    # #204: the first real OTX call dropped all 960 records; the recording is
+    # what proves the field mapping holds against what OTX actually sends.
+    assert result.record_count > 0
+    assert finalize_iocs(result.iocs), "every real OTX IOC was dropped by finalize_iocs"
+
+
+@_requires("greynoise")
+@pytest.mark.asyncio
+async def test_greynoise_parses_the_real_query():
+    from threat_intel_mcp.adapters.greynoise import GreyNoiseAdapter
+
+    result = await _play("greynoise", GreyNoiseAdapter(_AnyKey()), time_range="7d")
+    assert result.record_count > 0
+    assert finalize_iocs(result.iocs), "every real GreyNoise IOC was dropped by finalize_iocs"
+
+
+@_requires("shodan")
+@pytest.mark.asyncio
+async def test_shodan_empty_page_is_zero_records_not_an_error():
+    """The recording holds Shodan's real answer for this account:
+    ``{"matches": [], "total": 0}`` for ``category:malware``, a Malware Hunter
+    query the plan does not include. A body with no items is a confident zero
+    (adapters/base.py), not a format error -- and the feed therefore
+    contributes nothing on the account as configured, which the recording
+    makes visible rather than something the live check's quiet-week allowance
+    hides."""
+    from threat_intel_mcp.adapters.shodan import ShodanAdapter
+
+    result = await _play("shodan", ShodanAdapter(_AnyKey()), time_range="7d")
+    assert result.record_count == 0
+    assert result.iocs == []
