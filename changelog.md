@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Cassettes for the five keyed IOC feeds** -- Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan and GreyNoise -- recorded 2026-10-17 (run 38989861531, the first on the fixed scrubber), with playback tests. Recorded for 15 of 19 adapters; the four left are the three with no credential (#169) and Pulsedive (429). Two things the recordings say that no fixture did: Q-Feeds hits its page-2 rate limit on both feed types, so a 7-day fetch is a declared partial of 4,000 records each; and **Shodan returns zero matches** for `category:malware` on the account's plan (Malware Hunter is a membership feature), so that feed has contributed nothing to any weekly report while passing a live check that allows a quiet zero.
 
+### Fixed
+
+- **`contributing.md` and `SECURITY.md` asserted three repository settings that are off** — auto-delete of head branches, private vulnerability reporting, and secret scanning with push protection — and `SECURITY.md` said credentials are never committed, two weeks before an abuse.ch key was found in two cassettes. Both now describe the settings as intended and tracked in #164, with the date they were checked, and the security policy names the one known scrub failure. The settings themselves need a human: the agent proxy refuses every repository-settings write, which is also why 64 dead branches were listed for the maintainer in #164 rather than deleted.
+
 ### Changed
 
 - **Branch-per-change (#87).** New work ships from a short-lived, descriptively named branch (`feat/<topic>`, `fix/<topic>`, `release/<version>`) that is deleted on merge, instead of one long-lived branch force-pushed across every squash-merge. The convention is in `contributing.md`; this release's own PR is the first to follow it.

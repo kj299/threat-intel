@@ -30,8 +30,10 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Ski
 ### Branch Naming
 
 **One short-lived branch per change**, named for what it does: `feat/`, `fix/`,
-`docs/`, `chore/`. Delete it when the PR merges — the repository has
-"Automatically delete head branches" enabled, so this happens for you.
+`docs/`, `chore/`. Delete it when the PR merges (`git push origin --delete
+<branch>`). Once "Automatically delete head branches" is turned on in the
+repository settings — issue #164 tracks it; as of 2026-10-17 it was off and 64
+dead branches had accumulated — GitHub does this for you.
 
 This is worth stating because the repository did the opposite for its first
 ~25 PRs, shipping everything from one long-lived branch. Squash-merge rewrites
@@ -215,8 +217,9 @@ Types: feat, fix, docs, refactor, chore
 scope, expectations and what this project already does are in
 [SECURITY.md](SECURITY.md).
 
-This repository has GitHub **secret scanning and push protection** enabled as a
-backstop. They are a backstop, not the control: credentials belong in `.env`
+GitHub **secret scanning and push protection** are the intended backstop here
+(issue #164 tracks turning them on; as of 2026-10-17 both were off). They are a
+backstop, not the control: credentials belong in `.env`
 (git-ignored) or Vault, never in a commit. If push protection ever blocks a
 push of yours, treat it as correct until proven otherwise — rotate the
 credential first, argue with the scanner second.
