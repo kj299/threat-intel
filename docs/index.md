@@ -1,6 +1,6 @@
 # Cyber Threat Intelligence Skill -- Documentation
 
-**Version:** 1.22.0 | **License:** MIT | **Author:** kj299 | **Skill spec:** [spec.yaml](../skills/cyber-threat-intel/spec.yaml)
+**Version:** 1.23.0 | **License:** MIT | **Author:** kj299 | **Skill spec:** [spec.yaml](../skills/cyber-threat-intel/spec.yaml)
 
 > This is the **deep reference**. [`README.md`](../README.md) orients and installs; anything
 > explained at length — the coverage protocol, personas, scoring, output formats, validation,
