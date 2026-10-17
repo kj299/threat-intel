@@ -1,0 +1,52 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.shodan.io
+      user-agent:
+      - threat-intel-mcp/0.9 (kj299/threat-intel)
+    method: GET
+    uri: https://api.shodan.io/shodan/host/search?key=%5BREDACTED%5D&page=1&query=category%3Amalware
+  response:
+    body:
+      string: '{"matches": [], "total": 0}'
+    headers:
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      cf-ray:
+      - a4bb6fee5bd23ccc-LAX
+      connection:
+      - keep-alive
+      content-length:
+      - '27'
+      content-type:
+      - application/json
+      date:
+      - Sat, 17 Oct 2026 01:12:50 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - cloudflare
+      server-timing:
+      - qp;dur=0.0748634338379,mg;dur=0.324010848999,e;dur=864.42899704
+      x-content-type-options:
+      - nosniff
+      x-envoy-upstream-service-time:
+      - '926'
+      x-xss-protection:
+      - 1; mode=block
+    status:
+      code: 200
+      message: OK
+version: 1
