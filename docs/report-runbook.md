@@ -190,9 +190,14 @@ deployment by its own definition.
 
 Runner egress matters here: GitHub-hosted runners have open outbound internet,
 so the keyless feeds are reachable from Actions even where a restricted dev
-sandbox blocks them. The workflow proves this per-run — it fetches ThreatFox and
-CISA KEV before invoking the skill and **fails loudly** if either returns
-nothing, rather than quietly producing another no-live-data report.
+sandbox blocks them. The `prefetch` job proves this per-run: it runs
+`prefetch_feeds.py --require-records` and **fails loudly** — so `generate` never
+starts — only when *every* source degraded, rather than quietly producing
+another no-live-data report. A single dead feed does not abort the report; it is
+recorded `unverified` in the ledger with the reason the prefetch saw. (Until
+2026-10-26 `generate` opened by re-fetching ThreatFox and CISA KEV itself and
+failed on either, so when ThreatFox's CSV export started answering `410 Gone`
+the whole weekly report was lost.)
 
 Historically the cadence ran from an operator's own scheduled Claude Code
 session, which is exactly why it could die unnoticed: nothing in the repository

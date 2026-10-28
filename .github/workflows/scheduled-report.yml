@@ -208,10 +208,18 @@ jobs:
           PULSEDIVE_API_KEY: ${{ secrets.PULSEDIVE_API_KEY || secrets.PULSEDRIVE_API_KEY }}
         # The log line per feed answers "which keys actually worked" without
         # opening the artifact — the question issue #169 exists to settle.
+        #
+        # --require-records: fail THIS job (so `generate` never starts) only
+        # when every source degraded. One dead feed is recorded `unverified` in
+        # the ledger and the report goes ahead -- a missing source is a finding,
+        # not a reason to publish nothing. (It used to be a re-fetch at the top
+        # of `generate`, which aborted the whole report when ThreatFox's export
+        # started answering 410 on 2026-10-26.)
         run: |
           python scripts/prefetch_feeds.py \
             --out "${{ runner.temp }}/feed-data.json" \
-            --time-range "${{ inputs.time_range || '7d' }}"
+            --time-range "${{ inputs.time_range || '7d' }}" \
+            --require-records
 
       - name: Upload the feed data for the report job
         uses: actions/upload-artifact@v7
@@ -313,33 +321,6 @@ jobs:
         with:
           name: feed-data
           path: ${{ runner.temp }}/feeds
-
-      - name: Verify ThreatFox and CISA KEV are reachable from this runner
-        if: steps.guard.outputs.configured == 'true'
-        # Fail fast and loudly here rather than producing a no-live-data report
-        # that silently looks like every previous one.
-        run: |
-          python - <<'PY'
-          import asyncio, sys
-          from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
-          from threat_intel_mcp.adapters.cisa_kev import CISAKEVAdapter
-
-          async def main():
-              failures = []
-              for adapter in (ThreatFoxAdapter(), CISAKEVAdapter()):
-                  try:
-                      result = await adapter.fetch(time_range="7d")
-                      print(f"{adapter.name}: {result.record_count} records")
-                      if result.record_count == 0:
-                          failures.append(f"{adapter.name} returned zero records")
-                  except Exception as exc:
-                      failures.append(f"{adapter.name}: {type(exc).__name__}: {exc}")
-              if failures:
-                  print("::error::live feed check failed: " + "; ".join(failures))
-                  sys.exit(1)
-
-          asyncio.run(main())
-          PY
 
       - name: Generate the report
         if: steps.guard.outputs.configured == 'true'

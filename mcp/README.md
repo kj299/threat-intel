@@ -567,6 +567,7 @@ tests/
 ├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
 ├── test_normalize.py      Normaliser / validator tests
 ├── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── test_report_workflow.py  scheduled-report.yml: total-outage rule lives in prefetch; the agent's job never re-fetches
 ├── vcr_config.py          Cassette recorder/replayer config: credential scrubbing, clock-free request matching
 └── cassettes/             Recorded feed responses replayed offline (#105); see its README
 ```
