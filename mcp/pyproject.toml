@@ -26,7 +26,14 @@ dependencies = [
 # ProtocolAdapter base ships no live feed, and a REST-only deployment should not
 # pull a ZeroMQ binding. Installed by the operator who wires that transport.
 zmq = ["pyzmq>=26"]
+# Needed only to render a markdown report as an HTML page
+# (`python -m threat_intel_mcp.render report.md`). Imported lazily, so the server,
+# the adapters and the executive renderer never load it.
+report = ["markdown-it-py>=3.0"]
 dev = [
+    # In dev for the same reason as pyzmq: the renderer's safety tests must RUN
+    # in CI, not skip. A test of an XSS guard that skips is worse than none.
+    "markdown-it-py>=3.0",
     # pyzmq is in dev too so the MISP ZeroMQ tests RUN in CI rather than
     # silently skipping — an importorskip that always skips is a test suite
     # reporting coverage it does not have.

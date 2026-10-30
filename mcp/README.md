@@ -489,6 +489,7 @@ src/threat_intel_mcp/
 │   └── misp_zmq.py        MISP ZeroMQ subscriber (first concrete subclass, #162)
 ├── render/
 │   ├── executive.py       enterprise_executive output -> self-contained HTML
+│   ├── report.py          markdown report -> self-contained HTML (needs the `report` extra)
 │   └── __main__.py        python -m threat_intel_mcp.render
 ├── adapters/
 │   ├── base.py            FetchResult, SourceAdapter protocol, error taxonomy
@@ -567,6 +568,7 @@ tests/
 ├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
 ├── test_normalize.py      Normaliser / validator tests
 ├── test_vault.py          Vault provider + factory tests (hvac mocked)
+├── test_report_render.py    markdown -> HTML renderer: allowlist safety over parsed output, hostile fixture, frozen corpus
 ├── test_report_workflow.py  scheduled-report.yml: total-outage rule lives in prefetch; the agent's job never re-fetches
 ├── vcr_config.py          Cassette recorder/replayer config: credential scrubbing, clock-free request matching
 └── cassettes/             Recorded feed responses replayed offline (#105); see its README
@@ -577,6 +579,21 @@ tests/
 This package provides the **runtime and live data**. [`kj299/threat-intel`](https://github.com/kj299/threat-intel) provides the **prompt and schema**. The AI assistant uses both together: the skill structures the report; this server supplies current IOCs from subscribed feeds.
 
 Schema contract: `ioc_network` objects from this server match the definition in [`skills/cyber-threat-intel/schemas/output.schema.json`](https://github.com/kj299/threat-intel/blob/main/skills/cyber-threat-intel/schemas/output.schema.json) exactly.
+
+## Rendering a markdown report
+
+The skill and the weekly workflow emit a markdown report. To view it as one
+self-contained HTML page (needs `pip install 'threat-intel-mcp[report]'`):
+
+```bash
+python -m threat_intel_mcp.render 2026-10-28-threat-intel.md -o report.html
+```
+
+The report text derives from untrusted feeds, so the renderer treats it as
+data: raw HTML is escaped, images are dropped, only `http(s)`, `mailto` and
+in-page links survive (each shows its real destination host), and a CSP forbids
+scripts and network access. `--format auto` picks the renderer by suffix
+(`.md` here, `.json` below).
 
 ## Rendering an executive overview
 
