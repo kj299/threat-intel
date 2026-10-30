@@ -155,6 +155,7 @@ threat-intel/
     |   |   +-- misp_zmq.py                          # MISP ZeroMQ subscriber (first concrete subclass)
     |   +-- render/
     |   |   +-- executive.py                         # enterprise_executive -> self-contained HTML
+    |   |   +-- report.py                            # markdown threat-intel report -> self-contained HTML (untrusted input)
     |   |   +-- __main__.py                          # python -m threat_intel_mcp.render
     |   +-- vault/
     |       +-- base.py                              # CredentialProvider protocol + error types
