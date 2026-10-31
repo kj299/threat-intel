@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **HTML renderer for markdown reports** (`threat_intel_mcp.render.report`; `python -m threat_intel_mcp.render report.md -o report.html`). The skill and the weekly workflow emit markdown, and until now the only HTML path was the `enterprise_executive` JSON renderer; the two pages produced on 2026-10-28 came from an uncommitted script. The report text derives from untrusted feeds (R6), so the renderer escapes raw HTML, disables images, allows only `http(s)`/`mailto`/in-page links (each with `rel="noopener noreferrer nofollow"` and a visible `data-host`), and sets a `default-src 'none'` CSP. New optional extra `report` (`markdown-it-py`); `markdown-it-py` and `mdurl` are pinned in `constraints-dev.txt` and `markdown-it-py` is in `dev`. `test_report_render.py` asserts an allowlist over parsed output, includes a hostile-input fixture, and renders every file in the frozen `reports/` corpus; each guard was checked by sabotage.
+
 ### Fixed
 
 - **One retired feed no longer aborts the weekly report.** The 2026-10-26 run produced no report: ThreatFox's CSV export (`threatfox.abuse.ch/export/csv/recent/`) began answering `410 Gone` around 2026-10-21/22, and `generate` opened with a step that re-fetched ThreatFox and CISA KEV from its own credential-free runner and failed the job if either did. That step contradicted the workflow's own rule against re-fetching in the agent's job, and it was the only thing standing in for a total-outage check, because `prefetch_feeds.py --require-records` -- the script's own rule -- was never passed. The step is deleted and the flag is on: `prefetch` now fails the run only when *every* source degraded, and a single dead feed is recorded `unverified` with the prefetch's reason. `mcp/tests/test_report_workflow.py` parses the workflow and tokenises the shell command (a substring check passes on a commented-out flag, as its first draft did) to keep both halves true.
