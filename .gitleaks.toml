@@ -1,0 +1,86 @@
+# gitleaks configuration for the secret-scan workflow.
+#
+# Starts from gitleaks' default rule set and adds the credential shapes this
+# repository actually handles, because the default rules match a key only when
+# it sits on the same line as a word like "key". The one real leak here
+# (2026-09-12, the abuse.ch Auth-Key in two recorded cassettes) was a 48-hex
+# value on the line BELOW its header name -- the vcrpy header shape -- and no
+# generic rule would have fired on it. These rules were checked against that
+# shape and against the key formats of every credentialed feed adapter.
+
+[extend]
+useDefault = true
+
+# A recorded HTTP header whose name says "credential" and whose list value is
+# anything other than the scrubber's placeholder.
+#   auth-key:
+#   - 0123456789abcdef...
+[[rules]]
+id = "vcr-credential-header-value"
+description = "Unredacted credential header in a recorded cassette (vcrpy list shape)"
+regex = '''(?i)(?:auth-key|key|apikey|x-apikey|x-otx-api-key|authorization|cookie|x-api-key|api-key):\s*\n\s*-\s*['"]?([A-Za-z0-9+/=_.-]{16,})'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["auth-key", "apikey", "x-apikey", "x-otx-api-key", "authorization", "cookie", "x-api-key", "api-key", "key:"]
+
+# abuse.ch Auth-Key (URLhaus, ThreatFox, Feodo Tracker, MalwareBazaar): 48 hex.
+[[rules]]
+id = "abusech-auth-key"
+description = "abuse.ch Auth-Key (48 hex)"
+regex = '''(?i)(?:abusech|abuse\.ch|auth-key|auth_key)[^\n]{0,40}?(?:^|[^0-9a-f])([0-9a-f]{48})\b'''
+secretGroup = 1
+keywords = ["abusech", "abuse.ch", "auth-key", "auth_key"]
+
+# AbuseIPDB API key: 80 hex.
+[[rules]]
+id = "abuseipdb-api-key"
+description = "AbuseIPDB API key (80 hex)"
+regex = '''(?i)abuseipdb[^\n]{0,40}?([0-9a-f]{80})\b'''
+secretGroup = 1
+keywords = ["abuseipdb"]
+
+# HashiCorp Vault tokens and AppRole secret IDs used by VaultCredentialProvider.
+[[rules]]
+id = "vault-token"
+description = "HashiCorp Vault token"
+regex = '''\bhv[sbr]\.[A-Za-z0-9_-]{24,}\b'''
+keywords = ["hvs.", "hvb.", "hvr."]
+
+# VulnCheck API token.
+[[rules]]
+id = "vulncheck-token"
+description = "VulnCheck API token"
+regex = '''\bvulncheck_[A-Za-z0-9]{32,}\b'''
+keywords = ["vulncheck_"]
+
+# Any credential-named value on one line that is not an obvious placeholder.
+[[rules]]
+id = "feed-credential-assignment"
+description = "Credential-named assignment with a high-entropy value"
+regex = '''(?i)\b[A-Z0-9_]*(?:API_KEY|AUTH_KEY|API_SECRET|API_ID|SECRET_ID|ROLE_ID|TOKEN|PASSWORD)\b\s*[:=]\s*['"]?([A-Za-z0-9+/=_.-]{16,})['"]?'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["api_key", "auth_key", "api_secret", "api_id", "secret_id", "role_id", "token", "password"]
+
+[allowlist]
+description = "Known non-secrets"
+regexes = [
+  # the scrubber's placeholder, as every committed cassette records it
+  '''\[REDACTED\]''',
+  # fake keys the tests use on purpose; the words say so
+  '''(?i)sk-live-DO-NOT-(?:LEAK|COMMIT)-[0-9a-f]+''',
+  '''(?i)sk-live-abcdef123456''',
+  '''(?i)test-[a-z0-9-]*-?(?:key|secret)(?:-do-not-use[a-z-]*)?''',
+  '''supersecrettoken12345''',
+  # workflow secret references and shell/env expansion are names, not values
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+(?:\s*\|\|\s*secrets\.[A-Z0-9_]+)*\s*\}\}''',
+  '''\$\{?[A-Z][A-Z0-9_]*\}?''',
+  # code that reads a credential, not a credential: attribute access and calls
+  '''(?i)(?:os\.environ|getenv|secrets\.|typing\.|Optional|str\b|bytes\b|self\.|\.get\(|_credentials)''',
+]
+paths = [
+  # negative schema fixtures hold deliberately malformed hashes, not keys
+  '''^tests/invalid/''',
+  # this config names the shapes it hunts
+  '''^\.gitleaks\.toml$''',
+]
