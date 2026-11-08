@@ -93,6 +93,7 @@ threat-intel/
 +-- .github/workflows/live-feed-check.yml             # weekly pytest -m live against the real feed endpoints
 +-- .github/workflows/report-staleness.yml            # manual-only staleness alarm (see docs/report-runbook.md)
 +-- .github/workflows/record-cassettes.yml            # records real feed responses into mcp/tests/cassettes/
++-- .github/workflows/secret-scan.yml                 # gitleaks over each PR's commits and each push to main (.gitleaks.toml rules)
 +-- tests/invalid/                                    # negative fixtures (must be rejected)
 +-- skills/
     +-- cyber-threat-intel/
