@@ -33,23 +33,13 @@ from typing import Any
 
 import vcr
 
+from threat_intel_mcp.secret_fields import SECRET_HEADERS as _SECRET_HEADERS
+
 CASSETTE_DIR = pathlib.Path(__file__).parent / "cassettes"
 
 # Headers carrying credentials across the feeds we talk to. Matched
 # case-insensitively by vcrpy.
-_SECRET_HEADERS = [
-    "authorization",       # Intel 471, Censys (HTTP Basic)
-    "x-apikey",            # VirusTotal
-    "x-otx-api-key",       # AlienVault OTX
-    "auth-key",            # abuse.ch (URLhaus, Feodo Tracker, ThreatFox)
-    "key",                 # GreyNoise
-    "x-api-key",           # generic
-    "x-auth-token",        # generic
-    "apikey",              # NVD (header form)
-    "cookie",
-    "set-cookie",
-    "proxy-authorization",
-]
+
 
 # Credential-bearing query parameters. Shodan puts its key in the URL, which is
 # also why audit.py has a redact_url in the first place.

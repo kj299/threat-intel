@@ -1,0 +1,49 @@
+name: report-delivery
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 8 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Read recent runs and delivery artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          repo = os.environ['GH_REPO']
+          def get(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+          # All completed runs in the delivery window, not only the first page.
+          from datetime import datetime, timedelta, timezone
+          cutoff = datetime.now(timezone.utc) - timedelta(days=10)
+          pages = json.loads(subprocess.check_output([
+              'gh', 'api', '--paginate', '--slurp',
+              f'repos/{repo}/actions/workflows/scheduled-report.yml/runs?status=completed&per_page=100&created=>={cutoff.date().isoformat()}'
+          ], text=True))
+          runs = []
+          for page in pages:
+              for run in page['workflow_runs']:
+                  if datetime.fromisoformat(run['created_at'].replace('Z', '+00:00')) < cutoff:
+                      continue
+                  if run.get('conclusion') == 'success':
+                      run['artifacts'] = get(f'repos/{repo}/actions/runs/{run["id"]}/artifacts?per_page=100')['artifacts']
+                      runs.append(run)
+          Path('/tmp/report-delivery.json').write_text(json.dumps(runs))
+          PY
+      - name: Require a recent delivered report
+        run: python3 scripts/check_delivery.py /tmp/report-delivery.json

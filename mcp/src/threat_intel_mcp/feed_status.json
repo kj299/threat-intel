@@ -1,0 +1,135 @@
+{
+  "Q-Feeds": {
+    "tool": "qfeeds_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "AbuseIPDB": {
+    "tool": "abuseipdb_fetch_blocklist",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "AlienVault OTX": {
+    "tool": "otx_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "Shodan": {
+    "tool": "shodan_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": "Malware Hunter access depends on account entitlement; an empty result does not establish entitlement."
+  },
+  "GreyNoise": {
+    "tool": "greynoise_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "ANY.RUN": {
+    "tool": "anyrun_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": "Live verification and cassette recording require source access; integration remains available."
+  },
+  "Intel 471": {
+    "tool": "intel471_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": "Live verification and cassette recording require source access; integration remains available."
+  },
+  "Censys": {
+    "tool": "censys_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": "Live verification and cassette recording require source access; integration remains available."
+  },
+  "ThreatFox": {
+    "tool": "threatfox_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "known_endpoint_failure",
+    "last_verified_at": null,
+    "known_limitation": "Legacy CSV endpoint returned HTTP 410 in the recorded 2026-10-28 live check. Integration retained; migration requires verified provider documentation and a new cassette."
+  },
+  "OpenPhish": {
+    "tool": "openphish_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "URLhaus": {
+    "tool": "urlhaus_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "Feodo Tracker": {
+    "tool": "feodo_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "Pulsedive": {
+    "tool": "pulsedive_fetch_iocs",
+    "kind": "feeds",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": "Explore may be restricted by account plan or quota. Keep the integration configured and report account refusal separately."
+  },
+  "CISA KEV": {
+    "tool": "cisa_kev_fetch_cves",
+    "kind": "cve_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "NVD": {
+    "tool": "nvd_fetch_cves",
+    "kind": "cve_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "VulnCheck KEV": {
+    "tool": "vulncheck_fetch_cves",
+    "kind": "cve_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "VirusTotal": {
+    "tool": "virustotal_enrich_iocs",
+    "kind": "enrichment_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "EPSS": {
+    "tool": "epss_enrich_cves",
+    "kind": "enrichment_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  },
+  "OSV": {
+    "tool": "osv_enrich_cves",
+    "kind": "enrichment_sources",
+    "verification_status": "not_verified_in_this_environment",
+    "last_verified_at": null,
+    "known_limitation": null
+  }
+}

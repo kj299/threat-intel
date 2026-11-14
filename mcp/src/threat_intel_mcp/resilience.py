@@ -90,6 +90,10 @@ class CircuitBreaker:
         self._trial_pending = True
         return True
 
+    def release_trial(self) -> None:
+        """Release an inconclusive trial without changing upstream health."""
+        self._trial_pending = False
+
     def record_success(self) -> None:
         if self._opened_at is not None or self._consecutive_failures:
             logger.info("circuit %s -> closed (success)", self.name)
@@ -170,6 +174,7 @@ async def guarded_fetch(
     time_range: str,
     feed_types: list[str] | None = None,
     no_retry_on: tuple[type[BaseException], ...] = (),
+    timeout_seconds: float = 300.0,
     **retry_kwargs: object,
 ) -> object:
     """Run ``adapter.fetch`` behind ``breaker`` with backoff retry.
@@ -187,11 +192,16 @@ async def guarded_fetch(
         return await adapter.fetch(time_range=time_range, feed_types=feed_types)  # type: ignore[attr-defined]
 
     try:
-        result = await retry_with_backoff(
-            _call, no_retry_on=no_retry_on, **retry_kwargs  # type: ignore[arg-type]
-        )
+        async with asyncio.timeout(timeout_seconds):
+            result = await retry_with_backoff(
+                _call, no_retry_on=no_retry_on, **retry_kwargs  # type: ignore[arg-type]
+            )
     except no_retry_on:
-        raise  # config error: leave breaker state untouched
+        breaker.release_trial()
+        raise  # configuration is not an upstream-health signal
+    except asyncio.CancelledError:
+        breaker.release_trial()
+        raise
     except Exception:
         breaker.record_failure()
         raise

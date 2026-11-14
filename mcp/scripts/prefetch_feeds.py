@@ -368,6 +368,8 @@ def summarise(payload: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from threat_intel_mcp.audit import configure_logging
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, help="Path to write the JSON payload to")
     parser.add_argument("--time-range", default="7d", help="Lookback window (e.g. 7d)")

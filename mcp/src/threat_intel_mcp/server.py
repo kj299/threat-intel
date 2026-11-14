@@ -1614,7 +1614,7 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         vulncheck_cred_ok = False
 
-    return {
+    result = {
         "feeds": [
             {
                 "name": "Q-Feeds",
@@ -1692,7 +1692,7 @@ async def list_available_feeds() -> dict[str, Any]:
                 "name": "ThreatFox",
                 "tier": _threatfox.tier,
                 "domain": "threatfox.abuse.ch",
-                "description": "Free public feed of recent malicious IOCs, network types (no credential required)",
+                "description": "Legacy ThreatFox CSV integration; known HTTP 410 endpoint failure, retained pending verified migration",
                 "feed_types": list(THREATFOX_FEED_TYPES.keys()),
                 "credential_configured": True,
                 "tool": "threatfox_fetch_iocs",
@@ -1817,8 +1817,13 @@ async def list_available_feeds() -> dict[str, Any]:
         "planned": ["Recorded Future (API docs are subscription-gated; adapter deferred until access is available)"],
     }
 
+    from .feed_status import annotate_discovery
+    return annotate_discovery(result)
+
 
 def main() -> None:
+    from .audit import configure_logging
+    configure_logging()
     mcp.run()
 
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import re
+
+from .secret_fields import SECRET_HEADERS
 from typing import Any
 
 logger = logging.getLogger("threat_intel_mcp.audit")
@@ -86,6 +88,11 @@ _SECRET_PATTERNS = [
 
 def redact_url(url: str) -> str:
     """Remove credential-bearing query parameters and auth schemes before logging."""
+    url = re.sub(
+        r"(?i)([\"'](?:" + "|".join(map(re.escape, SECRET_HEADERS))
+        + r")[\"']\s*:\s*)([\"'])[^\"']*\2",
+        r"\1\2[REDACTED]\2", url,
+    )
     for pattern, replacement in _SECRET_PATTERNS:
         url = pattern.sub(replacement, url)
     return url
@@ -93,7 +100,7 @@ def redact_url(url: str) -> str:
 
 def redact_headers(headers: dict[str, str]) -> dict[str, str]:
     """Return a copy of headers with Authorization and similar fields redacted."""
-    sensitive = {"authorization", "x-api-key", "x-auth-token", "cookie"}
+    sensitive = set(SECRET_HEADERS)
     return {
         k: "[REDACTED]" if k.lower() in sensitive else v
         for k, v in headers.items()
@@ -173,3 +180,15 @@ def log_tool_call(
         logger.info("%s", entry)
     else:
         logger.warning("%s", entry)
+
+
+def configure_logging() -> None:
+    """Protect application output handlers, including propagated child records.
+
+    Embedders adding their own handlers must attach _RedactingFilter to those
+    handlers too. Logger filters alone do not cover descendants.
+    """
+    logging.basicConfig()
+    for handler in logging.getLogger().handlers:
+        if not any(isinstance(f, _RedactingFilter) for f in handler.filters):
+            handler.addFilter(_RedactingFilter())
