@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Retrospective hardening
+
+- Preserve integrations when credentials, network access, or account entitlements
+  are missing. Discovery now exposes historical integration status separately
+  from credential presence; ThreatFox remains registered with its known legacy
+  endpoint failure disclosed.
+- Preserve source-specific evidence and the most restrictive supplied TLP when
+  merging IOC or CVE records. Confidence no longer decides sharing restrictions.
+- Package the complete published IOC schema and add semantic checks for concrete
+  runtime indicators; malformed and defanged machine values are rejected.
+- Release half-open circuit trials after configuration errors and cancellation;
+  bound guarded fetches to 300 seconds including retries by default.
+- Apply redaction to application output handlers, including descendant logs, and
+  share sensitive-header names between runtime logs and cassette recording.
+- Add opt-in structured-report evidence checks, a locally runnable CI validator,
+  and a read-only report-artifact delivery monitor. Pin workflow actions to
+  resolved release commits, retaining version comments for automated updates.
+- Local validation does not establish live source access, key rotation, repository
+  security settings, or successful execution of the new workflow in GitHub.
+
+
 ### Added
 
 - **Secret scan in CI** (`.github/workflows/secret-scan.yml`, `.gitleaks.toml`). gitleaks runs over the commits every PR adds and over each push to `main`; a manual dispatch scans full history. The rule file adds what the default rules miss and this repository actually leaked once: a recorded header whose value sits on the line below its name, plus the key formats of abuse.ch, AbuseIPDB, Vault and VulnCheck. Each rule was checked against a planted key of its shape and the allowlist against every committed file (0 unallowlisted matches on `main`). Follows a four-pass manual audit on 2026-11-07 that found exactly one credential in the repository or its history -- the already-known abuse.ch key, still present in the current files of four stale branches and in PR #212's diff -- and nothing else in any file, commit message, issue, PR or comment.

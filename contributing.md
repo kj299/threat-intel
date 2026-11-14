@@ -50,7 +50,10 @@ longer does, the change grew beyond its branch and probably wants splitting.
 
 > A GitHub Actions workflow ([`validate`](.github/workflows/validate.yml)) runs the same JSON/YAML/schema-conformance checks on every PR. Catching errors locally is faster, but the server check is the source of truth.
 
-Before submitting a PR, validate your changes:
+Before submitting a PR, validate your changes. Run the existing CI skill checks
+locally with `mcp/.venv/bin/python scripts/validate.py`; this uses the workflow
+commands and environment directly, preserves failures, and does not reinstall
+dependencies. Run the server suite separately from `mcp/`.
 
 **If you edited YAML:**
 ```bash

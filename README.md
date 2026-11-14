@@ -1,5 +1,12 @@
 # Cyber Threat Intelligence Skill
 
+> Integrations are retained when access, credentials, or subscriptions are missing.
+> Credential presence does not establish upstream health. ThreatFox’s legacy CSV
+> endpoint has a documented HTTP 410 failure and awaits verified migration.
+> Historical keyless-source counts are not a current availability guarantee.
+> See [feed operations](docs/feed-operations.md).
+
+
 An [Anthropic Agent Skill](https://code.claude.com/docs/en/skills) that guides Claude Code (and other Skill-aware AI assistants) to produce professional-grade cyber threat intelligence reports with strong source-coverage guidance, per-IOC source citations, and a strict no-fabrication rule. Source-coverage targets are recommendations, not quotas: when little is retrievable for the requested scope and time range, the report says so plainly rather than padding or inventing data.
 
 The "paste this prompt into another LLM" workflow is also supported -- use the self-contained [standalone/cyber-threat-intel-prompt.md](standalone/cyber-threat-intel-prompt.md) (the long-form canonical prompt also lives at [skills/cyber-threat-intel/references/original-prompt.md](skills/cyber-threat-intel/references/original-prompt.md)).
@@ -128,6 +135,10 @@ threat-intel/
     |   +-- resilience.py                            # circuit breaker + backoff retry (guarded_fetch)
     |   +-- netpolicy.py                             # per-adapter egress allowlist (httpx hook)
     |   +-- sanitize.py                              # feed free-text sanitization (R6 runtime defense)
+    |   +-- indicator_values.py  # Semantic validation of actionable indicator values
+    |   +-- provenance.py  # Source evidence and conservative TLP merging
+    |   +-- secret_fields.py  # Shared credential header inventory
+    |   +-- feed_status.py  # Discovery status independent of source access
     |   +-- normalize.py                             # finalize_iocs: sanitize -> validate -> dedup
     |   +-- stix_patterns.py                         # STIX pattern parsing (ANY.RUN TAXII)
     |   +-- adapters/
