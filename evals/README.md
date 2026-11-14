@@ -101,3 +101,14 @@ are where that gap closes, and they need a model call to do it.
 Nothing here asserts the *content* is correct — only that the report is honest
 about what it knows. Those are different claims, and this harness makes the
 second one, not the first.
+
+## Evidence-grounded structured reports
+
+For feed-only structured output, run `python evals/evidence.py --report output.json
+--evidence feed-data.json`. It rejects indicators absent from the supplied data,
+unsupported source attribution, and partial/degraded sources claimed as fully
+consulted. It accepts the schema's `skill_output` envelope or the output object.
+Run before display defanging. This checks evidence correspondence, not prose
+truthfulness; reports using separately browsed sources need those sources added to
+the evidence contract before this strict mode applies. The adversarial tests run
+with `python -m pytest evals/`; the frozen 11-report corpus remains unchanged.

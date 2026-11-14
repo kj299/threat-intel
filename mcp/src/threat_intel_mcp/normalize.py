@@ -8,46 +8,23 @@ Malformed objects are dropped with a warning rather than crashing the tool call.
 from __future__ import annotations
 
 import logging
+import json
+from importlib.resources import files
 from typing import Any
 
 import jsonschema
 
+from .provenance import merge_evidence
+
 from .sanitize import sanitize_iocs
+from .indicator_values import valid_value
 
 logger = logging.getLogger(__name__)
 
-# Inline the ioc_network schema so this package has no file-system dependency
-# on the threat-intel repo at runtime. Keep in sync with output.schema.json.
-_IOC_NETWORK_SCHEMA: dict[str, Any] = {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "type": "object",
-    "required": ["type", "value", "confidence", "source"],
-    "properties": {
-        "type": {
-            "type": "string",
-            "enum": [
-                "IPv4", "IPv6", "Domain", "URL", "SSL_Certificate_Hash",
-                "JA3", "JA3S", "JARM", "HTTP_Header", "User_Agent", "CIDR_Range",
-            ],
-        },
-        "value": {"type": "string", "minLength": 1},
-        "confidence": {"type": "string", "enum": ["High", "Medium", "Low"]},
-        "source": {
-            "type": "string",
-            "minLength": 1,
-            "not": {"enum": ["unknown", "general knowledge", "n/a"]},
-        },
-        "first_seen": {"type": "string", "format": "date-time"},
-        "last_seen": {"type": "string", "format": "date-time"},
-        "associated_threat": {"type": "string"},
-        "associated_actor": {"type": "string"},
-        "tags": {"type": "array", "items": {"type": "string"}},
-        "kill_chain_phase": {"type": "string"},
-        "tlp": {"type": "string", "enum": ["WHITE", "GREEN", "AMBER", "AMBER+STRICT", "RED"]},
-        "mitre_technique": {"type": "string", "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"},
-        "action": {"type": "string", "enum": ["block", "alert", "hunt"]},
-    },
-}
+# Packaged from the published contract; parity is verified by the test suite.
+_IOC_NETWORK_SCHEMA: dict[str, Any] = json.loads(
+    files(__package__).joinpath("ioc_network.schema.json").read_text()
+)
 
 # FormatChecker enforces "format": "date-time" on first_seen/last_seen at
 # runtime (requires the rfc3339-validator package, declared in pyproject).
@@ -71,6 +48,8 @@ def validate_iocs(iocs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 ioc.get("value", "?"),
                 [e.message for e in errors],
             )
+        elif not valid_value(ioc["type"], ioc["value"]):
+            logger.warning("Dropping IOC whose value is invalid for type %s", ioc["type"])
         else:
             valid.append(ioc)
     return valid
@@ -88,7 +67,7 @@ def _merge_duplicate(kept: dict[str, Any], other: dict[str, Any]) -> dict[str, A
     ``corroborated-by:<source>`` tag (two feeds reporting the same indicator
     is signal, not noise).
     """
-    merged = {**kept}
+    merged = merge_evidence(kept, other)
     tags = list(merged.get("tags", []))
     for tag in other.get("tags", []):
         if tag not in tags:

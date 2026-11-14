@@ -490,6 +490,8 @@ def verify_scrubbed(names: list[str]) -> list[str]:
 
 
 async def main() -> int:
+    from threat_intel_mcp.audit import configure_logging
+    configure_logging()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--all", action="store_true", help="include keyed feeds")
     parser.add_argument("--only", nargs="*", help="record only these feeds")

@@ -31,6 +31,8 @@ from typing import Any
 
 import jsonschema
 
+from .provenance import merge_evidence
+
 from .audit import redact_url
 from .resilience import CircuitBreaker, CircuitOpenError, guarded_fetch
 from .sanitize import _clean_str, _strip_chars
@@ -244,7 +246,7 @@ def _merge_duplicate(kept: dict[str, Any], other: dict[str, Any]) -> dict[str, A
     ``corroborated-by:<source>`` tag, and references / CWEs are unioned so the
     merged record carries both feeds' enrichment.
     """
-    merged = {**kept}
+    merged = merge_evidence(kept, other)
 
     tags = list(merged.get("tags", []))
     for tag in other.get("tags", []):

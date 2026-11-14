@@ -162,9 +162,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
 
@@ -222,7 +222,7 @@ jobs:
             --require-records
 
       - name: Upload the feed data for the report job
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: feed-data
           path: ${{ runner.temp }}/feed-data.json
@@ -301,12 +301,12 @@ jobs:
             (see docs/report-runbook.md)."
           fi
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.guard.outputs.configured == 'true'
         with:
           persist-credentials: false # nothing in this job pushes; keep the token off disk
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: steps.guard.outputs.configured == 'true'
         with:
           python-version: "3.12"
@@ -317,14 +317,14 @@ jobs:
 
       - name: Download the prefetched feed data
         if: steps.guard.outputs.configured == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: feed-data
           path: ${{ runner.temp }}/feeds
 
       - name: Generate the report
         if: steps.guard.outputs.configured == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1
         with:
           # Pass ONLY the credential the guard selected — never both. The action
           # forwards each to Claude Code, whose own precedence ranks
@@ -422,7 +422,7 @@ jobs:
         # on a later check passing -- the same ordering rule evals/run.py
         # follows when it writes a run artifact before evaluating invariants.
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: threat-intel-report
           path: report-output/*.md

@@ -1,5 +1,12 @@
 # threat-intel-mcp
 
+> Integrations are retained when access, credentials, or subscriptions are missing.
+> Credential presence does not establish upstream health. ThreatFox’s legacy CSV
+> endpoint has a documented HTTP 410 failure and awaits verified migration.
+> Historical keyless-source counts are not a current availability guarantee.
+> See [feed operations](../docs/feed-operations.md).
+
+
 MCP server that connects Claude to live threat intelligence feeds, normalising their output to the [threat-intel skill schema](https://github.com/kj299/threat-intel).
 
 Implements the architecture described in [threat-intel issue #1](https://github.com/kj299/threat-intel/issues/1).
@@ -517,6 +524,10 @@ src/threat_intel_mcp/
 ├── resilience.py          CircuitBreaker + retry_with_backoff + guarded_fetch
 ├── netpolicy.py           Per-adapter egress allowlist (httpx request hook)
 ├── sanitize.py            Strip control/zero-width/bidi + cap feed free-text
+├── indicator_values.py    Semantic indicator validation
+├── provenance.py          Source evidence and TLP merging
+├── secret_fields.py       Shared credential header inventory
+├── feed_status.py         Integration status independent of access
 ├── normalize.py           Schema validation + sanitize + dedup (finalize_iocs)
 ├── stix_patterns.py       STIX pattern parsing (ANY.RUN TAXII objects)
 └── audit.py               Structured logging with secret redaction
@@ -566,6 +577,7 @@ tests/
 ├── test_netpolicy.py      Egress allowlist tests (incl. mock-transport e2e)
 ├── test_protocol_credentials.py  gRPC/MQTT/WS/GraphQL credential bundle tests
 ├── test_protocol_adapter.py      ProtocolAdapter base + fan-out integration tests
+├── test_review_regressions.py  Cross-cutting retrospective regression tests
 ├── test_normalize.py      Normaliser / validator tests
 ├── test_vault.py          Vault provider + factory tests (hvac mocked)
 ├── test_report_render.py    markdown -> HTML renderer: allowlist safety over parsed output, hostile fixture, frozen corpus
