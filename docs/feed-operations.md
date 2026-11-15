@@ -12,8 +12,22 @@ requests and makes no current-health promise. Actual fetch results and their
 coverage ledger remain the evidence for a report. No status entry disables a feed.
 
 ThreatFox's legacy CSV route returned HTTP 410 in the documented 2026-10-28 run.
-Keep its tool and adapter while obtaining authoritative API documentation, access,
-and a scrubbed cassette for migration. Do not infer a replacement URL or auth scheme.
+The replacement follows [official ThreatFox API documentation](https://threatfox.abuse.ch/api/):
+JSON `POST https://threatfox-api.abuse.ch/api/v1/` with an `Auth-Key` header and
+`{"query":"get_iocs","days":N}`. Configure the shared `ABUSECH_AUTH_KEY` securely;
+it is optional for server startup but required for this feed. Without it, retain
+ThreatFox as `unverified`, not keyless or successfully consulted. Provider usage
+terms apply; commercial/for-profit use may require an enhanced subscription.
+
+`get_iocs` supports 1–7 days (provider default: 3), based on `first_seen`, not
+`last_seen`. Wider requested windows are capped and disclosed, not presented as
+complete historical coverage. Date filtering must preserve the requested window;
+retrieval time is not an IOC observation time. In-band API statuses distinguish
+quiet results from authentication, quota, or format failures. Unit fixtures do
+not prove current upstream access: authenticated live validation and a newly
+recorded, credential-scrubbed JSON API cassette remain pending. Preserve the old
+CSV cassette as historical evidence, not replacement-API validation.
+
 Shodan empty responses require an entitlement check; Pulsedive refusal requires a
 quota/plan check. ANY.RUN, Intel 471 and Censys remain implemented despite absent
 recordings in this environment.
