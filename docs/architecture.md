@@ -38,7 +38,7 @@ flowchart TD
             OTX["OTXAdapter\nadapters/otx.py\nX-OTX-API-KEY header\n60-min cache"]
             Shodan["ShodanAdapter\nadapters/shodan.py\nkey query param (log-redacted)\n60-min cache"]
             GreyNoise["GreyNoiseAdapter\nadapters/greynoise.py\nkey header\nGNQL classification:malicious\n60-min cache"]
-            ThreatFox["ThreatFoxAdapter\nadapters/threatfox.py\npublic CSV · Auth-Key optional\n15-min cache"]
+            ThreatFox["ThreatFoxAdapter\nadapters/threatfox.py\nJSON API · Auth-Key required\n15-min cache"]
             URLhaus["URLhausAdapter\nadapters/urlhaus.py\nAuth-Key REQUIRED\n15-min cache"]
             Feodo["FeodoTrackerAdapter\nadapters/feodo.py\nbotnet C2 IPs · Auth-Key optional\n15-min cache"]
             Pulsedive["PulsediveAdapter\nadapters/pulsedive.py\nkey in query param\nONE request/fetch (50/day)\n60-min cache"]
@@ -71,7 +71,7 @@ flowchart TD
         OTX_API["AlienVault OTX API\nhttps://otx.alienvault.com/api/v1\nGET /pulses/subscribed · paginated"]
         Shodan_API["Shodan API\nhttps://api.shodan.io\nGET /shodan/host/search · category:malware · paginated"]
         GreyNoise_API["GreyNoise API\nhttps://api.greynoise.io\nGET /v3/gnql · classification:malicious · scroll paginated"]
-        ThreatFox_API["ThreatFox feed\nhttps://threatfox.abuse.ch/export/csv/recent/\npublic CSV (grandfathered route)"]
+        ThreatFox_API["ThreatFox feed\nhttps://threatfox-api.abuse.ch/api/v1/\nauthenticated JSON API"]
         URLhaus_API["URLhaus API v1\nhttps://urlhaus-api.abuse.ch/v1\nGET /urls/recent/ · Auth-Key"]
         Feodo_API["Feodo Tracker blocklist\nhttps://feodotracker.abuse.ch\nGET /downloads/ipblocklist.json"]
         Pulsedive_API["Pulsedive Explore\nhttps://pulsedive.com/api\nGET /explore.php?q=..&key=.."]
@@ -128,7 +128,7 @@ flowchart TD
     EnvCred -.->|"api_key (optional)"| NVD
     EnvCred -->|"api_key"| VulnCheck
     EnvCred -->|"auth_key"| URLhaus
-    EnvCred -.->|"auth_key (optional)"| ThreatFox
+    EnvCred -.->|"auth_key (required)"| ThreatFox
     EnvCred -.->|"auth_key (optional)"| Feodo
     EnvCred -->|"api_key"| Pulsedive
     VaultCred -.->|"api_key (Phase 2)"| QFeeds
@@ -143,7 +143,7 @@ flowchart TD
     VaultCred -.->|"api_key (Phase 2, optional)"| NVD
     VaultCred -.->|"api_key (Phase 2)"| VulnCheck
     VaultCred -.->|"auth_key (Phase 2)"| URLhaus
-    VaultCred -.->|"auth_key (Phase 2, optional)"| ThreatFox
+    VaultCred -.->|"auth_key (required)"| ThreatFox
     VaultCred -.->|"auth_key (Phase 2, optional)"| Feodo
     VaultCred -.->|"api_key (Phase 2)"| Pulsedive
     QFeeds -->|"GET /api?feed_type=..&page=N"| QFeedsAPI
@@ -158,8 +158,8 @@ flowchart TD
     Shodan_API -->|"JSON matches"| Shodan
     GreyNoise -->|"GET /v3/gnql?query=classification:malicious"| GreyNoise_API
     GreyNoise_API -->|"JSON data records"| GreyNoise
-    ThreatFox -->|"GET /export/csv/recent/ (Auth-Key if set)"| ThreatFox_API
-    ThreatFox_API -->|"CSV rows"| ThreatFox
+    ThreatFox -->|"POST /api/v1/ get_iocs (Auth-Key required)"| ThreatFox_API
+    ThreatFox_API -->|"JSON IOC records"| ThreatFox
     OpenPhish -->|"GET /feed.txt (no auth)"| OpenPhish_API
     OpenPhish_API -->|"one URL per line"| OpenPhish
     URLhaus -->|"GET /urls/recent/ (Auth-Key)"| URLhaus_API
@@ -229,7 +229,7 @@ flowchart TD
 | Skill | `skills/cyber-threat-intel/SKILL.md` | Entrypoint; guides analysis workflow and report structure |
 | Plugin manifest | `.claude-plugin/plugin.json` | Makes the repo installable as a Claude Code plugin — the only way a clone exposes the skill as a slash command, since a top-level `skills/` directory is not a skill-discovery location. Plugin skills resolve at `<plugin-root>/skills/<name>/SKILL.md`, matching the existing layout. Also declares the bundled `threat-intel` MCP server, launched as `python -m threat_intel_mcp`. `claude --plugin-dir .` loads it from a clone |
 | Module entry point | `mcp/src/threat_intel_mcp/__main__.py` | `python -m threat_intel_mcp`, re-exporting `server:main`. Resolves through the interpreter rather than `PATH`, so the server starts where the console-script shim is installed but unreachable (Windows Store Python) |
-| Live feed check | `.github/workflows/live-feed-check.yml` · `mcp/tests/test_live_feeds.py` | Weekly `pytest -m live` against real endpoints — the seven that run unconditionally (ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, Feodo Tracker) plus every credentialed adapter whose key is configured — asserting a non-empty parse for the unconditional feeds (credentialed ones assert the call completes; a quiet week may be 0) **and** survival through `finalize_iocs`/`finalize_vulns`. Deselected from PR CI by `addopts = -m 'not live'`. Opens/bumps a `Live feed check failing` issue, closes it on recovery |
+| Live feed check | `.github/workflows/live-feed-check.yml` · `mcp/tests/test_live_feeds.py` | Weekly `pytest -m live` against real endpoints — the six that run unconditionally (CISA KEV, NVD, OpenPhish, EPSS, OSV, Feodo Tracker) plus every credentialed adapter whose key is configured — asserting a non-empty parse for the unconditional feeds (credentialed ones assert the call completes; a quiet week may be 0) **and** survival through `finalize_iocs`/`finalize_vulns`. Deselected from PR CI by `addopts = -m 'not live'`. Opens/bumps a `Live feed check failing` issue, closes it on recovery |
 | MCP Server | `mcp/src/threat_intel_mcp/server.py` | `MCPServer` stdio server (mcp 2.0's successor to FastMCP); exposes IOC tools `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`, `pulsedive_fetch_iocs`, `fetch_all_iocs`; CVE tools `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`, `fetch_all_cves`; enrichment tools `virustotal_enrich_iocs` (per-indicator, key required), `epss_enrich_cves` and `osv_enrich_cves` (per-CVE, both keyless) — none part of the IOC fan-out (#203); and `list_available_feeds` |
 | Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
 | Vuln fan-out + pipeline | `mcp/src/threat_intel_mcp/vulns.py` | `fetch_all_cves` backend: `fan_out_vulns` over the CVE sources (same `CircuitBreaker`/`guarded_fetch` resilience), plus `finalize_vulns` = sanitize → validate against the inline CVE-keyed vuln-record schema → dedupe by CVE ID (keeps highest CVSS, folds in KEV exploit-status/due-date). Emits vulnerability records, not `ioc_network` |
@@ -249,7 +249,7 @@ flowchart TD
 | OTXAdapter | `mcp/src/threat_intel_mcp/adapters/otx.py` | Fetches subscribed OTX pulses (IPv4, IPv6, Domain, URL); 60-min in-process cache |
 | ShodanAdapter | `mcp/src/threat_intel_mcp/adapters/shodan.py` | Fetches Malware Hunter C2/infrastructure detections (`category:malware`); key rides in the query string and is redacted from all logging; 60-min in-process cache |
 | GreyNoiseAdapter | `mcp/src/threat_intel_mcp/adapters/greynoise.py` | Runs GNQL `classification:malicious` (`/v3/gnql`) for confirmed-malicious scanners; header `key` auth; 60-min in-process cache |
-| ThreatFoxAdapter | `mcp/src/threat_intel_mcp/adapters/threatfox.py` | Recent malicious network IOCs from the **public** abuse.ch CSV export (hashes excluded; answers without a key, sends `ABUSECH_AUTH_KEY` when set); 15-min cache. CSV is read with `skipinitialspace=True` — abuse.ch quotes fields and separates them with comma-then-space, and the default dialect parses the whole feed to nothing. Raises `RuntimeError` when data rows are present but none carry a known `ioc_type`, so a format break degrades rather than reporting `0 records` |
+| ThreatFoxAdapter | `mcp/src/threat_intel_mcp/adapters/threatfox.py` | Recent malicious network IOCs from the authenticated abuse.ch JSON `get_iocs` API (hashes excluded; `ABUSECH_AUTH_KEY` required); 15-min cache. Provider lookback is 1–7 days by `first_seen`; wider requested windows are capped with a coverage caveat. In-band API failures and unrecognizable responses degrade rather than reporting a confident empty feed. Authenticated live/API-cassette verification is pending |
 | AnyRunAdapter | `mcp/src/threat_intel_mcp/adapters/anyrun.py` | Fetches ANY.RUN TAXII 2.1 STIX feed (ip/domain/url collections); STIX patterns parsed via `stix_patterns.py`; 60-min cache |
 | Intel471Adapter | `mcp/src/threat_intel_mcp/adapters/intel471.py` | Fetches Titan `indicators/stream` (HTTP Basic, cursor pagination); maps IP + URL indicators; 60-min cache |
 | CensysAdapter | `mcp/src/threat_intel_mcp/adapters/censys.py` | Searches v2 hosts `labels:malware/c2` (HTTP Basic id+secret); attack-surface, action=alert; 60-min cache |
