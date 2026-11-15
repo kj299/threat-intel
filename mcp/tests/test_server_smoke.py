@@ -51,14 +51,13 @@ _CREDENTIALED_FEED_TOOLS = [
     "anyrun_fetch_iocs",
     "intel471_fetch_iocs",
     "censys_fetch_iocs",
-    # URLhaus REQUIRES the shared abuse.ch Auth-Key; ThreatFox and Feodo send
-    # the same key only when it exists, so they stay in _PUBLIC_FEED_TOOLS.
+    # ThreatFox and URLhaus require the shared abuse.ch Auth-Key.
+    "threatfox_fetch_iocs",
     "urlhaus_fetch_iocs",
     "pulsedive_fetch_iocs",
 ]
 # Keyless public feeds: no credential, so they always attempt the network.
 _PUBLIC_FEED_TOOLS = [
-    "threatfox_fetch_iocs",
     "openphish_fetch_iocs",
     "feodo_fetch_iocs",
 ]
@@ -95,7 +94,6 @@ _EXPECTED_CVE_SOURCES = {"CISA KEV", "NVD", "VulnCheck KEV"}
 
 # abuse.ch public feed URLs (mocked so the public tools fail gracefully offline).
 _PUBLIC_FEED_URLS = {
-    "threatfox_fetch_iocs": "https://threatfox.abuse.ch/export/csv/recent/",
     "openphish_fetch_iocs": "https://openphish.com/feed.txt",
     "feodo_fetch_iocs": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
 }
@@ -118,8 +116,7 @@ _CRED_VARS = (
     "QFEEDS_API_KEY", "ABUSEIPDB_API_KEY", "VIRUSTOTAL_API_KEY", "OTX_API_KEY",
     "SHODAN_API_KEY", "GREYNOISE_API_KEY", "ANYRUN_API_KEY",
     "INTEL471_API_KEY", "INTEL471_EMAIL", "CENSYS_API_ID", "CENSYS_API_SECRET",
-    # One key, three abuse.ch feeds — URLhaus requires it, ThreatFox and Feodo
-    # Tracker send it when present and still answer without it.
+    # One key: URLhaus and ThreatFox require it; Feodo sends it when present.
     "ABUSECH_AUTH_KEY",
     "PULSEDIVE_API_KEY",
 )
@@ -449,9 +446,9 @@ async def test_fetch_all_iocs_fans_out_coherently(httpx_mock: HTTPXMock, monkeyp
     result = await server.fetch_all_iocs()
 
     assert result["record_count"] == 0
-    assert set(result["sources_consulted"]) == {"ThreatFox", "OpenPhish"}
+    assert set(result["sources_consulted"]) == {"OpenPhish"}
     degraded = {d["source"] for d in result["sources_degraded"]}
-    assert degraded == _EXPECTED_SOURCES - {"ThreatFox", "OpenPhish"}
+    assert degraded == _EXPECTED_SOURCES - {"OpenPhish"}
     assert {e["source"] for e in result["coverage_ledger"]} == _EXPECTED_SOURCES
 
 
