@@ -1,4 +1,4 @@
-"""Tests for the ThreatFox (abuse.ch) public IOC adapter.
+"""Synthetic JSON API tests and historical CSV parser regressions.
 
 Uses pytest-httpx to intercept HTTP calls — no live network access in CI.
 The mock CSV mirrors the real feed columns (0..14):
@@ -9,9 +9,13 @@ The mock CSV mirrors the real feed columns (0..14):
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
+from threat_intel_mcp.vault.base import CredentialNotFoundError, CredentialError
+from tests.test_abusech import FakeCredentials
+
 import httpx
 import pytest
-from pytest_httpx import HTTPXMock
 
 from threat_intel_mcp.adapters.threatfox import (
     ThreatFoxAdapter,
@@ -20,7 +24,7 @@ from threat_intel_mcp.adapters.threatfox import (
     _parse_ip,
 )
 
-_FEED_URL = "https://threatfox.abuse.ch/export/csv/recent/"
+_FEED_URL = "https://threatfox-api.abuse.ch/api/v1/"
 
 
 def _row(value, ioc_type, conf="90", malware="Cobalt Strike", threat="botnet_cc"):
@@ -62,7 +66,7 @@ def _csv_abusech(rows):
 
 @pytest.fixture()
 def adapter():
-    return ThreatFoxAdapter()
+    return ThreatFoxAdapter(FakeCredentials())
 
 
 class TestHelpers:
@@ -109,161 +113,137 @@ class TestHelpers:
         assert "associated_threat" not in out
 
 
-class TestFetch:
-    @pytest.mark.asyncio
-    async def test_fetch_network_types_only(self, adapter, httpx_mock: HTTPXMock):
-        rows = [
-            _row("1.2.3.4:443", "ip:port"),
-            _row("evil.example.com", "domain"),
-            _row("http://bad.test/x", "url"),
-            _row("a" * 64, "sha256_hash"),  # skipped
-        ]
-        httpx_mock.add_response(url=_FEED_URL, text=_csv(rows))
-        result = await adapter.fetch()
-        assert result.source == "ThreatFox"
-        assert result.tier == 9
-        assert result.record_count == 3  # hash dropped
-        assert {i["type"] for i in result.iocs} == {"IPv4", "Domain", "URL"}
+def _entry(value="malware.example", kind="domain", age=1):
+    return {"ioc": value, "ioc_type": kind, "threat_type": "botnet_cc",
+            "malware_printable": "Test", "confidence_level": 90,
+            "first_seen": (datetime.now(timezone.utc) - timedelta(hours=age)).strftime(
+                "%Y-%m-%d %H:%M:%S UTC")}
 
-    @pytest.mark.asyncio
-    async def test_no_credential_needed(self, adapter, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(url=_FEED_URL, text=_csv([_row("1.2.3.4:443", "ip:port")]))
-        result = await adapter.fetch()
-        assert result.record_count == 1
-        assert adapter.requires_credential is False
 
-    @pytest.mark.asyncio
-    async def test_unknown_feed_type_raises(self, adapter):
-        with pytest.raises(ValueError, match="Unknown feed_type"):
-            await adapter.fetch(feed_types=["nope"])
+@pytest.mark.asyncio
+async def test_post_contract_and_network_mapping(adapter, httpx_mock):
+    data = [_entry(), _entry("192.0.2.1:443", "ip:port"),
+            _entry("https://malware.example/a", "url"), _entry("a"*64, "sha256_hash")]
+    httpx_mock.add_response(url=_FEED_URL, method="POST", json={"query_status": "ok", "data": data})
+    result = await adapter.fetch(time_range="25h")
+    assert result.record_count == 3
+    assert {i["type"] for i in result.iocs} == {"Domain", "IPv4", "URL"}
+    request = httpx_mock.get_request()
+    assert json.loads(request.content) == {"query": "get_iocs", "days": 2}
+    assert request.headers["Auth-Key"] == "abusech-test-key"
+    assert result.iocs[0]["first_seen"].endswith("+00:00")
 
-    @pytest.mark.asyncio
-    async def test_upstream_error_raises(self, adapter, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(url=_FEED_URL, status_code=500)
-        with pytest.raises(httpx.HTTPStatusError):
-            await adapter.fetch()
 
-    @pytest.mark.asyncio
-    async def test_cache_avoids_second_request(self, adapter, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(url=_FEED_URL, text=_csv([_row("1.2.3.4:443", "ip:port")]))
+@pytest.mark.asyncio
+async def test_exact_window_and_future_filter(adapter, httpx_mock):
+    httpx_mock.add_response(json={"query_status": "ok", "data": [
+        _entry(age=1), _entry("old.example", age=25), _entry("future.example", age=-1)]})
+    result = await adapter.fetch(time_range="24h")
+    assert [i["value"] for i in result.iocs] == ["malware.example"]
+
+
+@pytest.mark.asyncio
+async def test_cache_reuses_fetch_timestamp_and_filters_per_window(adapter, httpx_mock):
+    httpx_mock.add_response(json={"query_status": "ok", "data": [_entry(age=12)]})
+    first = await adapter.fetch(time_range="24h")
+    second = await adapter.fetch(time_range="1h")
+    assert first.record_count == 1 and second.record_count == 0
+    assert first.retrieved_at == second.retrieved_at
+    assert len(httpx_mock.get_requests()) == 1
+
+
+@pytest.mark.asyncio
+async def test_cache_separated_by_api_days(adapter, httpx_mock):
+    for _ in range(2):
+        httpx_mock.add_response(json={"query_status": "ok", "data": []})
+    await adapter.fetch(time_range="1d")
+    await adapter.fetch(time_range="7d")
+    assert len(httpx_mock.get_requests()) == 2
+
+
+@pytest.mark.asyncio
+async def test_seven_day_cap_is_partial(adapter, httpx_mock):
+    httpx_mock.add_response(json={"query_status": "ok", "data": []})
+    result = await adapter.fetch(time_range="2w")
+    assert json.loads(httpx_mock.get_request().content)["days"] == 7
+    assert result.partial_failure and "7 days" in result.partial_failure[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", [None, FakeCredentials(None)])
+async def test_missing_key_fails_before_network(provider, httpx_mock):
+    with pytest.raises(CredentialNotFoundError):
+        await ThreatFoxAdapter(provider).fetch()
+    assert not httpx_mock.get_requests()
+
+
+@pytest.mark.asyncio
+async def test_provider_outage_propagates(httpx_mock):
+    class Broken:
+        def get(self, *args):
+            raise CredentialError("unavailable")
+    with pytest.raises(CredentialError):
+        await ThreatFoxAdapter(Broken()).fetch()
+    assert not httpx_mock.get_requests()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kwargs", [{"feed_types": ["nope"]}, {"time_range": "0d"},
+                                     {"time_range": "nonsense"}])
+async def test_bad_caller_input(adapter, kwargs):
+    with pytest.raises(ValueError):
+        await adapter.fetch(**kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [[], {}, {"query_status": "unknown_auth_key"},
+    {"query_status": "ok", "data": "bad"}, {"query_status": "ok", "data": [{}]},
+    {"query_status": "ok", "data": [_entry() | {"first_seen": None}]},
+    {"query_status": "ok", "data": [_entry() | {"first_seen": "bad"}]},
+    {"query_status": "ok", "data": [_entry() | {"ioc": None}]}])
+async def test_untrusted_json_never_quiet_success(adapter, httpx_mock, body):
+    httpx_mock.add_response(json=body)
+    with pytest.raises(RuntimeError):
         await adapter.fetch()
-        result = await adapter.fetch()
-        assert result.record_count == 1
+    assert not adapter._cache
 
 
-class TestLiveFeedDialect:
-    """Regression tests for the live abuse.ch CSV shape (quoted, ", "-separated).
-
-    The adapter previously used the default ``csv.reader`` dialect. Against this
-    shape the leading space stops ``"`` being a quote character, so every field
-    after the first keeps its literal quotes, ``row[3]`` reads ``'"ip:port"'``
-    rather than ``'ip:port'``, no row matches a known type, and the feed parses
-    to zero records behind an HTTP 200 — silently, which is the worst part.
-    """
-
-    @pytest.mark.asyncio
-    async def test_quoted_space_separated_feed_parses(self, adapter, httpx_mock: HTTPXMock):
-        rows = [
-            _row("1.2.3.4:443", "ip:port"),
-            _row("evil.example.com", "domain"),
-            _row("http://bad.test/x", "url"),
-        ]
-        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
-        result = await adapter.fetch()
-
-        # The assertion that matters: not "it didn't crash" but "it found them".
-        assert result.record_count == 3
-        assert {i["type"] for i in result.iocs} == {"IPv4", "Domain", "URL"}
-        # Values must be free of the stray quote characters the old dialect left.
-        assert {i["value"] for i in result.iocs} == {
-            "1.2.3.4",
-            "evil.example.com",
-            "http://bad.test/x",
-        }
-        ip = next(i for i in result.iocs if i["type"] == "IPv4")
-        assert ip["associated_threat"] == "Cobalt Strike"
-        assert ip["confidence"] == "High"
-        assert "port:443" in ip["tags"]
-
-    @pytest.mark.asyncio
-    async def test_comma_inside_quoted_tags_does_not_shift_columns(
-        self, adapter, httpx_mock: HTTPXMock
-    ):
-        """The tags column contains commas; unquoted parsing splits it into extra
-        columns and shifts everything after it."""
-        row = _row("5.6.7.8:8080", "ip:port")
-        assert row[12] == "tag1,tag2"  # the column that does the damage
-        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech([row]))
-        result = await adapter.fetch()
-        assert result.record_count == 1
-        assert result.iocs[0]["value"] == "5.6.7.8"
+@pytest.mark.asyncio
+async def test_html_failure_and_retry(adapter, httpx_mock):
+    httpx_mock.add_response(text="<html>denied</html>")
+    with pytest.raises(RuntimeError):
+        await adapter.fetch()
+    httpx_mock.add_response(json={"query_status": "ok", "data": [_entry()]})
+    assert (await adapter.fetch()).record_count == 1
 
 
-class TestEmptyAndBrokenFeeds:
-    """A feed with nothing to say and a feed we can no longer read must not look
-    the same. The first is a quiet week; the second is an outage."""
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 403, 410, 429, 500])
+async def test_http_failure(adapter, httpx_mock, status):
+    httpx_mock.add_response(status_code=status)
+    with pytest.raises(httpx.HTTPStatusError):
+        await adapter.fetch()
 
-    @pytest.mark.asyncio
-    async def test_feed_with_no_data_rows_is_zero_not_an_error(
-        self, adapter, httpx_mock: HTTPXMock
-    ):
-        httpx_mock.add_response(
-            url=_FEED_URL, text="# ThreatFox recent\n# no entries\n\n"
-        )
-        result = await adapter.fetch()
-        assert result.record_count == 0
-        assert result.iocs == []
 
-    @pytest.mark.asyncio
-    async def test_hash_only_batch_is_zero_not_an_error(self, adapter, httpx_mock: HTTPXMock):
-        """Rows understood, just none of them network indicators."""
-        rows = [_row("a" * 64, "sha256_hash"), _row("b" * 32, "md5_hash")]
-        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
-        result = await adapter.fetch()
-        assert result.record_count == 0
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [{"query_status": "no_result"},
+    {"query_status": "ok", "data": []},
+    {"query_status": "ok", "data": [_entry("a"*64, "sha256_hash")]}])
+async def test_legitimate_empty(adapter, httpx_mock, body):
+    httpx_mock.add_response(json=body)
+    assert (await adapter.fetch()).record_count == 0
 
-    @pytest.mark.asyncio
-    async def test_unrecognisable_rows_raise_runtime_error(
-        self, adapter, httpx_mock: HTTPXMock
-    ):
-        """Data present but no known ioc_type anywhere: a format break.
 
-        RuntimeError, not ValueError — per adapters/base.py a malformed upstream
-        body must degrade the tool to ``unverified`` and stay retryable, not
-        crash it as a caller error.
-        """
-        rows = [_row("1.2.3.4:443", "totally-new-type") for _ in range(3)]
-        httpx_mock.add_response(url=_FEED_URL, text=_csv_abusech(rows))
-        with pytest.raises(RuntimeError, match="format not recognised"):
-            await adapter.fetch()
-
-    @pytest.mark.asyncio
-    async def test_html_error_page_raises_rather_than_reporting_zero(
-        self, adapter, httpx_mock: HTTPXMock
-    ):
-        """A 200 carrying an interstitial or error page instead of the feed."""
-        httpx_mock.add_response(
-            url=_FEED_URL,
-            text="<html><body>Access denied. Please authenticate.</body></html>",
-        )
-        with pytest.raises(RuntimeError, match="format not recognised"):
-            await adapter.fetch()
-
-    @pytest.mark.asyncio
-    async def test_broken_feed_is_not_cached(self, adapter, httpx_mock: HTTPXMock):
-        """A format break must not poison the 15-minute cache with an empty list —
-        otherwise one bad fetch suppresses the alarm for the next quarter hour."""
-        httpx_mock.add_response(
-            url=_FEED_URL, text=_csv_abusech([_row("1.2.3.4:443", "nope")])
-        )
-        with pytest.raises(RuntimeError):
-            await adapter.fetch()
-
-        httpx_mock.add_response(
-            url=_FEED_URL, text=_csv_abusech([_row("1.2.3.4:443", "ip:port")])
-        )
-        result = await adapter.fetch()
-        assert result.record_count == 1
+def test_historical_csv_dialect_regression(adapter):
+    rows = [_row("192.0.2.1:443", "ip:port"), _row("bad.example", "domain")]
+    for text in (_csv(rows), _csv_abusech(rows)):
+        parsed = adapter._parse_csv(text)
+        assert len(parsed) == 2 and parsed[0]["value"] == "192.0.2.1"
+        assert "port:443" in parsed[0]["tags"]
+    assert adapter._parse_csv("# empty\n") == []
+    assert adapter._parse_csv(_csv([_row("a"*64, "sha256_hash")])) == []
+    with pytest.raises(RuntimeError):
+        adapter._parse_csv("<html>error</html>")
 
 
 def test_every_registered_source_that_takes_credentials_gets_them():
@@ -281,3 +261,19 @@ def test_every_registered_source_that_takes_credentials_gets_them():
         if reads_a_key and getattr(adapter, "_credentials", None) is not server._credentials:
             missing.append(source.name)
     assert not missing, f"registered without the server's credential provider: {missing}"
+
+
+@pytest.mark.asyncio
+async def test_in_band_status_does_not_echo_secret(adapter, httpx_mock, caplog):
+    secret = "synthetic-private-error-sentinel"
+    httpx_mock.add_response(json={"query_status": secret, "data": secret})
+    with pytest.raises(RuntimeError) as exc:
+        await adapter.fetch()
+    assert secret not in str(exc.value) and secret not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_no_result_cannot_hide_records(adapter, httpx_mock):
+    httpx_mock.add_response(json={"query_status": "no_result", "data": [_entry()]})
+    with pytest.raises(RuntimeError):
+        await adapter.fetch()
