@@ -43,6 +43,11 @@ _FEED_URL = (
     "known_exploited_vulnerabilities.json"
 )
 
+_MIRROR_URL = (
+    "https://raw.githubusercontent.com/cisagov/kev-data/refs/heads/develop/"
+    "known_exploited_vulnerabilities.json"
+)
+
 FEED_TYPES: dict[str, str] = {"kev_catalog": _FEED_URL}
 DEFAULT_FEED_TYPES = list(FEED_TYPES.keys())
 
@@ -129,7 +134,7 @@ class CISAKEVAdapter:
 
     def __init__(self, credentials: Any = None) -> None:
         # credentials accepted for interface symmetry; unused (public feed).
-        self._cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
+        self._cache: dict[str, tuple[list[dict[str, Any]], float, list[str]]] = {}
 
     def _make_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
@@ -138,7 +143,7 @@ class CISAKEVAdapter:
                 "User-Agent": "threat-intel-mcp/0.13 (kj299/threat-intel)",
             },
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
-            event_hooks=egress_event_hooks("www.cisa.gov"),
+            event_hooks=egress_event_hooks("www.cisa.gov", "raw.githubusercontent.com"),
         )
 
     async def fetch(
@@ -167,13 +172,39 @@ class CISAKEVAdapter:
         cached = self._cache.get(_CACHE_KEY)
         if cached is not None and now < cached[1]:
             vulns = cached[0]
+            notes = cached[2]
         else:
+            notes: list[str] = []
             async with self._make_client() as client:
-                resp = await client.get(_FEED_URL)
-                resp.raise_for_status()
-                body = resp.json()
+                try:
+                    resp = await client.get(_FEED_URL)
+                    resp.raise_for_status()
+                except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+                    # Only availability failures trigger fallback. Never infer
+                    # missing credentials or bypass an arbitrary auth challenge.
+                    if isinstance(exc, httpx.HTTPStatusError):
+                        status = exc.response.status_code
+                        if status not in (403, 429) and status < 500:
+                            raise
+                        reason = f"HTTP {status}"
+                    else:
+                        reason = type(exc).__name__
+                    resp = await client.get(_MIRROR_URL)
+                    resp.raise_for_status()
+                    body = resp.json()
+                    self._validate_mirror(body)
+                    notes = [
+                        f"Primary CISA KEV unavailable ({reason}); used official mirror "
+                        f"{_MIRROR_URL}; catalogVersion={body['catalogVersion']}; "
+                        f"dateReleased={body['dateReleased']}; count={body['count']}; "
+                        f"fetched_at={datetime.now(timezone.utc).isoformat()}. "
+                        "Mirror lag unverified; release age is not proof of stale data "
+                        "or no activity. Cached results retain this original fetch time."
+                    ]
+                else:
+                    body = resp.json()
             vulns = self._parse_catalog(body)
-            self._cache[_CACHE_KEY] = (vulns, now + CACHE_TTL_SECONDS)
+            self._cache[_CACHE_KEY] = (vulns, now + CACHE_TTL_SECONDS, notes)
 
         latency_ms = (time.monotonic() - t_start) * 1000
         log_tool_call(
@@ -191,7 +222,28 @@ class CISAKEVAdapter:
             record_count=len(vulns),
             latency_ms=round(latency_ms, 1),
             feed_types_fetched=["kev_catalog"],
+            partial_failure=notes,
         )
+
+    @staticmethod
+    def _validate_mirror(body: Any) -> None:
+        """Require provenance and a complete envelope before using a mirror."""
+        if not isinstance(body, dict):
+            raise RuntimeError("CISA KEV mirror is not an object")
+        version = body.get("catalogVersion")
+        released = body.get("dateReleased")
+        if not isinstance(version, str) or not version.strip():
+            raise RuntimeError("CISA KEV mirror missing catalogVersion")
+        try:
+            dt = datetime.fromisoformat(released.replace("Z", "+00:00"))
+            if dt.tzinfo is None or dt > datetime.now(timezone.utc):
+                raise ValueError("invalid release time")
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise RuntimeError("CISA KEV mirror invalid dateReleased") from exc
+        entries = body.get("vulnerabilities")
+        if (not isinstance(entries, list) or type(body.get("count")) is not int
+                or body["count"] != len(entries)):
+            raise RuntimeError("CISA KEV mirror count/envelope mismatch")
 
     def _parse_catalog(self, body: Any) -> list[dict[str, Any]]:
         """Parse the KEV JSON body into vuln records.
