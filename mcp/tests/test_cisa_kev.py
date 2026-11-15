@@ -13,6 +13,7 @@ from pytest_httpx import HTTPXMock
 
 from threat_intel_mcp.adapters.cisa_kev import (
     CISAKEVAdapter,
+    _MIRROR_URL,
     _date_to_rfc3339,
     _normalize_entry,
 )
@@ -121,6 +122,7 @@ class TestFetch:
     @pytest.mark.asyncio
     async def test_upstream_error_raises(self, adapter, httpx_mock: HTTPXMock):
         httpx_mock.add_response(url=_FEED_URL, status_code=503)
+        httpx_mock.add_response(url=_MIRROR_URL, status_code=503)
         with pytest.raises(httpx.HTTPStatusError):
             await adapter.fetch()
 
@@ -142,3 +144,51 @@ class TestFetch:
         await adapter.fetch()
         result = await adapter.fetch()
         assert result.record_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 429, 500, 503])
+async def test_official_mirror_fallback(status, adapter, httpx_mock):
+    httpx_mock.add_response(url=_FEED_URL, status_code=status)
+    httpx_mock.add_response(url=_MIRROR_URL, json=_MOCK)
+    result = await adapter.fetch()
+    assert result.record_count == 2
+    assert result.source == "CISA KEV"
+    note = result.partial_failure[0]
+    assert f"HTTP {status}" in note
+    assert _MIRROR_URL in note and "2026.07.01" in note
+    cached = await adapter.fetch()
+    assert cached.partial_failure == result.partial_failure
+    assert len(httpx_mock.get_requests()) == 2
+    assert all("authorization" not in r.headers for r in httpx_mock.get_requests())
+
+
+@pytest.mark.asyncio
+async def test_timeout_fallback(adapter, httpx_mock):
+    httpx_mock.add_exception(httpx.ReadTimeout("timeout"), url=_FEED_URL)
+    httpx_mock.add_response(url=_MIRROR_URL, json=_MOCK)
+    result = await adapter.fetch()
+    assert "ReadTimeout" in result.partial_failure[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 404])
+async def test_no_fallback_on_nonavailability_status(status, adapter, httpx_mock):
+    httpx_mock.add_response(url=_FEED_URL, status_code=status)
+    with pytest.raises(httpx.HTTPStatusError):
+        await adapter.fetch()
+    assert len(httpx_mock.get_requests()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("override", [
+    {"count": 99}, {"catalogVersion": ""}, {"dateReleased": "garbage"},
+    {"dateReleased": "2999-01-01T00:00:00Z"},
+    {"dateReleased": "2026-01-01T00:00:00"}, {"vulnerabilities": {}},
+])
+async def test_bad_mirror_not_cached(override, adapter, httpx_mock):
+    httpx_mock.add_response(url=_FEED_URL, status_code=403)
+    httpx_mock.add_response(url=_MIRROR_URL, json={**_MOCK, **override})
+    with pytest.raises(RuntimeError):
+        await adapter.fetch()
+    assert not adapter._cache
