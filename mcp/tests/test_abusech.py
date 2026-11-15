@@ -2,11 +2,9 @@
 
 Uses pytest-httpx — no live network in CI.
 
-The bodies below follow abuse.ch's published documentation; the recorded
-cassettes (``feodo.yaml``, ``urlhaus.yaml``, ``threatfox.yaml``) have since
-confirmed the field names, so these tests cover the failure modes a cassette
-cannot replay, plus the ones asserting the credential reaches the wire at all — a key that is configured but
-never sent is the #197 failure, and no mock can see repository settings.
+Synthetic cases cover failure modes and credential transmission. Historical
+CSV threatfox.yaml does not validate the current authenticated JSON API;
+threatfox_api.yaml remains a coverage gap until safely captured.
 """
 
 from __future__ import annotations
@@ -30,18 +28,9 @@ from threat_intel_mcp.vault.base import CredentialNotFoundError
 _URLHAUS = "https://urlhaus-api.abuse.ch/v1/urls/recent/"
 _URLHAUS_RE = re.compile(r"^https://urlhaus-api\.abuse\.ch/v1/urls/recent/")
 _FEODO = "https://feodotracker.abuse.ch/downloads/ipblocklist.json"
-_THREATFOX = "https://threatfox.abuse.ch/export/csv/recent/"
+_THREATFOX = "https://threatfox-api.abuse.ch/api/v1/"
 
 _KEY = "abusech-test-key"
-
-# 15 columns, matching the real ThreatFox export layout (see test_threatfox.py).
-_THREATFOX_CSV = (
-    "# ThreatFox recent\n"
-    '"2026-07-01 12:00:00", "500", "203.0.113.5:443", "ip:port", "botnet_cc", '
-    '"cobalt_strike", "beacon", "Cobalt Strike", "2026-07-02 12:00:00", "90", '
-    '"false", "https://threatfox.abuse.ch/ioc/500/", "tag1", "0", "anon"\n'
-)
-
 
 class FakeCredentials:
     """Provider holding only the shared abuse.ch key."""
@@ -85,37 +74,17 @@ async def test_urlhaus_sends_the_auth_key_header(httpx_mock: HTTPXMock):
 
 
 @pytest.mark.asyncio
-async def test_threatfox_sends_the_auth_key_when_one_exists(httpx_mock: HTTPXMock):
-    """ThreatFox's key is new and optional; assert it is actually sent.
-
-    This is the whole point of the change — abuse.ch has required auth since
-    2025-06-30 and ThreatFox only still answers because it reads a
-    grandfathered CSV export. Sending the key is what stops that route's
-    eventual closure from taking the feed with it.
-    """
-    httpx_mock.add_response(
-        url=_THREATFOX,
-        text=_THREATFOX_CSV,
-    )
-
+async def test_threatfox_sends_the_required_auth_key(httpx_mock: HTTPXMock):
+    httpx_mock.add_response(url=_THREATFOX, method="POST", json={"query_status": "no_result"})
     await ThreatFoxAdapter(FakeCredentials()).fetch()
-
     assert httpx_mock.get_requests()[0].headers["Auth-Key"] == _KEY
 
 
 @pytest.mark.asyncio
-async def test_threatfox_still_works_with_no_key(httpx_mock: HTTPXMock):
-    """The key is optional here on purpose. Breaking a feed that works today
-    in order to add authentication to it would be a net loss."""
-    httpx_mock.add_response(
-        url=_THREATFOX,
-        text=_THREATFOX_CSV,
-    )
-
-    result = await ThreatFoxAdapter(FakeCredentials(key=None)).fetch()
-
-    assert result.record_count >= 0
-    assert "Auth-Key" not in httpx_mock.get_requests()[0].headers
+async def test_threatfox_no_key_is_a_credential_error(httpx_mock: HTTPXMock):
+    with pytest.raises(CredentialNotFoundError):
+        await ThreatFoxAdapter(FakeCredentials(key=None)).fetch()
+    assert httpx_mock.get_requests() == []
 
 
 @pytest.mark.asyncio
