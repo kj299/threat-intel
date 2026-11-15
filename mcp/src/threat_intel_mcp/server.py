@@ -2,7 +2,7 @@
 
 Exposes Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN,
 Intel 471, Censys, URLhaus, Pulsedive, Feodo Tracker, ThreatFox and OpenPhish
-as IOC tools (the last three answer without a key); the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools;
+as IOC tools (Feodo Tracker and OpenPhish answer without a key); the CVE feeds CISA KEV, NVD and VulnCheck KEV as vulnerability tools;
 and three enrichment tools (VirusTotal for indicators, EPSS and OSV.dev for
 CVEs -- the latter two keyless), that Claude can call to
 retrieve live indicators/vulnerabilities and incorporate them into threat intelligence
@@ -38,7 +38,9 @@ from .adapters.qfeeds import QFeedsAdapter, FEED_TYPES as QFEEDS_FEED_TYPES
 from .adapters.anyrun import AnyRunAdapter, FEED_TYPES as ANYRUN_FEED_TYPES
 from .adapters.censys import CensysAdapter, FEED_TYPES as CENSYS_FEED_TYPES
 from .adapters.greynoise import GreyNoiseAdapter, FEED_TYPES as GREYNOISE_FEED_TYPES
-from .adapters.threatfox import ThreatFoxAdapter, FEED_TYPES as THREATFOX_FEED_TYPES
+from .adapters.threatfox import (
+    ThreatFoxAdapter, ThreatFoxAPIStatusError, FEED_TYPES as THREATFOX_FEED_TYPES,
+)
 from .adapters.openphish import OpenPhishAdapter, FEED_TYPES as OPENPHISH_FEED_TYPES
 from .adapters.urlhaus import URLhausAdapter, FEED_TYPES as URLHAUS_FEED_TYPES
 from .adapters.feodo import FeodoTrackerAdapter, FEED_TYPES as FEODO_FEED_TYPES
@@ -80,9 +82,9 @@ mcp = MCPServer(
         "from subscribed commercial feeds (Q-Feeds Tier 2, AbuseIPDB Tier 3, "
         "AlienVault OTX Tier 3, Shodan Tier 3, GreyNoise Tier 3, "
         "ANY.RUN Tier 9, Intel 471 Tier 7, Censys Tier 3, URLhaus Tier 9, "
-        "Pulsedive Tier 3; plus three answering without a credential: the abuse.ch "
-        "feeds ThreatFox and Feodo Tracker, Tier 9, which use the abuse.ch key "
-        "when set, and the OpenPhish Community phishing feed, Tier 6). "
+        "Pulsedive Tier 3, ThreatFox Tier 9; plus two supporting keyless access: "
+        "Feodo Tracker, Tier 9, which uses the abuse.ch key when set, and "
+        "the OpenPhish Community phishing feed, Tier 6). "
         "For vulnerabilities, call the Tier 1 CVE feeds: CISA KEV and NVD are "
         "government sources needing no credential (NVD accepts an optional key "
         "for a higher rate limit), and VulnCheck KEV is a vendor catalogue that "
@@ -113,11 +115,10 @@ _virustotal = VirusTotalAdapter(_credentials)
 _otx = OTXAdapter(_credentials)
 _shodan = ShodanAdapter(_credentials)
 _greynoise = GreyNoiseAdapter(_credentials)
-_threatfox = ThreatFoxAdapter(_credentials)  # public export; abuse.ch key sent when configured
+_threatfox = ThreatFoxAdapter(_credentials)  # authenticated JSON API; shared abuse.ch key required
 _openphish = OpenPhishAdapter()  # public feed, no credential
-# abuse.ch: one Auth-Key covers all of them. URLhaus REQUIRES it (its v1 API
-# has enforced auth since 2025-06-30); ThreatFox and Feodo read grandfathered
-# download paths, so for them the same key is optional.
+# abuse.ch: one Auth-Key covers all of them. URLhaus and ThreatFox require it;
+# Feodo Tracker supports keyless downloads and sends the key when configured.
 _urlhaus = URLhausAdapter(_credentials)
 _feodo = FeodoTrackerAdapter(_credentials)
 # 50 requests/day on the free tier -- the tightest budget here, which is why
@@ -910,31 +911,38 @@ async def threatfox_fetch_iocs(
     time_range: str = "7d",
     feed_types: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch IOCs from ThreatFox — the free, public abuse.ch feed (Tier 9 CTI).
+    """Fetch ThreatFox network IOCs via its authenticated JSON API (Tier 9).
 
-    Recent malicious network IOCs (IPs/domains/URLs; hashes excluded, action=block). Returns ioc_network objects in the threat-intel output.schema.json
-    shape. De-duplicated and schema-validated before return. **No credential
-    required** — this is a public feed.
+    Requires configured ABUSECH_AUTH_KEY and applicable abuse.ch access rights.
+    Configuration is optional: unavailable credentials produce unverified coverage.
+    Network indicators only; hashes excluded. Schema validation and deduplication
+    follow normalization. The action field is advisory, not automatic enforcement.
 
     Args:
-        time_range: Lookback window; informational only (the feed is a fixed
-            "recent" window). Recorded for the Coverage Ledger.
-        feed_types: Defaults to all available. Available: recent_iocs.
+        time_range: Positive integer with m/h/d/w units. Filter on UTC first_seen;
+            API lookback capped at 7 days, with longer requests marked partial.
+        feed_types: Available: recent_iocs.
 
     Returns:
-        dict with keys: iocs, source, tier, retrieved_at, record_count,
-        latency_ms, feed_types_fetched, partial_failure, coverage_ledger_entry.
-
-    Usage with the threat-intel skill:
-        1. Call this tool; receive iocs.
-        2. Pass iocs as context to the skill invocation.
-        3. Set skill_input.feed_integrations = [{"name": "ThreatFox", "tier": 9,
-           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+        Normalized indicators and honest Coverage Ledger status. Cached responses
+        preserve their original retrieval time. No authenticated live verification
+        is implied merely by credential configuration.
     """
     try:
         result = await _threatfox.fetch(time_range=time_range, feed_types=feed_types)
     except ValueError:
         raise  # invalid feed_types — a caller error worth surfacing verbatim
+    except ThreatFoxAPIStatusError as exc:
+        return _degraded_tool_result(
+            "ThreatFox", _threatfox.tier,
+            feed_types or list(THREATFOX_FEED_TYPES.keys()), str(exc),
+        )
+    except CredentialError:
+        return _degraded_tool_result(
+            "ThreatFox", _threatfox.tier,
+            feed_types or list(THREATFOX_FEED_TYPES.keys()),
+            "ABUSECH_AUTH_KEY missing or credential provider unavailable",
+        )
     except Exception as exc:
         logger.warning("ThreatFox upstream fetch failed: %s", type(exc).__name__)
         return _degraded_tool_result(
@@ -1533,8 +1541,8 @@ async def list_available_feeds() -> dict[str, Any]:
     except (KeyError, CredentialError):
         qfeeds_cred_ok = False
 
-    # One key, three feeds: URLhaus requires it, ThreatFox and Feodo Tracker
-    # send it when present and still answer without it.
+    # One key, three feeds: URLhaus and ThreatFox require it; Feodo Tracker
+    # sends it when present and supports keyless downloads.
     abusech_cred_ok = True
     try:
         _credentials.get("abusech", "auth_key")
@@ -1692,9 +1700,9 @@ async def list_available_feeds() -> dict[str, Any]:
                 "name": "ThreatFox",
                 "tier": _threatfox.tier,
                 "domain": "threatfox.abuse.ch",
-                "description": "Legacy ThreatFox CSV integration; known HTTP 410 endpoint failure, retained pending verified migration",
+                "description": "ThreatFox authenticated JSON get_iocs API; Auth-Key required; up to 7 days by first_seen; live verification pending",
                 "feed_types": list(THREATFOX_FEED_TYPES.keys()),
-                "credential_configured": True,
+                "credential_configured": abusech_cred_ok,
                 "tool": "threatfox_fetch_iocs",
             },
             {
