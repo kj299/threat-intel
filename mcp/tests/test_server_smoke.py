@@ -204,6 +204,9 @@ async def test_cve_tool_degrades_on_upstream_error(
     monkeypatch.delenv("NVD_API_KEY", raising=False)
     monkeypatch.setenv("VULNCHECK_API_KEY", "dummy-value-for-test")
     httpx_mock.add_response(url=_CVE_FEED_URLS[tool_name], status_code=503)
+    if tool_name == "cisa_kev_fetch_cves":
+        from threat_intel_mcp.adapters.cisa_kev import _MIRROR_URL
+        httpx_mock.add_response(url=_MIRROR_URL, status_code=503)
 
     result = await getattr(server, tool_name)()
 
