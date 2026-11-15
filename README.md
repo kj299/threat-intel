@@ -1,9 +1,9 @@
 # Cyber Threat Intelligence Skill
 
 > Integrations are retained when access, credentials, or subscriptions are missing.
-> Credential presence does not establish upstream health. ThreatFox’s legacy CSV
-> endpoint has a documented HTTP 410 failure and awaits verified migration.
-> Historical keyless-source counts are not a current availability guarantee.
+> Credential presence does not establish upstream health. ThreatFox now uses the
+> authenticated JSON API after the legacy CSV endpoint’s documented HTTP 410.
+> Authenticated live/API-cassette verification is pending; historical keyless counts do not apply.
 > See [feed operations](docs/feed-operations.md).
 
 
@@ -154,7 +154,7 @@ threat-intel/
     |   |   +-- urlhaus.py                           # URLhaus malware-URL feed (abuse.ch; Auth-Key required)
     |   |   +-- feodo.py                             # Feodo Tracker botnet C2 IPs (abuse.ch; key optional)
     |   |   +-- pulsedive.py                         # Pulsedive Explore (one request/fetch; 50/day free tier)
-    |   |   +-- threatfox.py                         # ThreatFox public IOC CSV (abuse.ch; key optional)
+    |   |   +-- threatfox.py                         # ThreatFox JSON IOC API (abuse.ch; key required)
     |   |   +-- openphish.py                         # OpenPhish Community phishing URLs (no key)
     |   |   +-- virustotal.py                        # VirusTotal per-indicator ENRICHMENT (not a feed, #203)
     |   |   +-- epss.py                              # EPSS per-CVE exploitation probability (no key)
@@ -216,7 +216,7 @@ Three properties are worth knowing before you run it. Each is explained in full 
 
 The `mcp/` directory contains `threat-intel-mcp`, an [MCP](https://modelcontextprotocol.io/) server that gives Claude Code live access to threat intelligence feeds. It is the runtime counterpart to the prompt skill — the skill structures the analysis; the MCP server fetches real indicators.
 
-**Current (v0.15.0):** 13 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, Pulsedive, and three that need **no key**: the abuse.ch feeds ThreatFox and Feodo Tracker (which use the abuse.ch key when it is set) and the OpenPhish Community phishing feed. The three abuse.ch adapters — ThreatFox, URLhaus and Feodo Tracker — share **one free `ABUSECH_AUTH_KEY`**; 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 22 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 16 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
+**Current (v0.15.0):** 13 IOC feed adapters — Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise, ANY.RUN, Intel 471, Censys, URLhaus, Pulsedive, ThreatFox, and two that need **no key**: Feodo Tracker (which uses the abuse.ch key when it is set) and the OpenPhish Community phishing feed. The three abuse.ch adapters — ThreatFox, URLhaus and Feodo Tracker — share **one `ABUSECH_AUTH_KEY`** (required for ThreatFox and URLhaus; provider subscription/usage terms apply); 3 Tier 1 CVE feeds — CISA KEV, NVD and VulnCheck KEV — via a CVE-keyed vulnerability-output path; and 3 **enrichment** sources, which score things you already hold rather than discovering any (so none is part of `fetch_all_iocs`/`fetch_all_cves`): VirusTotal for indicators, plus the keyless EPSS (exploitation probability per CVE) and OSV.dev (which open-source packages a CVE affects, and what fixes it). 22 MCP tools: `fetch_all_iocs` / `fetch_all_cves` concurrent fan-out with per-source circuit breakers, 16 single-feed tools, 3 enrichment tools, and `list_available_feeds`.
 
 Also: feed-data sanitization and per-adapter egress allowlists; env-var or HashiCorp Vault credentials; protocol credential bundles and a bring-your-own-endpoint adapter base for gRPC/MQTT/WebSocket/GraphQL, whose first concrete subclass is the MISP ZeroMQ subscriber; recorded feed cassettes replayed offline so parsing is tested against bytes the services actually sent; and a self-contained executive HTML renderer (`python -m threat_intel_mcp.render`).
 
@@ -233,7 +233,7 @@ export GREYNOISE_API_KEY=...
 export ANYRUN_API_KEY=... INTEL471_EMAIL=... INTEL471_API_KEY=... CENSYS_API_ID=... CENSYS_API_SECRET=...
 export NVD_API_KEY=...        # optional — NVD works without a key at a lower rate limit
 export VULNCHECK_API_KEY=...  # required for VulnCheck KEV (free community account)
-export ABUSECH_AUTH_KEY=...   # required for URLhaus; ThreatFox and Feodo Tracker send it when set
+export ABUSECH_AUTH_KEY=...   # required for URLhaus and ThreatFox; optional for Feodo Tracker
 export PULSEDIVE_API_KEY=...
 # Several sources need no key at all — see "Nothing here needs a key to start" below
 python -m threat_intel_mcp   # stdio transport; wire into Claude Code via .mcp.json (below)
@@ -272,7 +272,7 @@ See [`mcp/README.md`](mcp/README.md) for full setup, Vault credentials, and feed
 
 ## Setting up credentials
 
-**Nothing here needs a key to start.** The skill itself takes none, and seven sources work unauthenticated: ThreatFox, Feodo Tracker and OpenPhish (IOCs), CISA KEV and NVD (CVEs), and the EPSS and OSV.dev CVE enrichments — ThreatFox, Feodo Tracker and NVD use a key when one is set. Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
+**Nothing here needs a key to start.** The skill itself takes none, and six sources support unauthenticated access: Feodo Tracker and OpenPhish (IOCs), CISA KEV and NVD (CVEs), and the EPSS and OSV.dev CVE enrichments — Feodo Tracker and NVD use a key when one is set. Availability is verified per fetch, not inferred from key requirements. Keys only widen coverage — an adapter with no credential degrades to `unverified` and says so in the report's Coverage Ledger rather than failing.
 
 There are **two kinds of credential**, and they do not go in the same place:
 
