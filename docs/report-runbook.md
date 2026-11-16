@@ -464,7 +464,9 @@ run follows resolution; this is relevant context, not proof of causality.
 A second GitHub cron does not remove this provider dependency. The independently
 triggered fallback is `python scripts/refresh_threatfox.py`, run at **06:35
 America/New_York** by an already authenticated maintenance environment under an
-independent scheduler. It dispatches the existing source-only workflow exactly
+independent scheduler. This removes reliance on the GitHub cron trigger, but
+still depends on GitHub dispatch/runner availability and the upstream API; it is
+not an availability guarantee. It dispatches the existing source-only workflow exactly
 once, waits up to five minutes plus bounded API calls, pins main, refuses ambiguous
 concurrent dispatches or changed main, and returns a matched artifact pointer.
 It never copies a feed key or sends email. Errors suppress subprocess output,
