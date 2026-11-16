@@ -542,3 +542,55 @@ def test_threatfox_authenticated_api_recorded_parser():
     body = json.loads(interaction["response"]["body"]["string"])
     records = ThreatFoxAdapter._parse_json(body)
     assert records and finalize_iocs(records)
+
+
+@_requires("threatfox_api")
+@pytest.mark.asyncio
+async def test_threatfox_recorded_response_through_collector(monkeypatch):
+    """Replay real authenticated bytes through fetch, filtering and coverage."""
+    from datetime import datetime, timedelta
+    from email.utils import parsedate_to_datetime
+    from threat_intel_mcp.adapters import threatfox
+    from threat_intel_mcp.fanout import FeedSource, fan_out
+    from threat_intel_mcp.resilience import CircuitBreaker
+
+    path = cassette_path("threatfox_api")
+    interaction = yaml.safe_load(path.read_text())["interactions"][0]
+    request = interaction["request"]
+    assert json.loads(request["body"]) == {"query": "get_iocs", "days": 1}
+    assert request["uri"] == "https://threatfox-api.abuse.ch/api/v1/"
+    assert request["method"] == "POST"
+    headers = {k.lower(): v for k, v in request["headers"].items()}
+    assert headers["auth-key"] == ["[REDACTED]"]
+    response = interaction["response"]
+    assert response["status"]["code"] == 200
+    observed = parsedate_to_datetime(response["headers"]["date"][0])
+
+    class RecordedClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return observed.astimezone(tz)
+
+    monkeypatch.setattr(threatfox, "datetime", RecordedClock)
+    raw = json.loads(response["body"]["string"])
+    assert raw["query_status"] == "ok"
+    normalized = ThreatFoxAdapter._parse_json(raw)
+    assert normalized
+    adapter = ThreatFoxAdapter(_AnyKey())
+    source = FeedSource(adapter, 9, "ThreatFox", CircuitBreaker("ThreatFox"))
+    with build_vcr().use_cassette(str(path)) as cassette:
+        for window, delta in (("1d", timedelta(days=1)), ("1h", timedelta(hours=1))):
+            result = await fan_out([source], time_range=window)
+            expected = finalize_iocs([
+                r for r in normalized
+                if observed - delta <= datetime.fromisoformat(r["first_seen"]) <= observed
+            ])
+            assert result["iocs"] == expected
+            assert result["record_count"] == len(expected)
+            assert result["sources_consulted"] == ["ThreatFox"]
+            assert result["sources_degraded"] == []
+            assert result["coverage_ledger"] == [
+                {"tier": 9, "source": "ThreatFox", "status": "consulted"}
+            ]
+        assert cassette.play_count == 1  # second window uses the same cached response
+    assert adapter._cache[1][2] == observed.isoformat()

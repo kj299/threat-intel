@@ -3,7 +3,7 @@
 > Integrations are retained when access, credentials, or subscriptions are missing.
 > Credential presence does not establish upstream health. ThreatFox now uses the
 > authenticated JSON API after the legacy CSV endpoint’s documented HTTP 410.
-> Authenticated live/API-cassette verification is pending; historical keyless counts do not apply.
+> Authenticated collection and sanitized JSON cassette playback passed on 2026-11-16 ([run](https://github.com/kj299/threat-intel/actions/runs/43839100355)); historical keyless counts do not apply.
 > See [feed operations](../docs/feed-operations.md).
 
 
@@ -86,7 +86,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard on every adapter (`guard_parsed`; ThreatFox and OSV apply the rule inline) | ✅ #106 |
-| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters historically; ThreatFox is legacy CSV, not verification of the replacement API) | ✅ #105, #199, #208, #211 |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters historically; ThreatFox includes both historical CSV and authenticated JSON API evidence) | ✅ #105, #199, #208, #211 |
 | Cassettes for ANY.RUN, Intel 471, Censys | blocked on feed credentials (#169) |
 | Cassette for Pulsedive | blocked on its 429 (account plan or quota) |
 | Shodan's feed returns zero matches | `category:malware` (Malware Hunter) is a membership feature; the account's plan gets an empty page, recorded as such |
