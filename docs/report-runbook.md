@@ -395,3 +395,53 @@ An authorized 128 MiB consumer may instead ingest the existing full artifact
 while it remains within that bound; compact production is an optional improvement.
 If only an oversized full artifact or stale derivative is available, continue
 the daily report with ThreatFox unverified and disclose the integration gap.
+
+
+## Durable read-only daily handoff (proposed)
+
+Independent verification established that the daily inherited runtime can
+retrieve and parse artifact 14220190745 under the explicitly authorized 128 MiB
+limit, but its `gh` has no authenticated session and it has no dispatch connector.
+Do not claim that a prompt instructing it to dispatch creates that capability.
+
+The proposed [`threatfox-prefetch.yml`](../.github/workflows/threatfox-prefetch.yml)
+schedule runs at **06:40 America/New_York**, before the separate 07:00 report.
+GitHub now supports an IANA `timezone` on `schedule`, including DST; see
+[official schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+Scheduled runs may be delayed or dropped, and only run from the default branch.
+A cron proposal on this PR branch is not an active production schedule.
+
+This producer has `contents: read`, no email or model step, a five-minute job
+limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs`
+once for 24h, with a 90-second overall timeout and no retries. It schema-validates
+and deduplicates network records, records source acquisition start/end, scans
+literal and JSON-escaped credential values, and caps `feed-data.json` at 1 MiB.
+Missing-key/upstream failures publish an honest `unverified` packet; oversized
+records are withheld rather than silently sampled; credential detection prevents
+publication entirely. The artifact name is **threatfox-feed-data**, retained one
+day. Upstream success is not inferred from a green job: read packet source status.
+
+After approved activation, the daily runtime only needs read access:
+
+1. Read recent runs of **threatfox-prefetch.yml** via GitHub (schedule or manual
+   event), pin the trusted main commit and exact run, and verify the successful
+   **Fetch ThreatFox (holds credential; no agent)** job.
+2. Retrieve that run's unexpired **threatfox-feed-data** artifact and verify its
+   run/commit association. Download through the connector, not an unauthenticated
+   CLI. Require exactly regular `feed-data.json` and enforce byte limits.
+3. Run the consumer's `--archive` path with API-sourced run/jobs/artifact metadata.
+   It accepts the new scheduled workflow route as well as the existing manually
+   dispatched multi-feed route. It uses source-specific acquisition bounds when
+   present and preserves partial status for the gap before report cutoff.
+4. Reject stale/malformed/missing data and keep the daily email on schedule using
+   other verified sources. Never try to repair missing dispatch privileges by
+   copying a token or a feed key into the daily runtime.
+
+**Activation requires explicit approval to merge this draft schedule.** After
+review and merge, an authorized maintainer must run one manual check and inspect
+its real artifact, then verify a scheduled run before describing recurring
+production as proven. Point the daily task's preferred lookup to this workflow
+only after it exists on main; today's existing artifact remains a dated fallback,
+not a durable refresh service. Confirm applicable commercial-use entitlement;
+HTTP success is not evidence of that entitlement. No new production schedule
+was activated during this investigation.

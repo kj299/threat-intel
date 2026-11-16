@@ -54,6 +54,8 @@ Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `c
 
 - `scripts/consume_threatfox.py` -- credential-free daily-report artifact validator: verifies run/artifact provenance, bounded freshness and ThreatFox-specific first_seen evidence; yields partial/unverified coverage without scheduling or deploying an integration. See `docs/report-runbook.md`.
 
+- `.github/workflows/threatfox-prefetch.yml` + `mcp/scripts/prefetch_threatfox.py` -- proposed dedicated 06:40 America/New_York daily data producer: one bounded ThreatFox read, 1 MiB scanned artifact, no agent/email/repository writes. Draft-only until explicit merge/schedule activation. Consumer reads artifacts without dispatch privileges.
+
 ## Conventions
 
 - Skill follows Anthropic Agent Skills spec: `SKILL.md` with YAML frontmatter (`name`, `description`), `name` is lowercase-hyphen and matches directory name, body under 500 lines, supporting files in `references/` / `schemas/` / `examples/` referenced from `SKILL.md`.

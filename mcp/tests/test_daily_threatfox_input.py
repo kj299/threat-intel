@@ -210,3 +210,131 @@ def test_raw_payload_size_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "MAX_ARTIFACT_BYTES", 10)
     with pytest.raises(module.ArtifactInputError):
         module.read_payload(path)
+
+
+def test_scheduled_source_only_artifact_is_readable_without_dispatch(inputs):
+    p, r, a, j = inputs
+    r.update(path=".github/workflows/threatfox-prefetch.yml", event="schedule")
+    a["name"] = "threatfox-feed-data"
+    j["jobs"][0]["name"] = "Fetch ThreatFox (holds credential; no agent)"
+    p["iocs"]["per_source"][0].update(
+        collection_started_at="2026-11-16T11:01:00Z",
+        collection_completed_at="2026-11-16T11:01:03Z",
+    )
+    result = check(inputs)
+    assert result["status"] == "partial" and result["record_count"] == 1
+    assert result["acquisition_between"] == [
+        "2026-11-16T11:01:00+00:00",
+        "2026-11-16T11:01:03+00:00",
+    ]
+
+
+def test_invalid_source_bounds_degrade(inputs):
+    inputs[0]["iocs"]["per_source"][0]["collection_started_at"] = "2026-11-17T00:00:00Z"
+    assert check(inputs)["status"] == "unverified"
+
+
+@pytest.fixture
+def producer():
+    path = Path(__file__).parents[1] / "scripts/prefetch_threatfox.py"
+    producer_spec = importlib.util.spec_from_file_location("prefetch_threatfox", path)
+    loaded = importlib.util.module_from_spec(producer_spec)
+    producer_spec.loader.exec_module(loaded)
+    return loaded
+
+
+@pytest.mark.asyncio
+async def test_producer_one_read_validated_and_bounded(producer):
+    from threat_intel_mcp.adapters.base import FetchResult
+    import json
+
+    calls = []
+
+    class Adapter:
+        async def fetch(self, **kwargs):
+            calls.append(kwargs)
+            records = [
+                {
+                    "source": "ThreatFox",
+                    "type": "Domain",
+                    "value": "example.com",
+                    "confidence": "High",
+                    "action": "block",
+                    "tlp": "WHITE",
+                    "first_seen": "2026-11-16T09:00:00+00:00",
+                }
+            ]
+            return FetchResult(
+                records, "ThreatFox", 9, producer.now(), 1, 1, ["recent_iocs"]
+            )
+
+    payload = await producer.collect(Adapter())
+    assert calls == [{"time_range": "24h"}]
+    encoded = producer.encode(payload, "synthetic-key-not-in-data")
+    assert len(encoded.encode()) < 1024 * 1024
+    summary = json.loads(encoded)["iocs"]["per_source"][0]
+    assert summary["status"] == "consulted" and summary["record_count"] == 1
+    assert (
+        summary["collection_started_at"]
+        <= summary["retrieved_at"]
+        <= summary["collection_completed_at"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_producer_error_is_unverified_without_exception_payload(producer):
+    secret = "synthetic-secret-in-exception"
+
+    class Broken:
+        async def fetch(self, **kwargs):
+            raise RuntimeError(secret)
+
+    payload = await producer.collect(Broken())
+    encoded = producer.encode(payload, secret)
+    assert secret not in encoded
+    assert payload["iocs"]["per_source"][0]["status"] == "unverified"
+    assert payload["iocs"]["iocs"] == []
+
+
+@pytest.mark.parametrize("key", ["synthetic-secret-echo", 'synthetic-"quoted-secret'])
+def test_producer_refuses_literal_secret(producer, key):
+    with pytest.raises(RuntimeError, match="Credential material"):
+        producer.encode({"value": key}, key)
+
+
+@pytest.mark.asyncio
+async def test_producer_oversize_becomes_unverified(producer, monkeypatch):
+    class Broken:
+        async def fetch(self, **kwargs):
+            raise RuntimeError("upstream failure")
+
+    payload = await producer.collect(Broken())
+    payload["iocs"]["iocs"] = ["x" * 10000]
+    monkeypatch.setattr(producer, "MAX_OUTPUT_BYTES", 2000)
+    import json
+
+    result = json.loads(producer.encode(payload, ""))
+    assert result["iocs"]["iocs"] == []
+    assert result["iocs"]["per_source"][0]["status"] == "unverified"
+
+
+def test_proposed_workflow_is_credential_isolated_read_only():
+    import yaml
+
+    path = Path(__file__).parents[2] / ".github/workflows/threatfox-prefetch.yml"
+    workflow = yaml.safe_load(path.read_text())
+    trigger = workflow.get("on", workflow.get(True))
+    assert set(trigger) == {"schedule", "workflow_dispatch"}
+    assert trigger["schedule"] == [
+        {"cron": "40 6 * * *", "timezone": "America/New_York"}
+    ]
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["prefetch"]
+    assert job["timeout-minutes"] == 5
+    credential_steps = [s for s in job["steps"] if "env" in s]
+    assert len(credential_steps) == 1
+    assert credential_steps[0]["env"] == {
+        "ABUSECH_AUTH_KEY": "${{ secrets.ABUSECH_AUTH_KEY }}"
+    }
+    assert not any("claude" in s.get("uses", "") for s in job["steps"])
+    assert job["steps"][-1]["with"]["name"] == "threatfox-feed-data"
