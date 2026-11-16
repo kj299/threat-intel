@@ -3,7 +3,7 @@
 > Integrations are retained when access, credentials, or subscriptions are missing.
 > Credential presence does not establish upstream health. ThreatFox now uses the
 > authenticated JSON API after the legacy CSV endpoint’s documented HTTP 410.
-> Authenticated live/API-cassette verification is pending; historical keyless counts do not apply.
+> Authenticated collection and sanitized JSON cassette playback passed on 2026-11-16 ([run](https://github.com/kj299/threat-intel/actions/runs/43839100355)); historical keyless counts do not apply.
 > See [feed operations](docs/feed-operations.md).
 
 

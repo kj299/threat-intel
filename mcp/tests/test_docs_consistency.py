@@ -448,7 +448,7 @@ def test_documented_counts_match_the_server_registry():
 
 
 def test_recorded_cassette_count_is_accurate():
-    """"Recorded for N of M adapters" must count the cassettes on disk, in
+    """"Recorded for N of M adapters" must count distinct recorded adapters, in
     every prose doc that makes the claim -- not just the pair that happened to
     make it when this test was written.
 
@@ -462,6 +462,10 @@ def test_recorded_cassette_count_is_accurate():
     """
     cassettes = {p.stem for p in (_MCP_DIR / "tests" / "cassettes").glob("*.yaml")}
     assert cassettes, "no cassettes found — layout drift?"
+    # The retired CSV and replacement JSON API are evidence for one adapter,
+    # not two sources. Keep both recordings without inflating source coverage.
+    recorded_adapters = {"threatfox" if name == "threatfox_api" else name
+                         for name in cassettes}
 
     wrong: list[str] = []
     made_the_claim: list[str] = []
@@ -472,10 +476,10 @@ def test_recorded_cassette_count_is_accurate():
             continue
         made_the_claim.append(rel)
         for claimed in claims:
-            if int(claimed) != len(cassettes):
+            if int(claimed) != len(recorded_adapters):
                 wrong.append(
-                    f"{rel} says {claimed} cassettes recorded, {len(cassettes)} are "
-                    f"on disk: {sorted(cassettes)}"
+                    f"{rel} says {claimed} adapters recorded, {len(recorded_adapters)} "
+                    f"have cassettes on disk: {sorted(recorded_adapters)}"
                 )
     assert not wrong, "documented cassette counts contradict disk:\n  " + "\n  ".join(wrong)
     # Per file, not "any file": #222 loosened this to any-doc, so one copy could
