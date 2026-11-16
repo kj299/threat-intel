@@ -52,6 +52,8 @@ Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `c
 
 **`README.md` orients; `docs/index.md` is the deep reference** (#166). The two previously maintained ~8 sections in parallel and had already drifted -- the version stamp sat 14 releases behind, and went stale again within hours of the next bump. The protocol, personas, scoring, output formats, validation and limitations are now explained in `docs/index.md` **only**; README summarises and links. Two CI checks hold the line: one pins `docs/index.md`'s version stamp, persona list and tier count to `spec.yaml`, and one caps the length of the merged README sections and requires each to link onward -- a size ceiling rather than a text diff, because a second copy re-appears by someone helpfully documenting a thing in the README, not by anyone deciding to fork it.
 
+- `scripts/consume_threatfox.py` -- credential-free daily-report artifact validator: verifies run/artifact provenance, bounded freshness and ThreatFox-specific first_seen evidence; yields partial/unverified coverage without scheduling or deploying an integration. See `docs/report-runbook.md`.
+
 ## Conventions
 
 - Skill follows Anthropic Agent Skills spec: `SKILL.md` with YAML frontmatter (`name`, `description`), `name` is lowercase-hyphen and matches directory name, body under 500 lines, supporting files in `references/` / `schemas/` / `examples/` referenced from `SKILL.md`.

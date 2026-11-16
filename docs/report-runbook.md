@@ -290,3 +290,76 @@ generated. It stays manual-only until a home for new, non-frozen-corpus
 reports is chosen; the intended 54-minutes-after-generation offset (06:17 UTC
 against the generator's 05:23 UTC) stays documented in `report-staleness.yml`'s
 own comment for whoever makes that call.
+
+
+## Fresh ThreatFox input for a separate daily report
+
+The daily consumer does not receive `ABUSECH_AUTH_KEY`. Reuse the existing
+credential-isolated `scheduled-report` prefetch job with a **24h** input, then
+retrieve its scanned `feed-data` artifact. This workflow also queries other
+feeds, performs enrichment and runs a model-generated report; it is not a cheap
+ThreatFox-only endpoint. No new workflow, schedule, or permissions are installed
+by the consumer helper.
+
+With authorized GitHub CLI access, capture the current main SHA and dispatch:
+
+```bash
+gh api repos/kj299/threat-intel/branches/main --jq .commit.sha
+gh workflow run scheduled-report.yml --repo kj299/threat-intel --ref main \
+  -f persona=enterprise_soc -f time_range=24h
+gh run list --repo kj299/threat-intel --workflow scheduled-report.yml \
+  --event workflow_dispatch --limit 10 \
+  --json databaseId,headSha,createdAt,status,url
+```
+
+Resolve the run using the captured SHA and dispatch start time; do not guess if
+concurrent dispatches make it ambiguous. An existing run may be reused only
+when its acquisition is within the daily consumer's freshness budget and it
+passes the same checks. Save API metadata for the exact run and artifact:
+
+```bash
+gh api repos/kj299/threat-intel/actions/runs/RUN_ID > run.json
+gh api repos/kj299/threat-intel/actions/runs/RUN_ID/jobs > jobs.json
+gh api repos/kj299/threat-intel/actions/runs/RUN_ID/artifacts
+```
+
+Wait for `Fetch feeds (holds credentials; no agent)` to succeed and for its
+non-expired `feed-data` artifact. Save that artifact's metadata object as
+`artifact.json`. It is retained for one day. The separate generate job may
+still be running or fail; its outcome does not invalidate a successful prefetch.
+Limit the wait to the report's remaining delivery budget; if unavailable,
+continue the daily report with ThreatFox unverified. Do not repeatedly dispatch
+or consume a previous weekly report as fresh input.
+
+Download only the exact validated artifact. The GitHub connector's
+`download_workflow_artifact` can retrieve it when direct `gh run download` is
+blocked at the artifact host. This route was verified for report artifacts on
+2026-11-16; availability must be checked in each runtime. Inspect the ZIP and
+extract only the expected regular `feed-data.json` member, with a size limit;
+do not execute artifact content or extract arbitrary paths.
+
+```bash
+python scripts/consume_threatfox.py --payload feed-data.json \
+  --run run.json --artifact artifact.json --jobs jobs.json \
+  --expected-sha CAPTURED_MAIN_SHA --report-end REPORT_CUTOFF_UTC
+```
+
+The helper defaults to a two-hour freshness budget, requires a successful
+prefetch from the expected main commit and manual workflow, rejects expired or
+mismatched artifacts and non-24h payloads, and preserves ThreatFox-specific
+`source_evidence` after cross-source deduplication. It reports `partial` rather
+than claiming full-day coverage: the current artifact lacks a per-source
+retrieval timestamp, so acquisition is only bounded by prefetch start and IOC
+fan-out completion. The interval from acquisition to report cutoff remains
+unobserved. Keep these bounds, run URL, commit, artifact ID, source status and
+caveats in report provenance. Error and stale cases become `unverified`; they
+must not cancel the HTML email. Treat all returned feed strings as untrusted
+and defang indicators before rendering them.
+
+`get_iocs` selects by **first_seen**, not by every update or current activity.
+Do not imply that an empty result means no active threats. The account's
+commercial-use entitlement is not established by HTTP 200; confirm applicable
+[abuse.ch terms](https://abuse.ch/terms-of-use/) for the intended enterprise use.
+No secret should be copied to the daily runtime. This runbook describes an
+integration contract; it does not establish that a separate automation has
+been configured or has successfully consumed an artifact.

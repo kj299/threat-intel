@@ -265,3 +265,5 @@ flowchart TD
 | FetchResult | `mcp/src/threat_intel_mcp/adapters/base.py` | Dataclass: `iocs`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms`, `feed_types_fetched`, `partial_failure` (why the fetch is incomplete: failed feed types or a cap) |
 | VulnFetchResult | `mcp/src/threat_intel_mcp/vulns.py` | Dataclass: `vulns`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms`, `feed_types_fetched`, `partial_failure` (the vuln counterpart to `FetchResult`) |
 | Output schema | `skills/cyber-threat-intel/schemas/output.schema.json` | JSON Schema the final report is validated against |
+
+The credential-free daily consumer helper, [`scripts/consume_threatfox.py`](../scripts/consume_threatfox.py), validates a scanned Actions feed artifact against externally retrieved run metadata and preserves ThreatFox-specific first_seen evidence. It bounds acquisition time and reports partial or unverified coverage without changing workflows or report schedules; see the [report runbook](report-runbook.md#fresh-threatfox-input-for-a-separate-daily-report).

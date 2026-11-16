@@ -562,6 +562,7 @@ tests/
 ├── test_server_smoke.py   Server wiring: IOC + CVE tools registered, sources degrade gracefully
 ├── test_server_success_paths.py  Tool success paths with mocked upstreams
 ├── test_server_enrichment_degrade.py  Enrichment tools (VirusTotal/EPSS/OSV) degrade + caller-error paths
+├── test_daily_threatfox_input.py Daily artifact freshness, provenance and source attribution gates
 ├── test_docs_consistency.py  Docs-as-code: env vars, Vault paths, tool parity, counts, file trees
 ├── test_cassette_playback.py  Adapters replayed against recorded real responses (#105)
 ├── test_vcr_harness.py    Cassette scrubbing + size-ceiling guards
