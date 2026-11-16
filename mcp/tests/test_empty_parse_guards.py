@@ -89,7 +89,7 @@ _CASES = [
         {"json": {"unexpected": 1}},
     ),
     ("otx", OTXAdapter, {"json": {"results": []}}, {"json": {"unexpected": 1}}),
-    ("threatfox", ThreatFoxAdapter, {"text": "# no entries\n"}, {"text": "<html>nope</html>"}),
+    ("threatfox", ThreatFoxAdapter, {"json": {"query_status": "ok", "data": []}}, {"text": "<html>nope</html>"}),
     ("qfeeds", QFeedsAdapter, {"text": ""}, {"text": "<html>nope</html>\nstill not an ioc\n"}),
 ]
 
@@ -254,11 +254,8 @@ class TestUnderstoodButFiltered:
 
     @pytest.mark.asyncio
     async def test_threatfox_hash_only_batch_is_understood(self, httpx_mock: HTTPXMock):
-        rows = [
-            '"2026-07-01 12:00:00", "1", "%s", "sha256_hash", "botnet_cc", "x", '
-            '"y", "Malware", "2026-07-02 12:00:00", "90", "false", "ref", "t", "0", "a"'
-            % ("a" * 64)
-        ]
-        httpx_mock.add_response(url=_ANY_URL, text="# header\n" + "\n".join(rows) + "\n")
-        result = await ThreatFoxAdapter().fetch(time_range="7d")
+        httpx_mock.add_response(url=_ANY_URL, json={
+            "query_status": "ok", "data": [{"ioc_type": "sha256_hash", "ioc": "a" * 64}],
+        })
+        result = await ThreatFoxAdapter(_Creds()).fetch(time_range="7d")
         assert result.record_count == 0

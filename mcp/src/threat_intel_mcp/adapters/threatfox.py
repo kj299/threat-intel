@@ -1,49 +1,8 @@
-"""ThreatFox (abuse.ch) IOC adapter.
+"""ThreatFox authenticated JSON API adapter.
 
-Fetches recent indicators from the **public** ThreatFox CSV feed
-(https://threatfox.abuse.ch/export/csv/recent/) and normalises the network
-indicators to ioc_network objects compatible with output.schema.json from
-kj299/threat-intel.
-
-No credential **required** — this CSV export answers unauthenticated. (Verified
-against the OpenCTI ThreatFox connector, which fetches the same CSV via a plain
-``urllib.request.urlopen`` with no Auth-Key header.) It is nonetheless *sent*
-when ``ABUSECH_AUTH_KEY`` is configured: abuse.ch gated its APIs on 2025-06-30
-and this export is a grandfathered route, not a promise. See ``_auth_header``.
-
-**Do not "upgrade" this to the JSON API.** ``https://threatfox-api.abuse.ch/api/v1/``
-requires an abuse.ch Auth-Key and answers **HTTP 401** without one — measured
-2026-09-12, the same session in which this CSV export returned HTTP 200 and
-3.7 MB. The two endpoints have diverged in their auth requirements, so the CSV
-export is not merely the historical choice here, it is the only keyless one.
-
-Feed characteristics (verified from the OpenCTI connector, 2026):
-  - GET https://threatfox.abuse.ch/export/csv/recent/
-  - Response: CSV; comment lines start with ``#``. Columns (0-indexed):
-    ``first_seen, id, value, type, threat_type, fk_malware, malware_aliases,
-    malware_printable, last_seen, confidence_level, is_compromised, reference,
-    tags, anonymous, reporter`` (0..14).
-  - ``type`` values: ``ip:port``, ``domain``, ``url``, ``md5_hash``,
-    ``sha1_hash``, ``sha256_hash``. Only the first three are network indicators;
-    hashes are ioc_host and are skipped here.
-  - **Fields are quoted and separated by comma-then-space** (``"a", "b", "c"``),
-    so the reader needs ``skipinitialspace=True``. This is not cosmetic: with
-    the default dialect the space before each ``"`` means the quote is no longer
-    a quote character, so every field after the first keeps its literal quotes
-    (``row[3]`` is ``'"ip:port"'``, never ``'ip:port'``) and any field that
-    itself contains a comma — the ``tags`` column — splits into extra columns.
-    Every row then fails the ``type`` match and is skipped, and the feed parses
-    to **zero records while returning HTTP 200**. Observed live on 2026-07-25: a
-    1,016,687-byte response yielded 0 IOCs. The OpenCTI connector registers the
-    same ``skipinitialspace=True`` dialect for this exact URL.
-
-``skipinitialspace=True`` is safe whether or not the space is present — it only
-ever discards whitespace between a delimiter and the following field — so it is
-the correct setting regardless of which way abuse.ch formats a future export.
-
-ThreatFox indicators are confirmed-malicious C2 / payload-delivery IOCs, so
-network IOCs are emitted with ``action: block`` and confidence derived from the
-feed's own ``confidence_level`` (0-100).
+Uses the documented get_iocs POST API (https://threatfox.abuse.ch/api/).
+ABUSECH_AUTH_KEY is optional configuration, but required to consult this source.
+The retired CSV parser remains only for historical fixture regression tests.
 """
 
 from __future__ import annotations
@@ -52,8 +11,10 @@ import csv
 import io
 import ipaddress
 import logging
+import math
+import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -65,13 +26,12 @@ from .base import FetchResult
 
 logger = logging.getLogger(__name__)
 
-_FEED_URL = "https://threatfox.abuse.ch/export/csv/recent/"
+_FEED_URL = "https://threatfox-api.abuse.ch/api/v1/"
 
 FEED_TYPES: dict[str, str] = {"recent_iocs": _FEED_URL}
 DEFAULT_FEED_TYPES = list(FEED_TYPES.keys())
 
 CACHE_TTL_SECONDS = 900
-_CACHE_KEY = "threatfox_recent"
 
 _MIN_COLS = 10  # need at least through confidence_level (col 9)
 
@@ -118,7 +78,7 @@ def _parse_ip(value: str) -> tuple[str, int] | None:
 
 
 def _to_rfc3339(raw: str) -> str | None:
-    raw = raw.strip()
+    raw = raw.strip().removesuffix(" UTC")
     if not raw:
         return None
     try:
@@ -181,48 +141,35 @@ def _normalize_row(row: list[str]) -> dict[str, Any] | None:
     return ioc
 
 
+class ThreatFoxAPIStatusError(RuntimeError):
+    """An API-level refusal with a fixed, non-sensitive diagnostic."""
+
+
 class ThreatFoxAdapter:
     """Adapter for the ThreatFox (abuse.ch) recent IOC feed."""
 
     name = "ThreatFox"
     tier = 9
-    requires_credential = False
+    requires_credential = True
 
     def __init__(self, credentials: Any = None) -> None:
         self._credentials = credentials
-        self._cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
+        self._cache: dict[int, tuple[list[dict[str, Any]], float, str]] = {}
 
     def _auth_header(self) -> dict[str, str]:
-        """The shared abuse.ch Auth-Key, if one is configured.
-
-        **Optional, deliberately.** abuse.ch has required authentication on its
-        APIs since 2025-06-30, and this adapter only still works unauthenticated
-        because it reads the CSV *export* path rather than the API. That is a
-        grandfathered route, not a promise, so the key is sent whenever one
-        exists -- but its absence must not break a feed that works today.
-
-        Same shape as NVD's optional key: catch only
-        ``CredentialNotFoundError`` (no key configured, which is fine) and let a
-        provider *outage* -- a plain ``CredentialError`` -- propagate, because
-        that is a different problem and quietly degrading it would hide it.
-        """
+        """Resolve credentials before network access; never log their value."""
         if self._credentials is None:
-            return {}
-        try:
-            key = self._credentials.get("abusech", "auth_key")
-        except CredentialNotFoundError:
-            return {}
-        return {"Auth-Key": key} if key else {}
+            raise CredentialNotFoundError("ABUSECH_AUTH_KEY is not configured")
+        key = self._credentials.get("abusech", "auth_key")
+        if not key:
+            raise CredentialNotFoundError("ABUSECH_AUTH_KEY is not configured")
+        return {"Auth-Key": key}
 
     def _make_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
-            headers={
-                "Accept": "text/csv, text/plain",
-                "User-Agent": "threat-intel-mcp/0.12 (kj299/threat-intel)",
-                **self._auth_header(),
-            },
+            headers={"Accept": "application/json", **self._auth_header()},
             timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
-            event_hooks=egress_event_hooks("threatfox.abuse.ch"),
+            event_hooks=egress_event_hooks("threatfox-api.abuse.ch"),
         )
 
     async def fetch(
@@ -239,36 +186,83 @@ class ThreatFoxAdapter:
                 f"Unknown feed_type(s): {unknown}. Valid: {list(FEED_TYPES.keys())}"
             )
 
+        match = re.fullmatch(r"([1-9][0-9]*)([mhdw])", time_range)
+        if not match:
+            raise ValueError("time_range must be a positive integer followed by m, h, d or w")
+        seconds = int(match[1]) * {"m": 60, "h": 3600, "d": 86400, "w": 604800}[match[2]]
+        days = min(7, math.ceil(seconds / 86400))
+        # Validate current credential availability even on cache hits.
+        self._auth_header()
         t_start = time.monotonic()
-
-        now = time.monotonic()
-        cached = self._cache.get(_CACHE_KEY)
-        if cached is not None and now < cached[1]:
-            iocs = cached[0]
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(seconds=min(seconds, 604800))
+        cached = self._cache.get(days)
+        if cached is not None and time.monotonic() < cached[1]:
+            records, _, retrieved_at = cached
         else:
             async with self._make_client() as client:
-                resp = await client.get(_FEED_URL)
+                resp = await client.post(_FEED_URL, json={"query": "get_iocs", "days": days})
                 resp.raise_for_status()
-                iocs = self._parse_csv(resp.text)
-            self._cache[_CACHE_KEY] = (iocs, now + CACHE_TTL_SECONDS)
-
+                try:
+                    body = resp.json()
+                except ValueError as exc:
+                    raise RuntimeError("ThreatFox returned invalid JSON") from exc
+                records = self._parse_json(body)
+            retrieved_at = now.isoformat()
+            self._cache[days] = (records, time.monotonic() + CACHE_TTL_SECONDS, retrieved_at)
+        iocs = [ioc.copy() for ioc in records
+                if cutoff <= datetime.fromisoformat(ioc["first_seen"]) <= now]
+        partial = []
+        if seconds > 604800:
+            partial.append("ThreatFox get_iocs supports at most 7 days; requested window truncated")
         latency_ms = (time.monotonic() - t_start) * 1000
-        log_tool_call(
-            "threatfox_fetch_iocs",
-            {"time_range": time_range, "feed_types": requested},
-            record_count=len(iocs),
-            latency_ms=latency_ms,
-            status="ok",
-        )
+        log_tool_call("threatfox_fetch_iocs",
+                      {"time_range": time_range, "feed_types": requested},
+                      record_count=len(iocs), latency_ms=latency_ms, status="ok")
         return FetchResult(
-            iocs=iocs,
-            source="ThreatFox",
-            tier=self.tier,
-            retrieved_at=datetime.now(timezone.utc).isoformat(),
-            record_count=len(iocs),
-            latency_ms=round(latency_ms, 1),
-            feed_types_fetched=["recent_iocs"],
+            iocs=iocs, source="ThreatFox", tier=self.tier,
+            retrieved_at=retrieved_at, record_count=len(iocs),
+            latency_ms=round(latency_ms, 1), feed_types_fetched=["recent_iocs"],
+            partial_failure=partial,
         )
+
+    @staticmethod
+    def _parse_json(body: Any) -> list[dict[str, Any]]:
+        if not isinstance(body, dict):
+            raise RuntimeError("ThreatFox response must be an object")
+        status = body.get("query_status")
+        if status == "no_result":
+            if body.get("data") not in (None, []):
+                raise RuntimeError("ThreatFox empty status contradicts response data")
+            return []
+        if status != "ok":
+            # Never echo an untrusted body or status into diagnostics.
+            raise ThreatFoxAPIStatusError(
+                "ThreatFox API returned a non-success status; verify account/key access "
+                "and API compatibility (response details withheld)"
+            )
+        if not isinstance(body.get("data"), list):
+            raise RuntimeError("ThreatFox API data shape was not recognised")
+        result = []
+        for item in body["data"]:
+            if not isinstance(item, dict) or item.get("ioc_type") not in _KNOWN_TYPES:
+                raise RuntimeError("ThreatFox API record shape is unrecognised")
+            if item["ioc_type"] in _HASH_TYPES:
+                continue
+            raw_date = item.get("first_seen")
+            if not isinstance(raw_date, str) or not _to_rfc3339(raw_date):
+                raise RuntimeError("ThreatFox network record has no valid first_seen")
+            if not isinstance(item.get("ioc"), str):
+                raise RuntimeError("ThreatFox network record has no valid indicator")
+            row = [raw_date, "", item["ioc"], item["ioc_type"],
+                   str(item.get("threat_type") or ""), "", "",
+                   str(item.get("malware_printable") or ""), "",
+                   str(item.get("confidence_level", ""))]
+            normalized = _normalize_row(row)
+            if normalized is None:
+                raise RuntimeError("ThreatFox network indicator could not be parsed")
+            result.append(normalized)
+        return result
 
     def _parse_csv(self, text: str) -> list[dict[str, Any]]:
         """Parse the feed body into ioc_network dicts.

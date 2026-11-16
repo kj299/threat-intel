@@ -22,6 +22,9 @@ cannot quietly turn into a live test.
 from __future__ import annotations
 
 import pytest
+import json
+import yaml
+from types import SimpleNamespace
 
 from tests.vcr_config import build_vcr, cassette_path, has_cassette
 
@@ -73,6 +76,13 @@ async def _play(name: str, adapter, **kwargs):
         return await adapter.fetch(**kwargs)
 
 
+def _historical_threatfox():
+    """Historical CSV bytes only: not evidence of current API availability."""
+    doc = yaml.safe_load(cassette_path("threatfox").read_text())
+    iocs = ThreatFoxAdapter()._parse_csv(doc["interactions"][0]["response"]["body"]["string"])
+    return SimpleNamespace(iocs=iocs, record_count=len(iocs))
+
+
 @_requires("threatfox")
 @pytest.mark.asyncio
 async def test_threatfox_parses_the_real_feed():
@@ -81,7 +91,7 @@ async def test_threatfox_parses_the_real_feed():
     Against the live CSV the adapter returned 0 records for an unknown length
     of time. A non-zero count here is the assertion that matters.
     """
-    result = await _play("threatfox", ThreatFoxAdapter(), time_range="7d")
+    result = _historical_threatfox()
 
     assert result.record_count > 0, (
         "ThreatFox parsed the recorded feed to zero records — the exact failure "
@@ -101,7 +111,7 @@ async def test_threatfox_output_survives_the_real_pipeline():
     An adapter can emit plausible dicts that ``finalize_iocs`` then drops, which
     would show up as a healthy adapter and an empty report.
     """
-    result = await _play("threatfox", ThreatFoxAdapter(), time_range="7d")
+    result = _historical_threatfox()
     finalized = finalize_iocs(result.iocs)
 
     assert finalized, "every recorded ThreatFox IOC was dropped by finalize_iocs"
@@ -446,22 +456,6 @@ async def test_feodo_does_not_mark_offline_c2s_blockable():
             assert ioc["action"] == "block" and ioc["confidence"] == "High"
 
 
-@_requires("threatfox")
-@pytest.mark.asyncio
-async def test_threatfox_still_answers_with_the_auth_key_attached():
-    """The point of sending the key at all.
-
-    abuse.ch gated its APIs in June 2025 and this adapter only kept working
-    because it reads the CSV export. Adding an Auth-Key to a request that did
-    not previously carry one is the kind of change that can break what it meant
-    to protect — this replays a recording taken *with* the header attached.
-    """
-    with build_vcr().use_cassette(str(cassette_path("threatfox"))):
-        result = await ThreatFoxAdapter(_AbuseChKey()).fetch(time_range="7d")
-
-    assert result.record_count > 0
-
-
 # --- The five keyed IOC feeds, recorded 2026-10-17 ---------------------------
 
 
@@ -533,3 +527,18 @@ async def test_shodan_empty_page_is_zero_records_not_an_error():
     result = await _play("shodan", ShodanAdapter(_AnyKey()), time_range="7d")
     assert result.record_count == 0
     assert result.iocs == []
+
+
+@_requires("threatfox_api")
+def test_threatfox_authenticated_api_recorded_parser():
+    """Real API bytes when captured; absent cassette is an honest coverage gap.
+
+    Parse directly so first_seen timestamps do not expire out of playback's
+    current time window. Synthetic tests separately exercise POST and filtering.
+    """
+    doc = yaml.safe_load(cassette_path("threatfox_api").read_text())
+    interaction = doc["interactions"][0]
+    assert interaction["request"]["method"] == "POST"
+    body = json.loads(interaction["response"]["body"]["string"])
+    records = ThreatFoxAdapter._parse_json(body)
+    assert records and finalize_iocs(records)

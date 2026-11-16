@@ -1,9 +1,9 @@
 # threat-intel-mcp
 
 > Integrations are retained when access, credentials, or subscriptions are missing.
-> Credential presence does not establish upstream health. ThreatFox’s legacy CSV
-> endpoint has a documented HTTP 410 failure and awaits verified migration.
-> Historical keyless-source counts are not a current availability guarantee.
+> Credential presence does not establish upstream health. ThreatFox now uses the
+> authenticated JSON API after the legacy CSV endpoint’s documented HTTP 410.
+> Authenticated live/API-cassette verification is pending; historical keyless counts do not apply.
 > See [feed operations](../docs/feed-operations.md).
 
 
@@ -60,12 +60,12 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | MCP tool: `otx_fetch_iocs` | ✅ Phase 3 |
 | Shodan Malware Hunter adapter + `shodan_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | GreyNoise malicious-scanner adapter + `greynoise_fetch_iocs` | ✅ Phase 2 (deferred item) |
-| ThreatFox adapter + `threatfox_fetch_iocs` (free public abuse.ch feed, no key) | ✅ Phase 2 |
+| ThreatFox adapter + `threatfox_fetch_iocs` (abuse.ch authenticated JSON API, key required) | ✅ Phase 2 |
 | OpenPhish Community adapter + `openphish_fetch_iocs` (free, no key; non-commercial use only) | ✅ #211 |
 | URLhaus adapter + `urlhaus_fetch_iocs` (abuse.ch; **requires** the shared `ABUSECH_AUTH_KEY`) | ✅ #212 |
 | Feodo Tracker adapter + `feodo_fetch_iocs` (abuse.ch botnet C2 IPs; same key, optional) | ✅ #212 |
 | Pulsedive adapter + `pulsedive_fetch_iocs` (`PULSEDIVE_API_KEY`; one page per fetch — free tier is 50 req/day) | ⚠️ #215 — built, but the first real call returned HTTP 429 on request one of one; Explore may be paid-only |
-| ThreatFox sends the abuse.ch `Auth-Key` when configured — abuse.ch has required auth since 2025-06-30 and the CSV export route is grandfathered, not promised | ✅ #212 |
+| ThreatFox requires the shared abuse.ch `Auth-Key` for JSON `get_iocs`; the legacy CSV route subsequently returned HTTP 410 | ✅ #212 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -86,7 +86,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard on every adapter (`guard_parsed`; ThreatFox and OSV apply the rule inline) | ✅ #106 |
-| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters) | ✅ #105, #199, #208, #211 |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters historically; ThreatFox is legacy CSV, not verification of the replacement API) | ✅ #105, #199, #208, #211 |
 | Cassettes for ANY.RUN, Intel 471, Censys | blocked on feed credentials (#169) |
 | Cassette for Pulsedive | blocked on its 429 (account plan or quota) |
 | Shodan's feed returns zero matches | `category:malware` (Malware Hunter) is a membership feature; the account's plan gets an empty page, recorded as such |
@@ -123,7 +123,7 @@ cp .env.example .env
 #   CENSYS_API_ID + CENSYS_API_SECRET — https://search.censys.io/account/api
 #   NVD_API_KEY         — https://nvd.nist.gov/developers/request-an-api-key (OPTIONAL)
 #   VULNCHECK_API_KEY   — https://vulncheck.com (free Community account; REQUIRED for VulnCheck KEV)
-#   ABUSECH_AUTH_KEY    — https://auth.abuse.ch/ (free; REQUIRED for URLhaus, optional for ThreatFox and Feodo Tracker)
+#   ABUSECH_AUTH_KEY    — https://auth.abuse.ch/ (REQUIRED for URLhaus and ThreatFox, optional for Feodo Tracker; usage terms apply)
 #   PULSEDIVE_API_KEY   — https://pulsedive.com/account (free tier: 50 requests/day)
 
 # Load it into your shell. `set -a` exports everything the file defines.
@@ -149,7 +149,7 @@ set -a; . ./.env; set +a
 
 Whichever you choose, **Actions secrets are not one of them**: they exist only inside a running workflow, and the job that runs the prompt (`scheduled-report.yml`'s `generate`) is deliberately denied feed credentials, with CI enforcing it. See [why feed keys are isolated](../docs/report-runbook.md#feed-credentials-do-not-go-in-this-workflow).
 
-Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **One `ABUSECH_AUTH_KEY` is read by three adapters** (URLhaus requires it; Feodo Tracker and ThreatFox send it when set — abuse.ch's key also covers MalwareBazaar, which has no adapter here) — free from https://auth.abuse.ch/. **Seven sources need no key** and are therefore always `consulted`: the IOC feeds ThreatFox, Feodo Tracker and OpenPhish, the CVE feeds CISA KEV and NVD, and the CVE enrichments EPSS and OSV.dev. ThreatFox and Feodo Tracker send the abuse.ch key when set; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
+Keys are optional individually — the server starts with whatever keys are configured and marks unconfigured feeds as `unverified` in the Coverage Ledger. **One `ABUSECH_AUTH_KEY` is read by three adapters** (URLhaus and ThreatFox require it; Feodo Tracker sends it when set — abuse.ch's key also covers MalwareBazaar, which has no adapter here) — available via https://auth.abuse.ch/ (provider usage/subscription terms apply). **Six sources need no key**: the IOC feeds Feodo Tracker and OpenPhish, the CVE feeds CISA KEV and NVD, and the CVE enrichments EPSS and OSV.dev. Only successful fetch evidence establishes `consulted` status. Feodo Tracker sends the abuse.ch key when set; **NVD's key is optional** — it works unauthenticated at a lower rate limit (5 vs. 50 requests / 30 s with a key).
 
 ### 3. Run the tests
 
@@ -511,7 +511,7 @@ src/threat_intel_mcp/
 │   ├── urlhaus.py         URLhaus malware-URL feed (abuse.ch; Auth-Key REQUIRED)
 │   ├── feodo.py           Feodo Tracker botnet C2 IPs (abuse.ch; key optional)
 │   ├── pulsedive.py       Pulsedive Explore — ONE request per fetch (50/day free tier)
-│   ├── threatfox.py       ThreatFox public IOC CSV (abuse.ch; key optional, 15-min cache)
+│   ├── threatfox.py       ThreatFox JSON IOC API (abuse.ch; key required, 15-min cache)
 │   ├── openphish.py       OpenPhish Community phishing URLs (no key, 12-hr cache)
 │   ├── virustotal.py      VirusTotal per-indicator ENRICHMENT — not a feed (#203)
 │   ├── epss.py            EPSS per-CVE exploitation probability (no key, batched 100)

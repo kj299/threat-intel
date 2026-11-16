@@ -182,7 +182,7 @@ class TestCassettesAreCommittable:
             text=True,
         )
 
-    @pytest.mark.parametrize("feed", ["threatfox", "cisa_kev", "nvd"])
+    @pytest.mark.parametrize("feed", ["threatfox", "threatfox_api", "cisa_kev", "nvd"])
     def test_a_recorded_cassette_would_not_be_ignored(self, feed: str):
         try:
             result = self._check_ignore(f"mcp/tests/cassettes/{feed}.yaml")
@@ -215,7 +215,7 @@ class TestCassetteSize:
 
     CEILING_MB = 4.0
 
-    @pytest.mark.parametrize("feed", ["threatfox", "cisa_kev", "nvd"])
+    @pytest.mark.parametrize("feed", ["threatfox", "threatfox_api", "cisa_kev", "nvd"])
     def test_a_committed_cassette_stays_under_the_ceiling(self, feed: str):
         path = pathlib.Path(__file__).parent / "cassettes" / f"{feed}.yaml"
         if not path.is_file():
@@ -551,3 +551,31 @@ def test_committed_cassettes_carry_no_unredacted_credential_header():
             problems += rec._header_problems(interaction.get("request", {}).get("headers"), "request", path.name)
             problems += rec._header_problems(interaction.get("response", {}).get("headers"), "response", path.name)
     assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("filename", ["threatfox.yaml", "threatfox_api.yaml"])
+def test_threatfox_secret_scan_covers_both_generations(tmp_path, monkeypatch, filename):
+    rec = TestSecretScan._cassette(
+        tmp_path, monkeypatch, "{}", headers={"Auth-Key": ["synthetic-secret"]})
+    (tmp_path / "nvd.yaml").rename(tmp_path / filename)
+    problems = rec.verify_scrubbed(["threatfox"])
+    assert problems and filename in problems[0] and "Auth-Key" in problems[0]
+
+
+def test_threatfox_json_shrinker_preserves_status_and_type_coverage(tmp_path, monkeypatch):
+    import json
+    import yaml
+
+    entries = [{"ioc_type": "domain", "ioc": f"example{i}.test"} for i in range(5)]
+    entries.append({"ioc_type": "ip:port", "ioc": "192.0.2.1:443"})
+    rec = TestSecretScan._cassette(
+        tmp_path, monkeypatch, json.dumps({"query_status": "ok", "data": entries}))
+    path = tmp_path / "threatfox_api.yaml"
+    (tmp_path / "nvd.yaml").rename(path)
+    monkeypatch.setattr(rec, "_THREATFOX_MAX_ROWS", 2)
+    rec.shrink_threatfox_cassette(path)
+    doc = yaml.safe_load(path.read_text())
+    body = json.loads(doc["interactions"][0]["response"]["body"]["string"])
+    assert body["query_status"] == "ok"
+    assert len(body["data"]) == 2
+    assert {row["ioc_type"] for row in body["data"]} == {"domain", "ip:port"}

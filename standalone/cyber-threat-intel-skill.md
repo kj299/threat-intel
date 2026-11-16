@@ -137,6 +137,7 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 ### Tier 9: Malware Analysis & Sandboxing
 - MalwareBazaar — bazaar.abuse.ch [MUST]
 - ThreatFox — threatfox.abuse.ch [MUST]
+  - API access: [official documentation](https://threatfox.abuse.ch/api/) specifies authenticated JSON `POST https://threatfox-api.abuse.ch/api/v1/` (`get_iocs`, `Auth-Key` required), not the retired CSV route. Recent IOC lookback is 1–7 days by `first_seen`; disclose capped wider windows and missing credentials as coverage gaps. Do not infer successful access from configured credentials, or treat legacy CSV cassettes as verification of the replacement API.
 - URLhaus (urlhaus.abuse.ch), Feodo Tracker (feodotracker.abuse.ch), Hybrid Analysis, Any.Run, Triage, Joe Sandbox, Malpedia, YARA Rules repo, Malshare, theZoo, Cape Sandbox [SHOULD]
 
 ---

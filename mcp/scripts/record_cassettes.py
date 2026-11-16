@@ -65,7 +65,6 @@ from threat_intel_mcp.vault.factory import credential_provider_from_env  # noqa:
 # name -> (adapter factory, needs a credential)
 FEEDS = {
     # Keyless — recordable by anyone, no secrets involved.
-    "threatfox": (lambda c: ThreatFoxAdapter(), False),
     "cisa_kev": (lambda c: CISAKEVAdapter(), False),
     "nvd": (lambda c: NVDAdapter(c), False),  # key optional; works unauthenticated
     "openphish": (lambda c: OpenPhishAdapter(), False),
@@ -74,6 +73,7 @@ FEEDS = {
     "epss": (lambda c: EPSSAdapter(), False),
     "osv": (lambda c: OSVAdapter(_request_delay=0), False),
     # Keyed — opt in with --all, and only with credentials in the environment.
+    "threatfox": (lambda c: ThreatFoxAdapter(c), True),
     "qfeeds": (lambda c: QFeedsAdapter(c), True),
     "abuseipdb": (lambda c: AbuseIPDBAdapter(c), True),
     "virustotal": (lambda c: VirusTotalAdapter(c, _rate_limit_delay=0), True),
@@ -292,7 +292,7 @@ def shrink_vulncheck_cassette(path: pathlib.Path) -> tuple[int, int]:
 
 
 def shrink_threatfox_cassette(path: pathlib.Path) -> tuple[int, int]:
-    """Trim the ThreatFox CSV body to stay under the size ceiling.
+    """Trim JSON API recordings; retain legacy CSV shrinking for regression.
 
     Operates on **raw text lines**, never through ``csv.writer``. That is not a
     style preference: the whole reason this cassette is valuable is the feed's
@@ -312,6 +312,26 @@ def shrink_threatfox_cassette(path: pathlib.Path) -> tuple[int, int]:
     for interaction in doc.get("interactions", []):
         body = interaction["response"]["body"].get("string")
         if not isinstance(body, str):
+            continue
+        # New recordings use threatfox_api.yaml; preserve the historical CSV.
+        if body.lstrip().startswith("{"):
+            parsed = json.loads(body)
+            records = parsed.get("data")
+            if isinstance(records, list):
+                kept_json = []
+                seen = set()
+                for row in records:
+                    kind = row.get("ioc_type") if isinstance(row, dict) else None
+                    if kind not in seen:
+                        seen.add(kind)
+                        kept_json.append(row)
+                for row in records:
+                    if len(kept_json) >= _THREATFOX_MAX_ROWS:
+                        break
+                    if row not in kept_json:
+                        kept_json.append(row)
+                parsed["data"] = kept_json
+                interaction["response"]["body"]["string"] = json.dumps(parsed)
             continue
         lines = body.splitlines(keepends=True)
         comments = [ln for ln in lines if ln.lstrip().startswith("#")]
@@ -383,7 +403,7 @@ _RECORD_ACTIONS = {
 
 async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None, str]:
     factory, _ = FEEDS[name]
-    cassette = CASSETTE_DIR / f"{name}.yaml"
+    cassette = CASSETTE_DIR / ("threatfox_api.yaml" if name == "threatfox" else f"{name}.yaml")
     recorder = build_vcr(record_mode="all")
     try:
         # Replace, don't append: record_mode="all" stacks new interactions
@@ -410,7 +430,7 @@ async def record_one(name: str, creds, time_range: str) -> tuple[str, int | None
     except Exception as exc:  # noqa: BLE001 - report, do not abort the batch
         if cassette.exists() and cassette.stat().st_size == 0:
             cassette.unlink()
-        return name, None, f"FAILED {type(exc).__name__}: {exc}"
+        return name, None, f"FAILED {type(exc).__name__}"
 
 
 def _header_problems(headers, where: str, path_name: str) -> list[str]:
@@ -448,7 +468,11 @@ def verify_scrubbed(names: list[str]) -> list[str]:
         if os.environ.get(var, "").strip()
     }
 
-    for name in names:
+    # Scan both generations; recording the new API must not hide old secrets.
+    scan_names = set(names)
+    if "threatfox" in scan_names:
+        scan_names.add("threatfox_api")
+    for name in sorted(scan_names):
         path = CASSETTE_DIR / f"{name}.yaml"
         if not path.is_file():
             continue
@@ -518,7 +542,8 @@ async def main() -> int:
     CASSETTE_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.verify_only:
-        present = [n for n in selected if (CASSETTE_DIR / f"{n}.yaml").is_file()]
+        present = [n for n in selected if (CASSETTE_DIR / f"{n}.yaml").is_file()
+                   or (n == "threatfox" and (CASSETTE_DIR / "threatfox_api.yaml").is_file())]
         if not present:
             print("No cassettes present to verify.")
             return 0

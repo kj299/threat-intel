@@ -101,5 +101,5 @@ async def test_discovery_retains_access_limited_integrations():
         assert feed["tool"] == registry[name]["tool"]
         assert feed["integration_status"]["implemented"]
         assert not feed["integration_status"]["credential_presence_is_health_check"]
-    assert feeds["ThreatFox"]["integration_status"]["verification_status"] == "known_endpoint_failure"
+    assert feeds["ThreatFox"]["integration_status"]["verification_status"] == "not_verified_in_this_environment"
     assert all(name in feeds for name in ("ANY.RUN", "Intel 471", "Censys", "Pulsedive"))

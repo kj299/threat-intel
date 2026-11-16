@@ -22,9 +22,8 @@ misread), the adapter returned 0 records from a 1 MB response, and nothing
 surfaced it until an operator ran the feeds by hand on a Windows box (#76,
 #100). This check is what would have caught it.
 
-Scope is every feed: the seven that run unconditionally (ThreatFox, Feodo
-Tracker, OpenPhish, CISA KEV, NVD, EPSS, OSV.dev -- ThreatFox, Feodo and NVD
-accept an optional key) plus every credentialed adapter whose key is
+Scope is every feed: the six that run unconditionally (Feodo Tracker,
+OpenPhish, CISA KEV, NVD, EPSS, OSV.dev -- Feodo and NVD accept an optional key) plus every credentialed adapter whose key is
 configured. A credentialed feed with no key skips, so the check still passes
 in a fork; one with a key that fails, fails -- except a named account limit
 (AccountLimitError), which xfails with its reason. It began as keyless-only;
@@ -73,39 +72,46 @@ _IOC_ADAPTERS = {
     "anyrun": AnyRunAdapter,
     "intel471": Intel471Adapter,
     "censys": CensysAdapter,
-    # Shares the abuse.ch Auth-Key with ThreatFox and Feodo Tracker, but is the
-    # only one of the three that REQUIRES it.
+    # Shares the required abuse.ch Auth-Key with ThreatFox; Feodo is optional.
     "abusech": URLhausAdapter,
     "pulsedive": PulsediveAdapter,
 }
 _CVE_ADAPTERS = {"vulncheck": VulnCheckAdapter}
 
 
+@pytest.fixture
+def threatfox_adapter():
+    credentials = credential_provider_from_env()
+    if not os.environ.get("ABUSECH_AUTH_KEY", "").strip():
+        pytest.skip("ABUSECH_AUTH_KEY not configured; authenticated ThreatFox unverified")
+    return ThreatFoxAdapter(credentials)
+
+
 class TestThreatFox:
     @pytest.mark.asyncio
-    async def test_returns_records(self):
+    async def test_returns_records(self, threatfox_adapter):
         """The #100 regression, checked against the live endpoint.
 
-        A zero here means the CSV dialect or column layout moved again. Since
+        A zero here means the API response shape moved again. Since
         #106 a format break raises instead of returning zero, so reaching this
         assertion with 0 means the feed was genuinely empty — which for
         ThreatFox's rolling recent-IOC export would itself be remarkable.
         """
-        result = await ThreatFoxAdapter().fetch(time_range="7d")
+        result = await threatfox_adapter.fetch(time_range="7d")
         assert result.record_count > 0, (
             "ThreatFox returned 0 records from the live feed. Either the export "
             "is genuinely empty (unlikely for a rolling recent-IOC feed) or the "
-            "CSV format has changed — see #100."
+            "API format has changed — see #100."
         )
 
     @pytest.mark.asyncio
-    async def test_records_survive_the_pipeline(self):
+    async def test_records_survive_the_pipeline(self, threatfox_adapter):
         """Parsing is not enough — records must clear sanitize + validate.
 
         An adapter can emit plausible dicts that ``finalize_iocs`` then drops,
         which presents as a healthy feed and an empty report.
         """
-        result = await ThreatFoxAdapter().fetch(time_range="7d")
+        result = await threatfox_adapter.fetch(time_range="7d")
         finalized = finalize_iocs(result.iocs)
         assert finalized, "every live ThreatFox IOC was dropped by finalize_iocs"
         assert len(finalized) >= len(result.iocs) * 0.5, (
@@ -115,8 +121,8 @@ class TestThreatFox:
         )
 
     @pytest.mark.asyncio
-    async def test_records_carry_the_expected_shape(self):
-        result = await ThreatFoxAdapter().fetch(time_range="7d")
+    async def test_records_carry_the_expected_shape(self, threatfox_adapter):
+        result = await threatfox_adapter.fetch(time_range="7d")
         assert {i["type"] for i in result.iocs} <= {"IPv4", "IPv6", "Domain", "URL"}
         assert all(i["source"] == "ThreatFox" for i in result.iocs)
         # Stray quotes would mean the CSV dialect regressed to the #100 bug.
