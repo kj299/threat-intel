@@ -7,12 +7,39 @@ An unavailable source is a report input, not a reason to cancel report delivery.
 import argparse
 import hashlib
 import json
+import stat
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
 class ArtifactInputError(ValueError):
     """A fixed diagnostic safe to expose in the coverage ledger."""
+
+
+MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
+
+
+def read_payload(path, *, archive=False):
+    """Read only the expected regular member under explicit byte limits."""
+    if path.stat().st_size > MAX_ARTIFACT_BYTES:
+        raise ArtifactInputError("Artifact exceeds 128 MiB input limit")
+    if not archive:
+        return path.read_bytes()
+    with zipfile.ZipFile(path) as zipped:
+        members = zipped.infolist()
+        if len(members) != 1 or members[0].filename != "feed-data.json":
+            raise ArtifactInputError("Unexpected archive members")
+        member = members[0]
+        if not stat.S_ISREG(member.external_attr >> 16):
+            raise ArtifactInputError("Archive member is not a regular file")
+        if member.file_size > MAX_ARTIFACT_BYTES:
+            raise ArtifactInputError("Uncompressed artifact exceeds 128 MiB limit")
+        with zipped.open(member) as stream:
+            raw = stream.read(MAX_ARTIFACT_BYTES + 1)
+        if len(raw) > MAX_ARTIFACT_BYTES or len(raw) != member.file_size:
+            raise ArtifactInputError("Archive member size mismatch")
+        return raw
 
 
 def stamp(value):
@@ -99,6 +126,9 @@ def consume(
                     break
         result.update(
             status="partial",
+            upstream_status=summaries[0]["status"],
+            upstream_record_count=summaries[0].get("record_count"),
+            upstream_partial_failure=summaries[0].get("partial_failure", []),
             iocs=selected,
             record_count=len(selected),
             run_url=run["html_url"],
@@ -147,23 +177,27 @@ def encode_compact(result):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("payload", "run", "artifact", "jobs"):
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--payload", type=Path)
+    source.add_argument("--archive", type=Path)
+    for name in ("run", "artifact", "jobs"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--expected-sha", required=True)
     parser.add_argument("--report-end", required=True)
     args = parser.parse_args()
     try:
-        inputs = [
+        raw_payload = read_payload(
+            args.archive or args.payload, archive=bool(args.archive)
+        )
+        inputs = [json.loads(raw_payload)] + [
             json.loads(getattr(args, name).read_text())
-            for name in ("payload", "run", "artifact", "jobs")
+            for name in ("run", "artifact", "jobs")
         ]
         result = consume(
             *inputs, report_end=stamp(args.report_end), expected_sha=args.expected_sha
         )
-        result["source_payload_sha256"] = hashlib.sha256(
-            args.payload.read_bytes()
-        ).hexdigest()
-    except (OSError, ValueError):
+        result["source_payload_sha256"] = hashlib.sha256(raw_payload).hexdigest()
+    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError):
         result = {
             "source": "ThreatFox",
             "status": "unverified",

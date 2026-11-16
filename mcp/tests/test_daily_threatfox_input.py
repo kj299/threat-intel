@@ -137,7 +137,10 @@ def test_upstream_partial_is_not_upgraded(inputs):
     inputs[0]["iocs"]["per_source"][0].update(
         status="partial", partial_failure=["capped"]
     )
-    assert check(inputs)["status"] == "partial"
+    result = check(inputs)
+    assert result["status"] == "partial"
+    assert result["upstream_status"] == "partial"
+    assert result["upstream_partial_failure"] == ["capped"]
 
 
 def test_compact_export_preserves_records(inputs):
@@ -155,3 +158,55 @@ def test_oversized_compact_export_fails_closed():
     )
     assert result["status"] == "unverified" and result["iocs"] == []
     assert result["record_count"] == 0
+
+
+def archive(tmp_path, names, *, mode=0o100644, body=b"{}"):
+    import zipfile
+
+    path = tmp_path / "feed.zip"
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as output:
+        for name in names:
+            info = zipfile.ZipInfo(name)
+            info.external_attr = mode << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            output.writestr(info, body)
+    return path
+
+
+def test_archive_reads_exact_regular_member(tmp_path):
+    assert (
+        module.read_payload(archive(tmp_path, ["feed-data.json"]), archive=True)
+        == b"{}"
+    )
+
+
+@pytest.mark.parametrize(
+    "names",
+    [["../feed-data.json"], ["/feed-data.json"], ["feed-data.json", "extra.json"]],
+)
+def test_archive_rejects_unexpected_paths_and_extra_members(tmp_path, names):
+    with pytest.raises(module.ArtifactInputError):
+        module.read_payload(archive(tmp_path, names), archive=True)
+
+
+def test_archive_rejects_symlink(tmp_path):
+    with pytest.raises(module.ArtifactInputError):
+        module.read_payload(
+            archive(tmp_path, ["feed-data.json"], mode=0o120777), archive=True
+        )
+
+
+def test_archive_checks_expansion_before_reading(tmp_path, monkeypatch):
+    path = archive(tmp_path, ["feed-data.json"], body=b"x" * 10000)
+    monkeypatch.setattr(module, "MAX_ARTIFACT_BYTES", 512)
+    assert path.stat().st_size < 512
+    with pytest.raises(module.ArtifactInputError, match="Uncompressed"):
+        module.read_payload(path, archive=True)
+
+
+def test_raw_payload_size_limit(tmp_path, monkeypatch):
+    path = tmp_path / "feed-data.json"
+    path.write_bytes(b"x" * 20)
+    monkeypatch.setattr(module, "MAX_ARTIFACT_BYTES", 10)
+    with pytest.raises(module.ArtifactInputError):
+        module.read_payload(path)

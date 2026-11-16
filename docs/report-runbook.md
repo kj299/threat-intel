@@ -340,12 +340,15 @@ uncompressed size limit;
 do not execute artifact content or extract arbitrary paths.
 
 ```bash
-python scripts/consume_threatfox.py --payload feed-data.json \
+python scripts/consume_threatfox.py --archive feed-data.zip \
   --run run.json --artifact artifact.json --jobs jobs.json \
   --expected-sha CAPTURED_MAIN_SHA --report-end REPORT_CUTOFF_UTC
 ```
 
-The helper defaults to a two-hour freshness budget, requires a successful
+The helper accepts the downloaded ZIP with `--archive` and enforces the
+authorized 128 MiB compressed/uncompressed bound, exact single member name and
+regular-file type without extracting paths. `--payload` accepts an already
+validated JSON file under the same byte bound. It defaults to a two-hour freshness budget, requires a successful
 prefetch from the expected main commit and manual workflow, rejects expired or
 mismatched artifacts and non-24h payloads, and preserves ThreatFox-specific
 `source_evidence` after cross-source deduplication. It reports `partial` rather
