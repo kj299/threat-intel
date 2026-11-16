@@ -267,3 +267,5 @@ flowchart TD
 | Output schema | `skills/cyber-threat-intel/schemas/output.schema.json` | JSON Schema the final report is validated against |
 
 The credential-free daily consumer helper, [`scripts/consume_threatfox.py`](../scripts/consume_threatfox.py), validates a scanned Actions feed artifact against externally retrieved run metadata and preserves ThreatFox-specific first_seen evidence. It bounds acquisition time and reports partial or unverified coverage without changing workflows or report schedules; see the [report runbook](report-runbook.md#fresh-threatfox-input-for-a-separate-daily-report).
+
+The proposed source-only producer [`prefetch_threatfox.py`](../mcp/scripts/prefetch_threatfox.py) keeps the existing abuse.ch key in a fixed Actions step, caps a single 24h fetch at 90 seconds, scans the output for credential material, and publishes `threatfox-feed-data` with source acquisition bounds. Its [draft schedule](../.github/workflows/threatfox-prefetch.yml) is 06:40 America/New_York; it has no model or email step and requires explicit activation by merging the reviewed schedule.

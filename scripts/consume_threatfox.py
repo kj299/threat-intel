@@ -63,26 +63,35 @@ def consume(
         ],
     }
     try:
+        routes = {
+            ".github/workflows/scheduled-report.yml": (
+                "feed-data",
+                "Fetch feeds (holds credentials; no agent)",
+                {"workflow_dispatch"},
+            ),
+            ".github/workflows/threatfox-prefetch.yml": (
+                "threatfox-feed-data",
+                "Fetch ThreatFox (holds credential; no agent)",
+                {"schedule", "workflow_dispatch"},
+            ),
+        }
+        route = routes.get(run["path"])
         if (
             run["repository"]["full_name"] != "kj299/threat-intel"
-            or run["path"] != ".github/workflows/scheduled-report.yml"
+            or route is None
             or run["head_branch"] != "main"
             or run["head_sha"] != expected_sha
-            or run["event"] != "workflow_dispatch"
+            or run["event"] not in route[2]
         ):
             raise ArtifactInputError("unexpected workflow, branch, commit or event")
         if (
-            artifact["name"] != "feed-data"
+            artifact["name"] != route[0]
             or artifact["expired"]
             or artifact["workflow_run"]["id"] != run["id"]
             or artifact["size_in_bytes"] <= 0
         ):
             raise ArtifactInputError("missing, expired or mismatched artifact")
-        prefetch = [
-            j
-            for j in jobs["jobs"]
-            if j["name"] == "Fetch feeds (holds credentials; no agent)"
-        ]
+        prefetch = [j for j in jobs["jobs"] if j["name"] == route[1]]
         if len(prefetch) != 1 or prefetch[0]["conclusion"] != "success":
             raise ArtifactInputError("prefetch job did not succeed")
         if payload["time_range"] not in ("24h", "1d"):
@@ -102,6 +111,14 @@ def consume(
             "partial",
         ):
             raise ArtifactInputError("ThreatFox unavailable in this collection")
+        source_started = stamp(
+            summaries[0].get("collection_started_at", started.isoformat())
+        )
+        source_completed = stamp(
+            summaries[0].get("collection_completed_at", collected.isoformat())
+        )
+        if not started <= source_started <= source_completed <= collected:
+            raise ArtifactInputError("inconsistent source acquisition bounds")
         report_start = report_end - timedelta(days=1)
         selected = []
         for record in payload["iocs"]["iocs"]:
@@ -111,7 +128,7 @@ def consume(
             matching = [e for e in evidence if e.get("source") == "ThreatFox"]
             for entry in matching:
                 first_seen = stamp(entry["first_seen"])
-                if report_start <= first_seen <= collected:
+                if report_start <= first_seen <= source_completed:
                     selected.append(
                         {
                             "type": record["type"],
@@ -136,14 +153,23 @@ def consume(
             commit=run["head_sha"],
             artifact_id=artifact["id"],
             generated_at=generated.isoformat(),
-            acquisition_between=[started.isoformat(), collected.isoformat()],
+            acquisition_between=[
+                source_started.isoformat(),
+                source_completed.isoformat(),
+            ],
             report_start=report_start.isoformat(),
         )
-        result["limitations"].append(
-            "Per-source retrieval time is absent from this artifact. Acquisition is bounded "
-            "by prefetch start and IOC fan-out completion; the remainder before report_end "
-            "is unobserved. Do not claim complete 24-hour coverage."
-        )
+        if "collection_started_at" in summaries[0]:
+            result["limitations"].append(
+                "Acquisition bounds come from the source-only collector. The interval "
+                "before report_end remains unobserved; do not claim complete 24-hour coverage."
+            )
+        else:
+            result["limitations"].append(
+                "Per-source retrieval time is absent from this artifact. Acquisition is bounded "
+                "by prefetch start and IOC fan-out completion; the remainder before report_end "
+                "is unobserved. Do not claim complete 24-hour coverage."
+            )
         if summaries[0].get("partial_failure"):
             result["limitations"].append(
                 "Upstream also reports partial coverage; preserve artifact caveats."

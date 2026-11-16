@@ -532,6 +532,7 @@ src/threat_intel_mcp/
 ├── stix_patterns.py       STIX pattern parsing (ANY.RUN TAXII objects)
 └── audit.py               Structured logging with secret redaction
 scripts/
+├── prefetch_threatfox.py  Bounded credential-isolated ThreatFox-only producer
 ├── prefetch_feeds.py      The report path's fixed fetcher — holds every credential,
 │                          runs the fan-outs, calls the three enrichments
 └── record_cassettes.py    Records real feed responses for offline replay (#105)
@@ -684,3 +685,5 @@ baking that in would be a guess about someone else's deployment.
 are missed. A background subscriber draining into a buffer would capture
 everything at the cost of this server's first long-lived task; that is a
 deliberate follow-up, not an oversight.
+
+The proposed [`threatfox-prefetch` workflow](../.github/workflows/threatfox-prefetch.yml) uses `scripts/prefetch_threatfox.py` for one bounded, credential-isolated read and a scanned artifact of at most 1 MiB. It has no model or email step. Activation and the read-only daily consumer contract are described in the [report runbook](../docs/report-runbook.md#durable-read-only-daily-handoff-proposed).

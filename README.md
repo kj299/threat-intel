@@ -176,6 +176,7 @@ threat-intel/
     |       +-- factory.py                           # credential_provider_from_env() selector
     |       +-- protocols.py                         # gRPC/MQTT/WebSocket/GraphQL credential bundles
     +-- scripts/
+    |   +-- prefetch_threatfox.py                    # bounded ThreatFox-only daily data artifact
     |   +-- prefetch_feeds.py                        # the report path's fixed fetcher (holds credentials)
     |   +-- record_cassettes.py                      # records real feed responses for offline replay
     +-- tests/                                       # unit + httpx-mock integration tests (no live network)
