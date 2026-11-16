@@ -138,3 +138,20 @@ def test_upstream_partial_is_not_upgraded(inputs):
         status="partial", partial_failure=["capped"]
     )
     assert check(inputs)["status"] == "partial"
+
+
+def test_compact_export_preserves_records(inputs):
+    import json
+
+    result = check(inputs)
+    assert json.loads(module.encode_compact(result)) == result
+
+
+def test_oversized_compact_export_fails_closed():
+    import json
+
+    result = json.loads(
+        module.encode_compact({"status": "partial", "iocs": ["x" * (1024 * 1024)]})
+    )
+    assert result["status"] == "unverified" and result["iocs"] == []
+    assert result["record_count"] == 0

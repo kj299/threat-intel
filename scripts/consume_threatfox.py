@@ -5,6 +5,7 @@ An unavailable source is a report input, not a reason to cancel report delivery.
 """
 
 import argparse
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -128,6 +129,22 @@ def consume(
     return result
 
 
+def encode_compact(result):
+    """Bound the downstream derivative; never silently sample oversized data."""
+    encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded.encode("utf-8")) > 1024 * 1024:
+        return json.dumps(
+            {
+                "source": "ThreatFox",
+                "status": "unverified",
+                "iocs": [],
+                "record_count": 0,
+                "reason": "Compact output exceeds 1 MiB; no records exported.",
+            }
+        )
+    return encoded
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("payload", "run", "artifact", "jobs"):
@@ -143,6 +160,9 @@ def main():
         result = consume(
             *inputs, report_end=stamp(args.report_end), expected_sha=args.expected_sha
         )
+        result["source_payload_sha256"] = hashlib.sha256(
+            args.payload.read_bytes()
+        ).hexdigest()
     except (OSError, ValueError):
         result = {
             "source": "ThreatFox",
@@ -150,7 +170,7 @@ def main():
             "iocs": [],
             "reason": "Input unreadable; continue report with other verified sources.",
         }
-    print(json.dumps(result, indent=2))
+    print(encode_compact(result))
 
 
 if __name__ == "__main__":
