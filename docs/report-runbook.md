@@ -335,7 +335,8 @@ Download only the exact validated artifact. The GitHub connector's
 `download_workflow_artifact` can retrieve it when direct `gh run download` is
 blocked at the artifact host. This route was verified for report artifacts on
 2026-11-16; availability must be checked in each runtime. Inspect the ZIP and
-extract only the expected regular `feed-data.json` member, with a size limit;
+extract only the expected regular `feed-data.json` member, with a 128 MiB uncompressed size limit (the verified multi-feed artifact was
+92.4 MB uncompressed);
 do not execute artifact content or extract arbitrary paths.
 
 ```bash
