@@ -338,3 +338,96 @@ def test_proposed_workflow_is_credential_isolated_read_only():
     }
     assert not any("claude" in s.get("uses", "") for s in job["steps"])
     assert job["steps"][-1]["with"]["name"] == "threatfox-feed-data"
+
+
+@pytest.fixture
+def refresher():
+    spec = importlib.util.spec_from_file_location(
+        "refresh_threatfox", Path(__file__).parents[2] / "scripts/refresh_threatfox.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.mark.parametrize(
+    "case", ["success", "ambiguous", "failed", "changed_main", "expired"]
+)
+def test_independent_refresh_dispatches_once_and_does_not_claim_ingestion(
+    refresher, case
+):
+    dispatched = []
+    state = {"main_reads": 0}
+
+    def api(path, *, dispatch=False):
+        if dispatch:
+            dispatched.append(path)
+            return {}
+        if path == "commits/main":
+            state["main_reads"] += 1
+            return {
+                "sha": "changed"
+                if case == "changed_main" and state["main_reads"] > 1
+                else "abc"
+            }
+        if path.endswith("/artifacts"):
+            return {
+                "artifacts": [
+                    {
+                        "id": 9,
+                        "name": "threatfox-feed-data",
+                        "expired": case == "expired",
+                        "size_in_bytes": 100,
+                    }
+                ]
+            }
+        run = {
+            "id": 2,
+            "head_sha": "abc",
+            "head_branch": "main",
+            "event": "workflow_dispatch",
+            "created_at": "2099-01-01T00:00:00Z",
+            "status": "completed",
+            "conclusion": "failure" if case == "failed" else "success",
+        }
+        return {
+            "workflow_runs": []
+            if not dispatched
+            else [run, {**run, "id": 3}]
+            if case == "ambiguous"
+            else [run]
+        }
+
+    if case == "success":
+        result = refresher.refresh(call=api)
+        assert result["status"] == "artifact_available_not_ingested"
+        assert result["artifact_id"] == 9
+    else:
+        with pytest.raises(refresher.RefreshError):
+            refresher.refresh(call=api)
+    assert len(dispatched) == 1
+
+
+def test_refresh_timeout_does_not_retry_dispatch(refresher):
+    calls = []
+    tick = iter([0, 301])
+
+    def api(path, *, dispatch=False):
+        calls.append((path, dispatch))
+        return {"sha": "abc"} if path == "commits/main" else {"workflow_runs": []}
+
+    with pytest.raises(refresher.RefreshError, match="expired"):
+        refresher.refresh(call=api, clock=lambda: next(tick))
+    assert sum(dispatch for _, dispatch in calls) == 1
+
+
+def test_refresh_gh_failure_withholds_signed_urls(refresher, monkeypatch):
+    def fail(*args, **kwargs):
+        raise refresher.subprocess.CalledProcessError(
+            1, ["gh"], stderr="secret signed URL"
+        )
+
+    monkeypatch.setattr(refresher.subprocess, "run", fail)
+    with pytest.raises(refresher.RefreshError) as exc:
+        refresher.api("commits/main")
+    assert "secret" not in str(exc.value)

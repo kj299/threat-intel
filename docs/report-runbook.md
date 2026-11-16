@@ -445,3 +445,44 @@ only after it exists on main; today's existing artifact remains a dated fallback
 not a durable refresh service. Confirm applicable commercial-use entitlement;
 HTTP success is not evidence of that entitlement. No new production schedule
 was activated during this investigation.
+
+## Independent pre-report fallback (proposed)
+
+On November 16, the first `schedule` run (43957744610) was created at
+21:12:47 UTC for the unchanged 06:40 America/New_York workflow. The job started
+at 21:12:50 and succeeded at 21:13:12. This is 9h32m47s after the intended
+11:40 UTC time, not nine hours spent queued after run creation. The API exposes
+no original enqueue timestamp or scheduler cause. Workflow history contains only
+its original addition; it remains active. GitHub documents possible schedule
+latency/drops and valid timezone syntax; neither establishes the cause here.
+[GitHub's incident](https://www.githubstatus.com/incidents/2zfqmghmg3s3)
+opened at 11:59 UTC initially for Pull Requests, explicitly listed Actions
+degradation at 15:33, and was resolved at 16:26. It later acknowledged workflow
+start-time impact. The intended 11:40 event precedes its notice and actual 21:12
+run follows resolution; this is relevant context, not proof of causality.
+
+A second GitHub cron does not remove this provider dependency. The independently
+triggered fallback is `python scripts/refresh_threatfox.py`, run at **06:35
+America/New_York** by an already authenticated maintenance environment under an
+independent scheduler. It dispatches the existing source-only workflow exactly
+once, waits up to five minutes plus bounded API calls, pins main, refuses ambiguous
+concurrent dispatches or changed main, and returns a matched artifact pointer.
+It never copies a feed key or sends email. Errors suppress subprocess output,
+which can contain signed artifact URLs. An uncertain dispatch is not retried.
+
+The result deliberately says `artifact_available_not_ingested`: a green job can
+contain unverified source coverage. Download through the authorized GitHub
+connector and use `consume_threatfox.py` to verify actual bytes, source status,
+first_seen attribution, digest and freshness. Direct `gh run download` returned
+Forbidden from the artifact host in the tested maintenance environment; do not
+print its signed error URL. The separate daily runtime still lacks authenticated
+gh and must not be given a token to make this command work.
+
+**Deployment is not included in this draft.** Approve an independent scheduled
+invocation only after testing its execution environment's existing gh access.
+The maintainer's interactive access does not prove a future automation inherits
+it. A 06:35 operator invocation is the immediate fallback if such a scheduler is
+not available. November 16's evening artifact is stale for November 17's 07:00
+report: never extend the two-hour limit. If fresh data cannot be obtained, deliver
+the daily report with an explicit ThreatFox gap and notify the user. Preserve the
+07:00 email independently and never send a second report from the fallback.
