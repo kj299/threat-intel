@@ -563,6 +563,7 @@ tests/
 ├── test_server_smoke.py   Server wiring: IOC + CVE tools registered, sources degrade gracefully
 ├── test_server_success_paths.py  Tool success paths with mocked upstreams
 ├── test_server_enrichment_degrade.py  Enrichment tools (VirusTotal/EPSS/OSV) degrade + caller-error paths
+├── test_government_coverage.py Per-publisher discovery and evidence receipt gates
 ├── test_daily_threatfox_input.py Daily artifact freshness, provenance and source attribution gates
 ├── test_docs_consistency.py  Docs-as-code: env vars, Vault paths, tool parity, counts, file trees
 ├── test_cassette_playback.py  Adapters replayed against recorded real responses (#105)
@@ -687,3 +688,5 @@ everything at the cost of this server's first long-lived task; that is a
 deliberate follow-up, not an oversight.
 
 The proposed [`threatfox-prefetch` workflow](../.github/workflows/threatfox-prefetch.yml) uses `scripts/prefetch_threatfox.py` for one bounded, credential-isolated read and a scanned artifact of at most 1 MiB. It has no model or email step. Activation and the read-only daily consumer contract are described in the [report runbook](../docs/report-runbook.md#durable-read-only-daily-handoff-proposed).
+
+Government advisory discovery uses `scripts/government_coverage.py` at the repository root: a credential-free plan and receipt validator, not an MCP adapter or automatic fetcher. It distinguishes CISA Advisories from KEV, requires a separate CERT-EU receipt and scoped high-impact CVE checks, and emits gaps without blocking delivery. See the skill government-advisory reference for caller adoption and freshness limits.

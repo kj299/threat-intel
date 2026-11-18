@@ -93,3 +93,9 @@ A best-effort tier (Tier 7) has nothing required, so its `met` is `true` by defi
 **Total preferred-source targets consulted:** `<N>` / ≈25
 **Coverage badge (honest self-report):** `<ONE OF: FULL | PARTIAL | MINIMAL>` — write the single word that matches the count above: FULL (≈25+), PARTIAL (13–24), MINIMAL (<13). A `MINIMAL` badge on a genuinely sparse scope/time range is the correct outcome, not a failure.
 **Fabrication check:** `PASS` — write that literal word once you have confirmed no IOC, CVE, hash, or actor attribution was invented. Any `status: unverified` items are listed below with reason. If little was retrievable for the requested scope and time range, state that plainly here.
+
+For daily reports, append separate CISA Advisories and CERT-EU rows with the
+[government discovery receipt](government-advisories.md): attempts, content
+consultation, freshness, unresolved candidates and HTTP/search gaps. KEV is not
+advisory coverage; zero hits do not prove no alerts. Preserve delivery with
+disclosed gaps rather than withholding the report.
