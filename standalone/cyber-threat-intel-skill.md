@@ -374,7 +374,11 @@ CERT-EU's current-year advisory index plus its publisher-linked RSS or scoped
 search. Cross-check each high-impact CVE against both government publishers,
 even when the report already cites the vendor. Preserve corroborating citations.
 Record URL/query, route, retrieval time, HTTP/error or zero-hit outcome, candidate
-publication/update times and included/corroborates/excluded disposition. Treat
+publication/update times and included/corroborates/excluded disposition. Preserve original publication evidence and choose an explicit `window_basis`:
+`publication` or independently evidenced `material_update`. An older advisory
+with a substantive in-window update may qualify; retain both intervals and their
+official provenance. Missing/conflicting timestamps or a generic last-modified
+label cannot establish a material update. Treat
 index/search discovery separately from reading advisory content. Missing checks,
 HTTP failures, old feeds, zero hits and ambiguous date/EST/EDT timestamps cannot
 be upgraded to current consultation or proof of no alerts. Keep unresolved

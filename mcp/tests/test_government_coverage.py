@@ -41,6 +41,9 @@ def document():
                 "items": [
                     {
                         "url": "https://cert.europa.eu/publications/security-advisories/2026-021/",
+                        "window_basis": "publication",
+                        "publication_source_url": "https://cert.europa.eu/publications/security-advisories/2026-021/",
+                        "publication_evidence_note": "Authored fixture: original publication timestamp",
                         "published_start": "2026-11-18T09:11:05Z",
                         "published_end": "2026-11-18T09:11:05Z",
                         "content_read": True,
@@ -182,3 +185,102 @@ def test_wrong_publisher_routes_and_stale_content_are_gaps(document):
     row = cert(document)
     assert row["status"] != "consulted"
     assert not row["verified_current_urls"]
+
+
+@pytest.fixture
+def updated_document(document):
+    item = document["receipts"][0]["items"][0]
+    item.update(
+        published_start="2026-11-01T09:00:00Z",
+        published_end="2026-11-01T09:00:00Z",
+        published_raw="1 November 2026 09:00 UTC",
+        window_basis="material_update",
+    )
+    item["material_update"] = {
+        "start": "2026-11-18T10:00:00Z",
+        "end": "2026-11-18T10:00:00Z",
+        "source_url": item["url"],
+        "evidence_note": "Authored fixture: dated version history",
+        "material_change": "Authored fixture: adds exploitation evidence and revised mitigations",
+        "raw": "18 November 2026 10:00 UTC",
+    }
+    return document
+
+
+def test_old_publication_with_evidenced_current_material_update_is_consulted(
+    updated_document,
+):
+    row = cert(updated_document)
+    assert row["status"] == "consulted"
+    evidence = row["verified_current_items"][0]
+    assert evidence["window_basis"] == "material_update"
+    assert evidence["published_start"] == "2026-11-01T09:00:00Z"
+    assert evidence["published_raw"] == "1 November 2026 09:00 UTC"
+    assert (
+        evidence["material_update"]
+        == updated_document["receipts"][0]["items"][0]["material_update"]
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_publication",
+        "missing_basis",
+        "wrong_basis",
+        "missing_update",
+        "missing_update_time",
+        "missing_material_change",
+        "missing_update_source",
+        "unretrieved_update_source",
+        "publication_conflict",
+        "update_conflict",
+        "boundary_interval",
+        "update_before_publication",
+        "old_update",
+    ],
+)
+def test_unsupported_or_ambiguous_update_is_not_current_consultation(
+    updated_document, case
+):
+    item = updated_document["receipts"][0]["items"][0]
+    update = item["material_update"]
+    if case == "missing_publication":
+        item.pop("published_start")
+    if case == "missing_basis":
+        item.pop("window_basis")
+    if case == "wrong_basis":
+        item["window_basis"] = "publication"
+    if case == "missing_update":
+        item.pop("material_update")
+    if case == "missing_update_time":
+        update.pop("start")
+    if case == "missing_material_change":
+        update.pop("material_change")
+    if case == "missing_update_source":
+        update.pop("source_url")
+    if case == "unretrieved_update_source":
+        update["source_url"] += "?unread=1"
+    if case == "publication_conflict":
+        item["publication_timestamp_conflict"] = "Conflicting date labels"
+    if case == "update_conflict":
+        update["timestamp_conflict"] = "Conflicting EST/EDT"
+    if case == "boundary_interval":
+        update.update(start="2026-11-18T00:00:00Z", end="2026-11-18T23:59:59Z")
+    if case == "update_before_publication":
+        update.update(start="2026-10-01T09:00:00Z", end="2026-10-01T09:00:00Z")
+    if case == "old_update":
+        update.update(start="2026-11-10T09:00:00Z", end="2026-11-10T09:00:00Z")
+    row = cert(updated_document)
+    assert row["status"] != "consulted"
+    assert not row["verified_current_items"]
+    assert row["gaps"]
+
+
+def test_publication_basis_preserves_original_evidence(document):
+    evidence = cert(document)["verified_current_items"][0]
+    assert evidence["window_basis"] == "publication"
+    assert (
+        evidence["publication_source_url"] == document["receipts"][0]["items"][0]["url"]
+    )
+    assert "material_update" not in evidence

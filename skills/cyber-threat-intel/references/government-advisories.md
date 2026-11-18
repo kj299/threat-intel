@@ -47,7 +47,8 @@ query per selected CVE, and relevant candidates within the reporting deadline.
 If still blocked, disclose the precise error and continue delivery.
 
 Every candidate gets its official URL, raw publication/update timestamp and
-provenance, normalized `published_start`/`published_end`, `retrieved_at`,
+provenance, normalized `published_start`/`published_end`, `publication_source_url`,
+`publication_evidence_note`, explicit `window_basis`, `retrieved_at`,
 `content_read`, a brief `evidence_note`, and a disposition: `included`,
 `corroborates`, or `excluded` with `exclusion_reason`. Unresolved candidates stay
 visible as gaps. Search snippets/index summaries are discovery, not full-advisory
@@ -60,6 +61,43 @@ in the publisher's evidenced timezone. If that interval overlaps the cutoff,
 mark timing uncertain; do not assign midnight as an exact publication time.
 An advisory published after the cutoff belongs in the next window or an explicitly
 retimed update, never backdated into the earlier report.
+
+### Original publication versus material update
+
+Set `window_basis` to `publication` or `material_update`; never silently replace
+an old publication date with retrieval time, a feed refresh or HTTP Last-Modified.
+Always preserve the original `published_start`/`published_end` and its official
+`publication_source_url` plus `publication_evidence_note`. Optional `published_raw`
+retains the publisher's literal timestamp. Missing or conflicting publication
+metadata remains a gap even if a claimed update is current.
+
+For a materially revised older advisory, additionally record `material_update`:
+
+```json
+{
+  "start": "2026-11-18T10:00:00Z",
+  "end": "2026-11-18T10:00:00Z",
+  "source_url": "https://cert.europa.eu/publications/security-advisories/2026-021/",
+  "evidence_note": "Illustrative only: publisher version history dates this revision",
+  "material_change": "Illustrative only: new exploitation evidence and changed mitigation",
+  "raw": "Illustrative timestamp: 18 November 2026 10:00 UTC"
+}
+```
+
+This JSON illustrates the contract, not an observed update to that advisory.
+The update needs independently recorded timing evidence and a sourced description
+of the substantive change; a generic last-updated label alone is insufficient.
+The publication and update evidence URLs may be the same advisory if its content
+independently establishes both events. Both require successful fresh retrieval
+receipts. Set `publication_timestamp_conflict` or the update's `timestamp_conflict`
+when evidence disagrees; the existing generic `timestamp_conflict` also remains
+conservative. Updates preceding or overlapping an uncertain publication interval
+are unresolved. The selected interval must lie wholly inside the report window.
+An old publication plus a current evidenced material update is eligible under
+`material_update`; it is not a newly published advisory. `verified_current_items`
+retains both intervals, provenance, raw timestamps and the chosen basis so the
+report can explain why it included the item. The validator checks assertions and
+cannot itself prove that the stated change is material.
 
 ## Local receipt validator
 

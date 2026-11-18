@@ -71,6 +71,78 @@ def plan(end, cves, start=None):
     }
 
 
+def timing_evidence(item, source, fresh):
+    """Keep publication and material-update provenance separate; never infer updates."""
+
+    def evidenced_interval(low, high, url, note):
+        low, high = stamp(low), stamp(high)
+        if low > high:
+            raise ValueError("invalid timestamp interval")
+        if not official(source, url) or not isinstance(note, str) or not note.strip():
+            raise ValueError("missing official timestamp provenance")
+        if not any(
+            a.get("target") == url and a["outcome"] == "retrieved" for a in fresh
+        ):
+            raise ValueError("timestamp evidence lacks successful fresh retrieval")
+        return low, high
+
+    publication = evidenced_interval(
+        item["published_start"],
+        item["published_end"],
+        item["publication_source_url"],
+        item["publication_evidence_note"],
+    )
+    if item.get("timestamp_conflict") or item.get("publication_timestamp_conflict"):
+        raise ValueError(
+            "conflicting publication timestamps; investigate before claiming current"
+        )
+    basis = item.get("window_basis")
+    if basis not in {"publication", "material_update"}:
+        raise ValueError(
+            "explicit publication or material_update window basis required"
+        )
+    selected = publication
+    update = item.get("material_update")
+    if update is not None:
+        updated = evidenced_interval(
+            update["start"],
+            update["end"],
+            update["source_url"],
+            update["evidence_note"],
+        )
+        if update.get("timestamp_conflict"):
+            raise ValueError("conflicting material-update timestamps")
+        if updated[0] < publication[1]:
+            raise ValueError(
+                "material update precedes or overlaps uncertain publication time"
+            )
+        if (
+            not isinstance(update.get("material_change"), str)
+            or not update["material_change"].strip()
+        ):
+            raise ValueError(
+                "material update needs a sourced description of the substantive change"
+            )
+        if basis == "material_update":
+            selected = updated
+    elif basis == "material_update":
+        raise ValueError("material-update basis lacks independently evidenced update")
+    preserved = {
+        key: item[key]
+        for key in (
+            "published_start",
+            "published_end",
+            "publication_source_url",
+            "publication_evidence_note",
+            "window_basis",
+        )
+    }
+    for key in ("published_raw", "material_update"):
+        if key in item:
+            preserved[key] = item[key]
+    return selected, preserved
+
+
 def evaluate(document):
     start, end = stamp(document["window_start"]), stamp(document["window_end"])
     if start >= end:
@@ -90,6 +162,7 @@ def evaluate(document):
             "attempts": [],
             "reviewed_urls": [],
             "verified_current_urls": [],
+            "verified_current_items": [],
         }
         rows.append(row)
         if len(receipts) != 1:
@@ -162,9 +235,7 @@ def evaluate(document):
                 url = item["url"]
                 if not official(source, url):
                     raise ValueError("unverified publisher URL")
-                low, high = stamp(item["published_start"]), stamp(item["published_end"])
-                if low > high:
-                    raise ValueError("invalid publication interval")
+                (low, high), timing = timing_evidence(item, source, fresh)
                 disposition = item.get("disposition")
                 if disposition not in {"included", "corroborates", "excluded"} or (
                     disposition == "excluded" and not item.get("exclusion_reason")
@@ -175,9 +246,9 @@ def evaluate(document):
                     if disposition != "excluded":
                         raise ValueError("out-of-window candidate presented as current")
                     continue
-                if not (start <= low <= high <= end) or item.get("timestamp_conflict"):
+                if not (start <= low <= high <= end):
                     raise ValueError(
-                        "publication timing uncertain; retain raw timestamps and investigate"
+                        "selected publication/update interval crosses reporting boundary; investigate"
                     )
                 if item.get("content_read") is not True or not item.get(
                     "evidence_note"
@@ -198,6 +269,7 @@ def evaluate(document):
                 if not end - timedelta(hours=2) <= retrieved <= end:
                     raise ValueError("stale or future content retrieval")
                 row["verified_current_urls"].append(url)
+                row["verified_current_items"].append({"url": url, **timing})
             except (KeyError, ValueError, TypeError, AttributeError) as exc:
                 row["gaps"].append(str(exc))
         accessible = any(a["outcome"] in {"retrieved", "zero_hits"} for a in fresh)

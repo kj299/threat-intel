@@ -62,6 +62,8 @@ source_coverage_protocol:
     separate_from: CISA KEV
     retrieval_max_age_hours: 2
     crosscheck_high_impact_cves: true
+    window_basis: [publication, material_update]
+    preserve_original_publication: true
     on_gap: disclose_and_continue_delivery
 
   tier_minimums:
