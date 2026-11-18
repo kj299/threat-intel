@@ -364,3 +364,29 @@ Review recurring failures after each run and propose or implement authorized,
 tested publisher-specific recovery in the adapter and mirrored skill guidance.
 Keep integration availability, credential configuration, upstream health and
 report freshness distinct; do not remove a source merely because access failed.
+
+## Government advisory discovery receipt
+
+Before composing each daily report, record separate **CISA Advisories** and
+**CERT-EU** discovery receipts; CISA KEV does not substitute for advisories.
+Check the CISA alerts index and official USDHSCISA GovDelivery channel, and
+CERT-EU's current-year advisory index plus its publisher-linked RSS or scoped
+search. Cross-check each high-impact CVE against both government publishers,
+even when the report already cites the vendor. Preserve corroborating citations.
+Record URL/query, route, retrieval time, HTTP/error or zero-hit outcome, candidate
+publication/update times and included/corroborates/excluded disposition. Preserve original publication evidence and choose an explicit `window_basis`:
+`publication` or independently evidenced `material_update`. An older advisory
+with a substantive in-window update may qualify; retain both intervals and their
+official provenance. Missing/conflicting timestamps or a generic last-modified
+label cannot establish a material update. Treat
+index/search discovery separately from reading advisory content. Missing checks,
+HTTP failures, old feeds, zero hits and ambiguous date/EST/EDT timestamps cannot
+be upgraded to current consultation or proof of no alerts. Keep unresolved
+candidates and per-publisher gaps in Appendix A and deliver the report on time.
+Use `scripts/government_coverage.py` to plan and validate actual receipts when
+repository execution is available; otherwise apply its contract explicitly and
+state it was not run. Receipt validation cannot prove browsing or exhaustive
+coverage. Follow the detailed government-advisory reference for official routes,
+the two-hour retrieval-freshness gate and date-window evidence requirements.
+
+Details: [Government advisory discovery receipt](../skills/cyber-threat-intel/references/government-advisories.md).

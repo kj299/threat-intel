@@ -77,7 +77,7 @@ Full input options, persona profiles, scoring weights, and compliance mappings a
 ## Workflow
 
 1. **Scope.** Resolve user input against defaults. Pick a persona; persona drives output shape (see [references/output-templates.md](references/output-templates.md)).
-2. **Consult sources.** Walk all 9 tiers from [references/source-matrix.md](references/source-matrix.md). Track which preferred (`[MUST]`) sources you actually drew from. Honestly mark inaccessible ones.
+2. **Consult sources.** Walk all 9 tiers from [references/source-matrix.md](references/source-matrix.md). Track which preferred (`[MUST]`) sources you actually drew from. Honestly mark inaccessible ones. For daily reports, complete the [government advisory discovery receipt](references/government-advisories.md) before composition; KEV access alone does not cover alerts.
    2a. **Pull live feeds when available (MCP).** If the `threat-intel-mcp` tools are present in your environment, retrieve current indicators before composing the report. Call **`fetch_all_iocs`** once to query every configured IOC feed concurrently, or a single-feed tool (`qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`, `pulsedive_fetch_iocs`) for one source. For **vulnerabilities**, call **`fetch_all_cves`** (or `cisa_kev_fetch_cves` / `nvd_fetch_cves` / `vulncheck_fetch_cves`) to retrieve the Tier 1 CVE feeds — CISA KEV and NVD are government sources needing no credential, VulnCheck KEV is a vendor catalogue needing one — these return CVE-keyed **vulnerability records** (CVSS, CWEs, KEV exploit-status/due-date), not `ioc_network` objects. For **enrichment**, call **`virustotal_enrich_iocs`** with indicators you already gathered — it scores them (detection counts, reputation, network ownership) rather than discovering new ones, so it is not part of `fetch_all_iocs`, and it costs one lookup per indicator against a 500/day budget. Record it in `feed_integrations` only for the indicators actually looked up: claiming feed-wide coverage from a sample would inflate the badge (R4). Two **keyless** CVE enrichments work the same way on the CVE list: **`epss_enrich_cves`** returns FIRST.org's probability that each CVE will be exploited within 30 days — the only free signal that ranks the CVSS-9+ remainder KEV does not cover — and **`osv_enrich_cves`** returns the open-source packages each CVE affects and the versions that fix them. Neither discovers CVEs, so neither joins `fetch_all_cves`. Use **`list_available_feeds`** first if you need to see what's configured (IOC feeds under `feeds`, enrichment under `enrichment_sources`, CVE feeds under `cve_sources`). Then fold the results in:
    - Incorporate each returned `ioc_network` object into the IOC Package as a **live, retrieved** indicator — cited to its feed, and **not** marked illustrative or `unverified`.
    - Incorporate each returned vulnerability record into the Vulnerability/Exposure section, cited to its feed (CISA KEV, NVD or VulnCheck KEV); a CVE in CISA KEV or VulnCheck KEV carries `exploit_status: known_exploited` in the tool's record — emit `exploit_maturity: In-The-Wild`, and `cisa_kev_listed: true` only when CISA KEV itself is the source (VulnCheck's catalogue is wider) — which escalates urgency (R4/scoring).
@@ -211,3 +211,29 @@ Review recurring failures after each run and propose or implement authorized,
 tested publisher-specific recovery in the adapter and mirrored skill guidance.
 Keep integration availability, credential configuration, upstream health and
 report freshness distinct; do not remove a source merely because access failed.
+
+## Government advisory discovery receipt
+
+Before composing each daily report, record separate **CISA Advisories** and
+**CERT-EU** discovery receipts; CISA KEV does not substitute for advisories.
+Check the CISA alerts index and official USDHSCISA GovDelivery channel, and
+CERT-EU's current-year advisory index plus its publisher-linked RSS or scoped
+search. Cross-check each high-impact CVE against both government publishers,
+even when the report already cites the vendor. Preserve corroborating citations.
+Record URL/query, route, retrieval time, HTTP/error or zero-hit outcome, candidate
+publication/update times and included/corroborates/excluded disposition. Preserve original publication evidence and choose an explicit `window_basis`:
+`publication` or independently evidenced `material_update`. An older advisory
+with a substantive in-window update may qualify; retain both intervals and their
+official provenance. Missing/conflicting timestamps or a generic last-modified
+label cannot establish a material update. Treat
+index/search discovery separately from reading advisory content. Missing checks,
+HTTP failures, old feeds, zero hits and ambiguous date/EST/EDT timestamps cannot
+be upgraded to current consultation or proof of no alerts. Keep unresolved
+candidates and per-publisher gaps in Appendix A and deliver the report on time.
+Use `scripts/government_coverage.py` to plan and validate actual receipts when
+repository execution is available; otherwise apply its contract explicitly and
+state it was not run. Receipt validation cannot prove browsing or exhaustive
+coverage. Follow the detailed government-advisory reference for official routes,
+the two-hour retrieval-freshness gate and date-window evidence requirements.
+
+Details: [Government advisory discovery receipt](references/government-advisories.md).
