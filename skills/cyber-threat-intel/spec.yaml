@@ -61,6 +61,9 @@ source_coverage_protocol:
     publishers: [CISA Advisories, CERT-EU]
     separate_from: CISA KEV
     retrieval_max_age_hours: 2
+    retrieval_clock: research_as_of
+    research_as_of_default: window_end
+    research_as_of_minimum: window_end
     crosscheck_high_impact_cves: true
     window_basis: [publication, material_update]
     preserve_original_publication: true

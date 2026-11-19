@@ -612,3 +612,11 @@ coverage. Follow the detailed government-advisory reference for official routes,
 the two-hour retrieval-freshness gate and date-window evidence requirements.
 
 Details: [Government advisory discovery receipt](government-advisories.md).
+
+Keep the intelligence window fixed. For government receipts, set timezone-aware
+`research_as_of` to the actual evidence cutoff (at or after `window_end`): attempt
+and content freshness use its preceding two hours, while publication/material
+updates remain within `window_start`/`window_end`. Omission defaults to window_end;
+post-window research requires explicit adoption. Preserve actual failed/invalid
+attempts and disclose post-window retrieval; do not call them not_attempted or
+backdate evidence. This does not change ThreatFox artifact acquisition gates.

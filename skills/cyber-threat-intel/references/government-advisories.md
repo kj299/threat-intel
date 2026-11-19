@@ -40,8 +40,8 @@ absence of a new finding is not a reason to discard a new government advisory.
 Record each attempted URL/query, route (`primary`, `fallback`, `previous_year`, `crosscheck`, `content`),
 checked_at with UTC offset, outcome (`retrieved`, `zero_hits`, `http_error`,
 `transport_error`, `unsupported_format`), HTTP status where actually observed,
-and CVE for crosschecks. Run discovery during the two hours before the actual
-report cutoff. Preserve an earlier failed attempt even if an official fallback
+and CVE for crosschecks. Measure attempt and content-acquisition freshness during
+the two hours ending at explicit `research_as_of`, not at the intelligence cutoff. Preserve an earlier failed attempt even if an official fallback
 succeeds. Bound attempts to the primary route, complementary route, one scoped
 query per selected CVE, and relevant candidates within the reporting deadline.
 If still blocked, disclose the precise error and continue delivery.
@@ -108,6 +108,7 @@ python scripts/government_coverage.py --window-end 2026-11-18T12:00:00Z --cve CV
 ```
 
 Record real observations in JSON with `window_start`, `window_end`,
+`research_as_of` (the actual research evidence cutoff),
 `high_impact_cves`, and `receipts`. Each receipt has `source` (`cisa_advisories`
 or `cert_eu`), `attempts`, and `items` with the fields above. Then run:
 
@@ -116,7 +117,10 @@ python scripts/government_coverage.py --receipts government-receipts.json
 ```
 
 The command performs no network access and uses no credentials. It always emits
-both publisher rows; missing receipt = `unverified/not_attempted`, all access
+both publisher rows; genuinely missing/empty attempts = `unverified/not_attempted`,
+supplied but invalid/stale/future attempts = `unverified/invalid_attempt_metadata`
+(with their original values retained), evidence without attempts =
+`unverified/invalid_evidence`, duplicate receipts = `unverified/invalid_receipt`, all access
 failures = `unverified/access_failed`, successful empty discovery =
 `partial/no_verified_items`, index-only discovery = `partial/discovery_only`.
 Only fresh in-window content with a successful matching `content` retrieval
@@ -142,3 +146,25 @@ web search, but direct web reading rejected XML and the local HTTP probe got
 motivate complementary discovery, not a claim that either advisory body was
 retrieved. This change addresses a repository omission; it does not establish
 which searches the separate November 18 daily-report runtime actually performed.
+
+
+## Intelligence window versus research time
+
+Keep `window_start < window_end <= research_as_of`, all timezone-aware. A daily
+report ending at `2026-11-19T12:00:00Z` may honestly record checks at 12:05 and
+`research_as_of: 2026-11-19T12:06:00Z`. Those acquisitions are fresh; publication
+or the selected material-update interval must still lie wholly within the
+unchanged intelligence window. A 12:03 publication is not eligible merely
+because research continued until 12:06. Never backdate acquisitions or advance
+the intelligence cutoff to make retrieval pass.
+
+Omitting `research_as_of` defaults it to `window_end` for legacy callers; they
+must supply the new field to accept later research. Null, malformed or naive
+timestamps and research before window_end are rejected. Attempts/content after
+research_as_of or older than two hours are rejected as fresh evidence, while
+actual attempts remain visible. The result always exposes both window bounds,
+research_as_of, whether it defaulted, and the two-hour threshold. Verified items
+retain `retrieved_at` and `retrieved_after_window_end`; disclose later retrieval
+versus in-window publication, never claim the source was consulted by the cutoff.
+The caller must record actual evidence times: this gate cannot authenticate them.
+This contract applies only to government receipts, not ThreatFox artifact gates.
