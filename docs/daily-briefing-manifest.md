@@ -103,8 +103,19 @@ with precise source gaps and an actionable collection failure notice.
 
 ## Account for all sources, then make decisions
 
-The roster derives every named MUST/SHOULD entry from all nine tiers, preserving
-its matrix text and hash. Every row starts `not_attempted`; no synthetic success.
+The roster derives 232 independent member/scope receipts from 198 MUST/SHOULD
+matrix entries across all nine tiers; these are not counts of unique publishers.
+Grouped dark-web providers, subreddits, Mastodon instances, X hashtags, and
+FBI/SWIFT service groups each
+receive separate rows. The unspecified X researcher-account scope remains an
+explicit unresolved receipt, not an assertion that all accounts were assessed.
+Each row preserves its full parent matrix entry, stable tier-scoped `source_id`
+and `matrix_entry_id`; identities survive list reordering and description edits.
+The output includes entry/member counts and the matrix hash. Every row starts
+`not_attempted` with its own attempts list; no synthetic success. Update only the
+member actually researched. A consulted sibling or parent must never upgrade
+another member; record every inaccessible or unattempted member separately.
+Aliases such as Mandiant / Google TI remain one source, not multiple publishers.
 For each publisher record actual URL/query, attempt time, retrieval route,
 outcome, publication/material-update evidence and disposition. Outcomes must
 separate content consulted, successful zero relevant hits, index-only discovery,

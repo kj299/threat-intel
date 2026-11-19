@@ -175,7 +175,9 @@ def test_roster_every_named_matrix_entry():
     rows = daily_source_roster.roster(matrix)
     named = [line for line in matrix.splitlines() if line.startswith("- ")
              and ("[MUST]" in line or "[SHOULD]" in line)]
-    assert len(rows) == len(named)
+    assert len({r["matrix_entry_id"] for r in rows}) == len(named)
+    assert {r["matrix_entry"] for r in rows} == {line[2:] for line in named}
+    assert len({r["source_id"] for r in rows}) == len(rows)
     assert {r["tier"] for r in rows} == set(range(1, 10))
     assert all(r["outcome"] == "not_attempted" and not r["attempts"] for r in rows)
     assert any("CERT-EU" in r["source"] for r in rows)
@@ -211,3 +213,45 @@ def test_cli_writes_provenance_and_preserves_enrichment_sample(inputs, tmp_path,
     (tmp_path / "payload.json").unlink()
     consumer.main()
     assert json.loads(out.read_text())["status"] == "unverified"
+
+
+@pytest.mark.parametrize("first,others", [
+    ("Flashpoint", ["Intel 471", "DarkOwl", "Kela", "Cybersixgill", "SOCRadar",
+                    "ReliaQuest", "ZeroFox", "Searchlight Cyber"]),
+    ("infosec.exchange", ["ioc.exchange"]),
+    ("FBI IC3", ["FBI Flash Alerts"]),
+    ("SWIFT CSCF", ["SWIFT Security Updates"]),
+    ("r/netsec", ["r/cybersecurity", "r/blueteamsec", "r/redteamsec", "r/ExploitDev",
+                  "r/bugbounty", "r/ReverseEngineering", "r/malware"]),
+    ("r/hacking", ["r/hackernews", "r/hackers", "r/masterhacker", "r/Hacking_Tutorials",
+                   "r/AskNetsec", "r/Pentesting", "r/sysadmin", "r/homesecurity",
+                   "r/crypto", "r/privacy", "r/computerforensics"]),
+    ("Twitter/X #infosec", ["Twitter/X #threatintel", "Twitter/X #malware",
+                            "Twitter/X #APT", "Twitter/X #CVE",
+                            "Twitter/X security researcher accounts (unspecified scope)"]),
+])
+def test_group_member_consultation_never_covers_siblings(first, others):
+    matrix = (ROOT / "skills/cyber-threat-intel/references/source-matrix.md").read_text()
+    by_name = {r["source"]: r for r in daily_source_roster.roster(matrix)}
+    consulted = by_name[first]
+    consulted["outcome"] = "content_consulted"
+    consulted["attempts"].append({"outcome": "content_consulted", "evidence": "test only"})
+    siblings = [by_name[name] for name in others]
+    assert all(r["matrix_entry_id"] == consulted["matrix_entry_id"] for r in siblings)
+    assert all(r["matrix_entry"] == consulted["matrix_entry"] for r in siblings)
+    assert all(r["source_id"] != consulted["source_id"] for r in siblings)
+    assert all(r["outcome"] == "not_attempted" and r["attempts"] == [] for r in siblings)
+
+
+def test_member_identity_stable_on_reorder_and_description_change():
+    matrix = (ROOT / "skills/cyber-threat-intel/references/source-matrix.md").read_text()
+    before = {r["source"]: (r["source_id"], r["matrix_entry_id"])
+              for r in daily_source_roster.roster(matrix)}
+    matrix = matrix.replace("infosec.exchange, ioc.exchange", "ioc.exchange, infosec.exchange")
+    matrix = matrix.replace("CISA Advisories — cisa.gov [MUST]",
+                            "CISA Advisories — cisa.gov — amended description [SHOULD]")
+    after = {r["source"]: (r["source_id"], r["matrix_entry_id"])
+             for r in daily_source_roster.roster(matrix)}
+    assert before == after
+    assert daily_source_roster.members("Mandiant / Google TI") == ["Mandiant / Google TI"]
+    assert daily_source_roster.members("Organization (one, two)") == ["Organization (one, two)"]
