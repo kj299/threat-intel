@@ -501,3 +501,11 @@ evidence. Invalid/stale supplied attempts must not be reported as not attempted.
 See the [government receipt contract](../skills/cyber-threat-intel/references/government-advisories.md).
 Do not backdate real checks, shift the intelligence window, delay email or apply
 this separate research clock to the ThreatFox artifact validator.
+
+## Proposed all-feed daily handoff
+
+`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
+credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
+artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
+See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
+No schedule or report delivery is activated by this proposal.

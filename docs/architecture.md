@@ -275,3 +275,11 @@ Government advisory discovery uses `scripts/government_coverage.py` at the repos
 Government receipt window eligibility distinguishes original publication from independently evidenced material updates; `verified_current_items` preserves both timelines and their selected basis.
 
 Government receipt acquisition freshness uses explicit `research_as_of` (legacy default: `window_end`); publication/update eligibility stays in the fixed intelligence window. Output preserves invalid attempts and flags post-window retrieval. ThreatFox gates are unchanged.
+
+## Proposed all-feed daily handoff
+
+`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
+credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
+artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
+See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
+No schedule or report delivery is activated by this proposal.
