@@ -178,6 +178,7 @@ threat-intel/
     +-- scripts/
     |   +-- prefetch_threatfox.py                    # bounded ThreatFox-only daily data artifact
     |   +-- prefetch_feeds.py                        # the report path's fixed fetcher (holds credentials)
+    |   +-- prefetch_daily_feeds.py  Bounded daily collection-only wrapper
     |   +-- record_cassettes.py                      # records real feed responses for offline replay
     +-- tests/                                       # unit + httpx-mock integration tests (no live network)
 ```

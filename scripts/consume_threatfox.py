@@ -64,6 +64,11 @@ def consume(
     }
     try:
         routes = {
+            ".github/workflows/daily-feeds-prefetch.yml": (
+                "daily-feed-data",
+                "Fetch daily feeds (holds credentials; no agent)",
+                {"workflow_dispatch"},
+            ),
             ".github/workflows/scheduled-report.yml": (
                 "feed-data",
                 "Fetch feeds (holds credentials; no agent)",

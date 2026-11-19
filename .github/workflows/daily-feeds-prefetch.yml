@@ -1,0 +1,50 @@
+name: daily-feeds-prefetch
+
+# Manual only until reviewed and explicitly approved for activation.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: daily-feeds-prefetch
+  cancel-in-progress: false
+jobs:
+  prefetch:
+    name: Fetch daily feeds (holds credentials; no agent)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - name: Install pinned collector dependencies
+        run: pip install -e './mcp[dev]' -c mcp/constraints-dev.txt
+      - name: Collect fixed feeds and bounded enrichment
+        env:
+          QFEEDS_API_KEY: ${{ secrets.QFEEDS_API_KEY }}
+          ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY || secrets.ABUSEIPDB }}
+          VIRUSTOTAL_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY || secrets.VIRUSTOTAL_API }}
+          OTX_API_KEY: ${{ secrets.OTX_API_KEY || secrets.ALIENVAULT_OTX_API }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY || secrets.SHODAN }}
+          GREYNOISE_API_KEY: ${{ secrets.GREYNOISE_API_KEY || secrets.GREYNOISE_API }}
+          ANYRUN_API_KEY: ${{ secrets.ANYRUN_API_KEY }}
+          INTEL471_EMAIL: ${{ secrets.INTEL471_EMAIL }}
+          INTEL471_API_KEY: ${{ secrets.INTEL471_API_KEY }}
+          CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}
+          CENSYS_API_SECRET: ${{ secrets.CENSYS_API_SECRET }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          VULNCHECK_API_KEY: ${{ secrets.VULNCHECK_API_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+          PULSEDIVE_API_KEY: ${{ secrets.PULSEDIVE_API_KEY || secrets.PULSEDRIVE_API_KEY }}
+        run: python mcp/scripts/prefetch_daily_feeds.py --out "$RUNNER_TEMP/feed-data.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: daily-feed-data
+          path: ${{ runner.temp }}/feed-data.json
+          retention-days: 1
+          if-no-files-found: error

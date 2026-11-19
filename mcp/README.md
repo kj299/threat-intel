@@ -535,6 +535,7 @@ scripts/
 ├── prefetch_threatfox.py  Bounded credential-isolated ThreatFox-only producer
 ├── prefetch_feeds.py      The report path's fixed fetcher — holds every credential,
 │                          runs the fan-outs, calls the three enrichments
+├── prefetch_daily_feeds.py  Bounded daily collection-only wrapper
 └── record_cassettes.py    Records real feed responses for offline replay (#105)
 tests/
 ├── test_qfeeds.py         Q-Feeds adapter tests (pytest-httpx, no live calls)
@@ -571,6 +572,7 @@ tests/
 ├── test_empty_parse_guards.py  guard_parsed coverage across every adapter (#106)
 ├── test_pipeline_duplication.py  #84 trip-wire: IOC/CVE pipelines must not diverge
 ├── test_prefetch_feeds.py Report-path fetcher: credential refusal, EPSS + VirusTotal wiring
+├── test_daily_feed_handoff.py  Daily artifact provenance, coverage and isolation
 ├── test_live_feeds.py     Live endpoint checks (pytest -m live; deselected by default)
 ├── test_misp_zmq.py       MISP ZeroMQ subscriber tests
 ├── test_executive_render.py  Executive HTML renderer tests
@@ -694,3 +696,11 @@ Government advisory discovery uses `scripts/government_coverage.py` at the repos
 Government receipt window eligibility distinguishes original publication from independently evidenced material updates; `verified_current_items` preserves both timelines and their selected basis.
 
 Government receipt acquisition freshness uses explicit `research_as_of` (legacy default: `window_end`); publication/update eligibility stays in the fixed intelligence window. Output preserves invalid attempts and flags post-window retrieval. ThreatFox gates are unchanged.
+
+## Proposed all-feed daily handoff
+
+`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
+credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
+artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
+See the [daily briefing manifest](../docs/daily-briefing-manifest.md) for limits, adoption and gaps.
+No schedule or report delivery is activated by this proposal.
