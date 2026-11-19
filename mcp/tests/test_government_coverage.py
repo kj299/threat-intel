@@ -167,6 +167,7 @@ def test_mirrors_require_publisher_receipts():
         text = (ROOT / name).read_text()
         assert "Government advisory discovery receipt" in text
         assert "government_coverage.py" in text
+        assert "research_as_of" in text
         assert "CISA Advisories" in text and "CERT-EU" in text
 
 
@@ -284,3 +285,164 @@ def test_publication_basis_preserves_original_evidence(document):
         evidence["publication_source_url"] == document["receipts"][0]["items"][0]["url"]
     )
     assert "material_update" not in evidence
+
+
+@pytest.fixture
+def post_window_research(document):
+    document["research_as_of"] = "2026-11-18T12:06:00Z"
+    for attempt in document["receipts"][0]["attempts"]:
+        attempt["checked_at"] = "2026-11-18T12:05:00Z"
+    document["receipts"][0]["items"][0]["retrieved_at"] = "2026-11-18T12:05:00Z"
+    return document
+
+
+def test_later_research_does_not_move_intelligence_window(post_window_research):
+    result = gate.evaluate(post_window_research)
+    row = result["sources"][1]
+    assert row["status"] == "consulted"
+    assert result["window_end"] == "2026-11-18T12:00:00+00:00"
+    assert result["research_as_of"] == "2026-11-18T12:06:00+00:00"
+    assert result["research_as_of_defaulted"] is False
+    assert row["verified_current_items"][0]["retrieved_at"] == "2026-11-18T12:05:00Z"
+    assert row["verified_current_items"][0]["retrieved_after_window_end"] is True
+
+
+@pytest.mark.parametrize("basis", ["publication", "material_update"])
+def test_post_window_event_not_admitted_by_later_research(post_window_research, basis):
+    item = post_window_research["receipts"][0]["items"][0]
+    if basis == "publication":
+        item.update(
+            published_start="2026-11-18T12:03:00Z", published_end="2026-11-18T12:03:00Z"
+        )
+    else:
+        item["window_basis"] = "material_update"
+        item["material_update"] = {
+            "start": "2026-11-18T12:03:00Z",
+            "end": "2026-11-18T12:03:00Z",
+            "source_url": item["url"],
+            "evidence_note": "Authored update fixture",
+            "material_change": "Revised mitigation",
+        }
+    assert cert(post_window_research)["status"] == "partial"
+    assert not cert(post_window_research)["verified_current_items"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-11-18T12:07:00Z",
+        "2026-11-18T10:05:59Z",
+        "bad",
+        "2026-11-18T12:05:00",
+        None,
+    ],
+)
+def test_invalid_future_stale_attempts_are_preserved_not_missing(
+    post_window_research, value
+):
+    for attempt in post_window_research["receipts"][0]["attempts"]:
+        attempt["checked_at"] = value
+    row = cert(post_window_research)
+    assert row["status"] == "unverified"
+    assert row["outcome"] == "invalid_attempt_metadata"
+    assert row["attempts"] == post_window_research["receipts"][0]["attempts"]
+
+
+@pytest.mark.parametrize(
+    "value", ["2026-11-18T12:07:00Z", "2026-11-18T10:05:59Z", "bad", None]
+)
+def test_content_acquisition_uses_research_as_of(post_window_research, value):
+    post_window_research["receipts"][0]["items"][0]["retrieved_at"] = value
+    assert cert(post_window_research)["status"] == "partial"
+    assert not cert(post_window_research)["verified_current_items"]
+
+
+def test_old_callers_default_to_window_end(document, post_window_research):
+    post_window_research.pop("research_as_of")
+    result = gate.evaluate(post_window_research)
+    assert result["research_as_of"] == result["window_end"]
+    assert result["research_as_of_defaulted"] is True
+    assert result["sources"][1]["outcome"] == "invalid_attempt_metadata"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("research_as_of", "2026-11-18T11:59:59Z"),
+        ("research_as_of", "bad"),
+        ("research_as_of", None),
+        ("research_as_of", "2026-11-18T12:06:00"),
+        ("window_end", "2026-11-17T12:00:00Z"),
+        ("window_start", "2026-11-18T13:00:00Z"),
+        ("window_end", None),
+    ],
+)
+def test_invalid_research_or_window_bounds_rejected(document, field, value):
+    document[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        gate.evaluate(document)
+
+
+def test_missing_empty_and_invalid_present_attempts_are_distinct(document):
+    document["receipts"] = []
+    assert cert(document)["outcome"] == "not_attempted"
+    document["receipts"] = [{"source": "cert_eu", "attempts": [], "items": []}]
+    assert cert(document)["outcome"] == "not_attempted"
+    document["receipts"][0]["attempts"] = [None]
+    assert cert(document)["outcome"] == "invalid_attempt_metadata"
+    document["receipts"][0]["attempts"] = None
+    assert cert(document)["outcome"] == "invalid_attempt_metadata"
+    assert cert(document)["attempts"] is None
+
+
+def test_nov19_actual_execution_reproduction(document):
+    document.update(
+        window_start="2026-11-18T12:00:00Z",
+        window_end="2026-11-19T12:00:00Z",
+        research_as_of="2026-11-19T12:06:00Z",
+    )
+    for attempt in document["receipts"][0]["attempts"]:
+        attempt["checked_at"] = "2026-11-19T12:05:00Z"
+    item = document["receipts"][0]["items"][0]
+    item.update(
+        published_start="2026-11-19T09:00:00Z",
+        published_end="2026-11-19T09:00:00Z",
+        retrieved_at="2026-11-19T12:05:00Z",
+    )
+    assert cert(document)["status"] == "consulted"
+    assert gate.evaluate(document)["window_end"] == "2026-11-19T12:00:00+00:00"
+
+
+def test_valid_legacy_caller_still_passes(document):
+    result = gate.evaluate(document)
+    assert result["sources"][1]["status"] == "consulted"
+    assert result["research_as_of"] == result["window_end"]
+    assert result["research_as_of_defaulted"] is True
+    assert (
+        result["sources"][1]["verified_current_items"][0]["retrieved_after_window_end"]
+        is False
+    )
+
+
+@pytest.mark.parametrize("case", ["failure", "zero_hits", "index_only"])
+def test_later_research_does_not_upgrade_source_gaps(post_window_research, case):
+    receipt = post_window_research["receipts"][0]
+    if case == "index_only":
+        receipt["items"][0]["content_read"] = False
+    else:
+        receipt["items"] = []
+        for attempt in receipt["attempts"]:
+            attempt["outcome"] = "http_error" if case == "failure" else "zero_hits"
+            if case == "failure":
+                attempt["http_status"] = 403
+    row = cert(post_window_research)
+    assert row["status"] != "consulted"
+    assert (
+        row["outcome"]
+        == {
+            "failure": "access_failed",
+            "zero_hits": "no_verified_items",
+            "index_only": "discovery_only",
+        }[case]
+    )
+    assert row["attempts"] == receipt["attempts"]

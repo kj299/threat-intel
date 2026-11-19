@@ -488,3 +488,16 @@ not available. November 16's evening artifact is stale for November 17's 07:00
 report: never extend the two-hour limit. If fresh data cannot be obtained, deliver
 the daily report with an explicit ThreatFox gap and notify the user. Preserve the
 07:00 email independently and never send a second report from the fallback.
+
+
+## Government receipt research cutoff
+
+Government receipt callers should supply actual `research_as_of` separately from
+`window_end`: for a 12:00 intelligence cutoff, checks at 12:05 can be validated
+as of 12:06 without admitting 12:03 publications. Omitting the field preserves
+legacy behavior (research_as_of=window_end). Retain the returned explicit bounds,
+default flag, raw attempts and per-item post-window retrieval flags in report
+evidence. Invalid/stale supplied attempts must not be reported as not attempted.
+See the [government receipt contract](../skills/cyber-threat-intel/references/government-advisories.md).
+Do not backdate real checks, shift the intelligence window, delay email or apply
+this separate research clock to the ThreatFox artifact validator.

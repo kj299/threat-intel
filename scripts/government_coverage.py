@@ -28,6 +28,8 @@ SOURCES = {
 
 
 def stamp(value):
+    if not isinstance(value, str):
+        raise TypeError("timestamp must be a timezone-aware string")
     result = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if result.tzinfo is None:
         raise ValueError("timezone required")
@@ -147,6 +149,9 @@ def evaluate(document):
     start, end = stamp(document["window_start"]), stamp(document["window_end"])
     if start >= end:
         raise ValueError("invalid reporting window")
+    research_as_of = stamp(document.get("research_as_of", document["window_end"]))
+    if research_as_of < end:
+        raise ValueError("research_as_of must be at or after window_end")
     cves = document.get("high_impact_cves", [])
     discovery = plan(end, cves, start)
     rows = []
@@ -165,6 +170,9 @@ def evaluate(document):
             "verified_current_items": [],
         }
         rows.append(row)
+        if len(receipts) > 1:
+            row["outcome"] = "invalid_receipt"
+            row["supplied_receipts"] = receipts
         if len(receipts) != 1:
             row["gaps"].append(
                 "Missing or duplicate publisher receipt; KEV/another publisher cannot substitute"
@@ -172,11 +180,20 @@ def evaluate(document):
             continue
         receipt = receipts[0]
         row["attempts"] = receipt.get("attempts", [])
+        attempts = row["attempts"]
+        if not isinstance(attempts, list):
+            row["gaps"].append("Attempts must be a list; original value retained")
+            attempts = []
+            row["outcome"] = "invalid_attempt_metadata"
+        elif attempts:
+            row["outcome"] = "invalid_attempt_metadata"
+        elif receipt.get("items"):
+            row["outcome"] = "invalid_evidence"
         fresh = []
-        for attempt in row["attempts"]:
+        for attempt in attempts:
             try:
                 checked = stamp(attempt["checked_at"])
-                if not end - timedelta(hours=2) <= checked <= end:
+                if not research_as_of - timedelta(hours=2) <= checked <= research_as_of:
                     raise ValueError("stale check")
                 if attempt["outcome"] not in {
                     "retrieved",
@@ -266,10 +283,21 @@ def evaluate(document):
                         "No successful fresh advisory-content retrieval receipt"
                     )
                 retrieved = stamp(item["retrieved_at"])
-                if not end - timedelta(hours=2) <= retrieved <= end:
+                if (
+                    not research_as_of - timedelta(hours=2)
+                    <= retrieved
+                    <= research_as_of
+                ):
                     raise ValueError("stale or future content retrieval")
                 row["verified_current_urls"].append(url)
-                row["verified_current_items"].append({"url": url, **timing})
+                row["verified_current_items"].append(
+                    {
+                        "url": url,
+                        **timing,
+                        "retrieved_at": item["retrieved_at"],
+                        "retrieved_after_window_end": retrieved > end,
+                    }
+                )
             except (KeyError, ValueError, TypeError, AttributeError) as exc:
                 row["gaps"].append(str(exc))
         accessible = any(a["outcome"] in {"retrieved", "zero_hits"} for a in fresh)
@@ -291,10 +319,14 @@ def evaluate(document):
     return {
         "window_start": start.isoformat(),
         "window_end": end.isoformat(),
+        "research_as_of": research_as_of.isoformat(),
+        "research_as_of_defaulted": "research_as_of" not in document,
+        "retrieval_freshness_hours": 2,
         "delivery": "continue_with_disclosed_gaps",
         "sources": rows,
         "limitations": [
-            "Receipt validation cannot prove actual browsing or exhaustive publication coverage."
+            "Receipt validation cannot prove actual browsing or exhaustive publication coverage.",
+            "Research freshness is measured at research_as_of; publication/material-update eligibility remains within window_start/window_end. Post-window retrieval does not mean the source was consulted by window_end.",
         ],
     }
 

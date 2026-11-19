@@ -72,3 +72,5 @@ Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `c
 Government advisory discovery uses `scripts/government_coverage.py` at the repository root: a credential-free plan and receipt validator, not an MCP adapter or automatic fetcher. It distinguishes CISA Advisories from KEV, requires a separate CERT-EU receipt and scoped high-impact CVE checks, and emits gaps without blocking delivery. See the skill government-advisory reference for caller adoption and freshness limits.
 
 Government receipt window eligibility distinguishes original publication from independently evidenced material updates; `verified_current_items` preserves both timelines and their selected basis.
+
+Government receipt acquisition freshness uses explicit `research_as_of` (legacy default: `window_end`); publication/update eligibility stays in the fixed intelligence window. Output preserves invalid attempts and flags post-window retrieval. ThreatFox gates are unchanged.
