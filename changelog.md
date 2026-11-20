@@ -46,6 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **Dependabot waits 7 days before proposing a release** (`.github/dependabot.yml`, `cooldown: default-days: 7` on both the `pip` and `github-actions` entries). A hijacked release is usually pulled within hours: `agent-framework` 1.26.1 and 1.26.2, credential stealers published from Microsoft's own PyPI account on 2026-11-17, were live for 41 minutes. A sweep of every branch and lockfile here, and of every Actions run around that window, found no exposure. GitHub documents that cooldown applies to version updates only, so security updates still arrive at once.
+
 - **The abuse.ch Auth-Key was committed in two cassettes.** `mcp/tests/cassettes/urlhaus.yaml` and `feodo.yaml`, recorded 2026-09-12, carried the live `ABUSECH_AUTH_KEY` in their `auth-key` request header, in a public repository, until 2026-10-17. Two gaps let it through: the header list that drives vcrpy's redaction and the recorder's structural scan was hand-kept and never gained `auth-key`, and the literal scan did not know `ABUSECH_AUTH_KEY` existed (fixed on 2026-10-10, which is what caught this on the next recording run). **The key must be rotated** at auth.abuse.ch and the repository secret updated; git history still holds the old value. The two cassettes are redacted in place, `auth-key` is scrubbed, the recorder now uses the scrubber's list rather than a copy, and two tests fail if any header an adapter puts a credential into is missing from that list or if any committed cassette carries an unredacted one.
 
 ### Added
