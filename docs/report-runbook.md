@@ -397,19 +397,25 @@ If only an oversized full artifact or stale derivative is available, continue
 the daily report with ThreatFox unverified and disclose the integration gap.
 
 
-## Durable read-only daily handoff (proposed)
+## Durable read-only daily handoff
+
+> **Status (checked 2026-11-20):** the schedule below was merged in #251 and is
+> active on `main`. Scheduled runs succeeded on 2026-11-16 through 2026-11-19.
+> The paragraphs that call it "proposed" or "draft" record the state when this
+> section was written. A green run still does not prove ThreatFox answered:
+> read the packet's source status.
 
 Independent verification established that the daily inherited runtime can
 retrieve and parse artifact 14220190745 under the explicitly authorized 128 MiB
 limit, but its `gh` has no authenticated session and it has no dispatch connector.
 Do not claim that a prompt instructing it to dispatch creates that capability.
 
-The proposed [`threatfox-prefetch.yml`](../.github/workflows/threatfox-prefetch.yml)
+The [`threatfox-prefetch.yml`](../.github/workflows/threatfox-prefetch.yml)
 schedule runs at **06:40 America/New_York**, before the separate 07:00 report.
 GitHub now supports an IANA `timezone` on `schedule`, including DST; see
 [official schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 Scheduled runs may be delayed or dropped, and only run from the default branch.
-A cron proposal on this PR branch is not an active production schedule.
+(When this was written the cron existed only on a PR branch; it is on `main` now.)
 
 This producer has `contents: read`, no email or model step, a five-minute job
 limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs`
@@ -421,7 +427,7 @@ records are withheld rather than silently sampled; credential detection prevents
 publication entirely. The artifact name is **threatfox-feed-data**, retained one
 day. Upstream success is not inferred from a green job: read packet source status.
 
-After approved activation, the daily runtime only needs read access:
+The daily runtime only needs read access:
 
 1. Read recent runs of **threatfox-prefetch.yml** via GitHub (schedule or manual
    event), pin the trusted main commit and exact run, and verify the successful

@@ -101,6 +101,9 @@ threat-intel/
 +-- .github/workflows/report-staleness.yml            # manual-only staleness alarm (see docs/report-runbook.md)
 +-- .github/workflows/record-cassettes.yml            # records real feed responses into mcp/tests/cassettes/
 +-- .github/workflows/secret-scan.yml                 # gitleaks over each PR's commits and each push to main (.gitleaks.toml rules)
++-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox read -> scanned data artifact (no agent)
++-- .github/workflows/daily-feeds-prefetch.yml        # manual-only: all feeds, 24h -> scanned data artifact (no agent)
++-- .github/workflows/report-delivery.yml             # daily: fails unless a recent scheduled-report run left a report artifact
 +-- tests/invalid/                                    # negative fixtures (must be rejected)
 +-- skills/
     +-- cyber-threat-intel/
