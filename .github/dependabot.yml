@@ -15,6 +15,13 @@ updates:
     labels: [dependencies]
     commit-message:
       prefix: "deps"
+    # Propose a release only once it is 7 days old. A hijacked release is
+    # usually caught and pulled within hours: agent-framework 1.26.1/1.26.2
+    # (2026-11-17) were live on PyPI for 41 minutes. GitHub documents that
+    # cooldown applies to version updates only, so security updates still
+    # arrive at once.
+    cooldown:
+      default-days: 7
     groups:
       # One PR for the test toolchain rather than five — these move together and
       # a pytest/plugin split across PRs tends to produce non-installable states.
@@ -50,3 +57,7 @@ updates:
     labels: [dependencies]
     commit-message:
       prefix: "ci"
+    # Same 7-day cooldown as pip above. github-actions supports only
+    # default-days (no per-semver-level days).
+    cooldown:
+      default-days: 7
