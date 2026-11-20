@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Layout docs caught up with the workflows merged in #245-#255.** `daily-feeds-prefetch.yml` and `report-delivery.yml` were described in no layout doc; `threatfox-prefetch.yml` was missing from the README tree and still called "proposed" and "draft-only" in four places although its schedule has been active on `main` since #251 (scheduled runs green 2026-11-16 through 2026-11-19); `secret-scan.yml` and `report-staleness.yml` were missing from the architecture component table. `CLAUDE.md`, the README tree, `docs/architecture.md`, `mcp/README.md`, `docs/report-runbook.md` and `docs/feed-operations.md` now say what each workflow does, what it holds and when it runs. No code or workflow changed.
+
 ### Retrospective hardening
 
 - Preserve integrations when credentials, network access, or account entitlements
