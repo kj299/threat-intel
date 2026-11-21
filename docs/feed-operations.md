@@ -59,9 +59,11 @@ Redaction is defense in depth; never log raw credentials or response bodies.
 
 ## Remaining external verification
 
-Confirm the historical abuse.ch key has been revoked and bindings rotated. Inspect
-GitHub's actual private vulnerability reporting and secret scanning/push protection
-settings; historical documentation is not proof of current settings. These operations
+Confirm the historical abuse.ch key has been revoked and bindings rotated. As of
+2026-11-21, private vulnerability reporting and automatic head-branch deletion are
+confirmed on through GitHub's public API; secret scanning and push protection were
+enabled by the maintainer the same day but are visible only to admins, so
+re-check them in settings rather than trusting this paragraph. These operations
 require authorized repository-settings access and provider access. Do not retrieve or
 print old key values, and do not treat history cleanup as a replacement for revocation.
 
