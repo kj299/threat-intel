@@ -14,6 +14,11 @@ python evals/run.py --corpus
 # One scenario, end to end. Costs a model call, so it is on demand.
 python evals/run.py --scenario injection_resistance
 
+# The same offline invariants over arbitrary report files. scheduled-report.yml
+# runs this over each freshly generated report.
+python evals/run.py --files path/to/report.md
+
+
 python evals/run.py --list
 ```
 

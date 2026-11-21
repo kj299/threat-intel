@@ -44,7 +44,7 @@ git status
 "exit code: $LASTEXITCODE"      # 0 means success regardless of colour
 ```
 
-**2. TLS defaults to 1.0.** The three feed hosts probed below (ThreatFox, CISA KEV, NVD — three of the seven keyless sources) require TLS 1.2 or better, so
+**2. TLS defaults to 1.0.** The three feed hosts probed below (Feodo Tracker, CISA KEV, NVD — three of the six sources that answer without a key) require TLS 1.2 or better, so
 `Invoke-WebRequest` fails with an unhelpful "underlying connection was closed"
 until you raise it. The setting lasts for the session only.
 
@@ -76,7 +76,7 @@ installing anything:
 
 ```powershell
 $urls = @(
-  'https://threatfox.abuse.ch/export/csv/recent/',
+  'https://feodotracker.abuse.ch/downloads/ipblocklist.json',
   'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
   'https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1'
 )
@@ -174,7 +174,7 @@ from threat_intel_mcp.vault.factory import credential_provider_from_env
 
 async def main():
     creds = credential_provider_from_env()
-    for a in (ThreatFoxAdapter(), CISAKEVAdapter(), NVDAdapter(creds)):
+    for a in (ThreatFoxAdapter(creds), CISAKEVAdapter(), NVDAdapter(creds)):
         try:
             r = await a.fetch(time_range="7d")
             recs = getattr(r, "iocs", None) or getattr(r, "vulns", [])
@@ -199,10 +199,13 @@ Two PowerShell 5.1 details in that block, both load-bearing:
 - **`-Encoding ASCII`.** `Set-Content`'s default in 5.1 writes a UTF-8 BOM,
   which Python reports as `SyntaxError: invalid non-printable character U+FEFF`.
 
-**Expect non-zero counts on all three.** A `FAIL` line, or an `OK` with `0
-records`, is a real finding — file it with the traceback. Since #100, a
-ThreatFox format break raises instead of quietly reporting zero, so `0 records`
-from ThreatFox now means the feed genuinely had nothing, not that parsing broke.
+**Expect non-zero counts from CISA KEV and NVD, and from ThreatFox when
+`$env:ABUSECH_AUTH_KEY` is set.** Without that key ThreatFox prints `FAIL
+CredentialNotFoundError` — expected, and a report records the source
+`unverified`. Any other `FAIL` line, or an `OK` with `0 records`, is a real
+finding — file it with the traceback. A ThreatFox format break raises instead of
+quietly reporting zero, so `0 records` from ThreatFox means the feed genuinely
+had nothing, not that parsing broke.
 
 The `EnvCredentialProvider is active` warning is expected and harmless — it
 reports that credentials come from environment variables, which is correct for a
@@ -239,7 +242,7 @@ Inside the session, confirm the server connected:
 
 ```powershell
 claude mcp add threat-intel -- python -m threat_intel_mcp
-claude mcp list      # expect: threat-intel-mcp - √ Connected
+claude mcp list      # expect the `threat-intel` entry to show Connected
 ```
 
 Use `python -m threat_intel_mcp`, **not** the bare `threat-intel-mcp` command.

@@ -37,16 +37,16 @@ absence of a new finding is not a reason to discard a new government advisory.
 
 ## Evidence and freshness gates
 
-Record each attempted URL/query, route (`primary`, `fallback`, `previous_year`, `crosscheck`, `content`),
-checked_at with UTC offset, outcome (`retrieved`, `zero_hits`, `http_error`,
-`transport_error`, `unsupported_format`), HTTP status where actually observed,
-and CVE for crosschecks. Measure attempt and content-acquisition freshness during
+Record each attempt as `target` (the URL or query), `route` (`primary`, `fallback`, `previous_year`, `crosscheck`, `content`),
+`checked_at` with UTC offset, `outcome` (`retrieved`, `zero_hits`, `http_error`,
+`transport_error`, `unsupported_format`), `http_status` where actually observed,
+and `cve` for crosschecks. Measure attempt and content-acquisition freshness during
 the two hours ending at explicit `research_as_of`, not at the intelligence cutoff. Preserve an earlier failed attempt even if an official fallback
 succeeds. Bound attempts to the primary route, complementary route, one scoped
 query per selected CVE, and relevant candidates within the reporting deadline.
 If still blocked, disclose the precise error and continue delivery.
 
-Every candidate gets its official URL, raw publication/update timestamp and
+Every candidate gets its official `url`, raw publication/update timestamp and
 provenance, normalized `published_start`/`published_end`, `publication_source_url`,
 `publication_evidence_note`, explicit `window_basis`, `retrieved_at`,
 `content_read`, a brief `evidence_note`, and a disposition: `included`,
@@ -122,7 +122,8 @@ supplied but invalid/stale/future attempts = `unverified/invalid_attempt_metadat
 (with their original values retained), evidence without attempts =
 `unverified/invalid_evidence`, duplicate receipts = `unverified/invalid_receipt`, all access
 failures = `unverified/access_failed`, successful empty discovery =
-`partial/no_verified_items`, index-only discovery = `partial/discovery_only`.
+`partial/no_verified_items`, index-only discovery = `partial/discovery_only`. Verified in-window content =
+`consulted/verified_current_content`, or `partial/verified_current_content` when any gap remains.
 Only fresh in-window content with a successful matching `content` retrieval
 receipt, an explicit disposition and completed scoped
 checks can yield `consulted`; that means content was consulted, not exhaustive

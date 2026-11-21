@@ -216,7 +216,7 @@ A conforming threat intelligence report includes:
 - `metadata` — `generated_at`, `skill_version`, `sources_referenced`
 - `alert_level` — `level`, `icon`, `color`, `message`
 - `executive_summary` — `headline`, `key_points`, `critical_actions`
-- `threats[]` — each entry carries `technique_name`, `mitre_id`, `cves`, `exploit_maturity`, `source`
+- `threats[]` — each entry carries `technique_name`, `attack_vector`, `mitre_attack_id`, `cve_ids`, `exploit_availability`, `sources`
 - IOC blocks (network, host, email) — each indicator carries `type`, `value`, `confidence`, `source`
 
 See [skills/cyber-threat-intel/examples/outputs.json](../skills/cyber-threat-intel/examples/outputs.json) for complete valid examples across all 6 personas.
@@ -225,8 +225,8 @@ See [skills/cyber-threat-intel/examples/outputs.json](../skills/cyber-threat-int
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `'source' is a required property` | An IOC, TTP, or threat entry is missing the `source` field | Add `source:` referencing a Matrix entry from [skills/cyber-threat-intel/references/source-matrix.md](../skills/cyber-threat-intel/references/source-matrix.md) |
-| `Additional properties are not allowed` | Field name doesn't match the schema (typo or wrong key) | Check spelling and capitalization against [output.schema.json](../skills/cyber-threat-intel/schemas/output.schema.json) |
+| `'source' is a required property` | A network or host IOC, CWE chain, hunting query, or `delimited_batch_export` row is missing the `source` field | Add `source:` referencing a Matrix entry from [skills/cyber-threat-intel/references/source-matrix.md](../skills/cyber-threat-intel/references/source-matrix.md) |
+| *(no error — a misspelled key validates)* | The schema does not set `additionalProperties: false`, so unknown keys are accepted silently | Compare key names against [output.schema.json](../skills/cyber-threat-intel/schemas/output.schema.json) by hand; a typo'd optional field is simply ignored |
 | `'high' is not one of ['High', 'Medium', 'Low']` | Confidence value uses wrong case | Use capitalized values: `High`, `Medium`, `Low` |
 | `'<value>' is not one of [...]` on `exploit_maturity` | Invalid enum value | Use one of: `None`, `PoC`, `Weaponized`, `In-The-Wild` |
 | `'<value>' is not one of [...]` on `priority` | Invalid priority value | Use one of: `P1-CRITICAL`, `P2-HIGH`, `P3-MEDIUM`, `P4-LOW`, `P5-INFO` |

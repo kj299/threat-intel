@@ -23,8 +23,8 @@ Thank you for your interest in contributing to the Cyber Threat Intelligence Ski
 1. Fork the repository
 2. Create a branch (`git checkout -b feature/your-change`)
 3. Make your changes
-4. **Validate locally** (see Testing Changes section below)
-5. Commit with a clear message (see Commit Message Examples section below)
+4. **Validate locally** (see [Testing Your Changes Locally](#testing-your-changes-locally) below)
+5. Commit with a clear message (see [Commit Message Examples](#commit-message-examples) below)
 6. Push and open a Pull Request
 
 ### Branch Naming
@@ -84,7 +84,7 @@ grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CHANGELOG
 
 **After editing the prompt or skill file:**
 - Read through the full file to ensure changes are reflected consistently
-- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` in `skills/cyber-threat-intel/references/source-matrix.md` *and* `skills/cyber-threat-intel/references/original-prompt.md`
+- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` identically in all three mirrored files CI compares line for line: `skills/cyber-threat-intel/references/source-matrix.md`, `skills/cyber-threat-intel/references/original-prompt.md` and `standalone/cyber-threat-intel-prompt.md`
 - If you modify source coverage rules (R1-R6), update all references in `SKILL.md`, `references/`, `original-prompt.md`, `spec.yaml`, and both `standalone/` distributions
 
 **If you bumped the version:**
@@ -98,7 +98,7 @@ The version string lives in six places. CI fails if they disagree. Bump all six 
 6. `docs/index.md` -> the `**Version:**` stamp
 
 **If you added or removed a persona:**
-The set of personas in `skills/cyber-threat-intel/spec.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `skills/cyber-threat-intel/examples/outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift. Update `skills/cyber-threat-intel/references/personas.md` to match.
+The set of personas in `skills/cyber-threat-intel/spec.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `skills/cyber-threat-intel/examples/outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift. Also update the `**Personas:**` line in `docs/index.md` (CI-pinned to `spec.yaml`), the `persona` enum in `output.schema.json`, and `skills/cyber-threat-intel/references/personas.md`.
 
 **If you changed `output.schema.json`:**
 CI also runs negative fixtures from `tests/invalid/` to prove the schema still rejects malformed input (missing required fields, bad enums, R2 placeholder source values like `"unknown"` / `"general knowledge"` / `"n/a"`, malformed `date-time`, bad `coverage_badge`, type/value mismatches, malformed hashes). Layout: `tests/invalid/<def_name>/<case>.json`, where `<def_name>` matches a key in `output.schema.json` `definitions/` (or `skill_output_metadata` for the metadata block). When loosening a constraint, also remove or update the corresponding fixture; when tightening one, add a fixture for the new rejection.
@@ -112,6 +112,9 @@ Four files describe the nine-tier source matrix and CI requires they stay in syn
 2. `skills/cyber-threat-intel/references/source-matrix.md` -- mirrored source list with `## Tier N: <name>` headings
 3. `skills/cyber-threat-intel/spec.yaml` -- `source_coverage_protocol.tier_minimums` keys and `source_tiers` keys (both prefixed `tier_<N>_...`)
 4. `skills/cyber-threat-intel/schemas/output.schema.json` -- the `coverage_ledger.items.properties.tier` `minimum`/`maximum` range
+
+Two more places are pinned by other CI checks: `standalone/cyber-threat-intel-prompt.md` must carry the same tier headings and entries (source-list parity), and the tier table in `docs/index.md` must have one row per tier.
+
 
 CI fails if the set of tier numbers disagrees across these sources, or if a prompt heading and the corresponding `source_tiers.<name>` share no significant word. The name-overlap check is intentionally lenient (token intersection, not string equality) so different abbreviations of the same domain across files are fine.
 
@@ -235,7 +238,7 @@ Do not include in contributions:
 - Internal URLs or PII
 - Active exploit code without clear educational context
 
-For security vulnerabilities, use GitHub's private vulnerability reporting (see [Security](#security) below).
+For security vulnerabilities, use GitHub's private vulnerability reporting — see [SECURITY.md](SECURITY.md).
 
 ---
 

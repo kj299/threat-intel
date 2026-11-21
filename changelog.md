@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Full documentation audit against the code (2026-11-21).** Every maintained doc was read against the code, workflows and file tree; the mismatches found are fixed. The main clusters:
+  - **ThreatFox still described as keyless** in the two runbooks, including a probe of the retired CSV URL (which answers 410) and a Windows snippet that could not succeed (`ThreatFoxAdapter()` built without credentials). Probes now use Feodo Tracker; the snippet passes the provider.
+  - **"Proposed" / "draft" wording for merged work**: the all-feed daily handoff, the ThreatFox producer's activation notes and the pre-report fallback helper, across `CLAUDE.md`, `docs/architecture.md`, `mcp/README.md`, `docs/report-runbook.md` and `docs/daily-briefing-manifest.md`.
+  - **Incomplete trees and tables**: the README tree gains the root `scripts/` folder, two docs, the plugin manifest and several data files; the architecture table gains rows for six adapters, feed status, audit and provider selection; `CLAUDE.md` gains the files it never described.
+  - **Wrong specifics**: `threats[]` field names and two validation-error rows in `docs/index.md`; the pipeline order, the error-taxonomy row and the egress exceptions in `mcp/README.md`; the cassette README's description of the scanner and of the ThreatFox recording; the standalone install path (a top-level `skills/` is not discovered); three keys missing from the README's `.mcp.json` example.
+  - **Skill files**: ThreatFox added to the authenticated-feed examples in all four mirrors; `needs_schema`, the vulnerability-summary columns and the CWE-chain field list aligned to the schema; the chain-escalation rule aligned to `spec.yaml`; stray markup removed from the end of `source-matrix.md`; the government-advisory reference now names the receipt keys the validator requires.
+
+### Fixed
+
+- `feed_status.json` and the `list_available_feeds` description still said ThreatFox live verification was pending; both now give the 2026-11-16 result. These strings are served to callers.
+- The 4 MB cassette size ceiling was asserted for 4 of 16 recordings; the test now discovers every cassette.
+- The file-tree guard in `test_docs_consistency.py` now counts the root `scripts/` folder, so the README tree can list it.
+
 ### Security
 
 - **The #164 repository settings are on** (2026-11-21): private vulnerability reporting and automatic head-branch deletion, both confirmed through GitHub's public API, and secret scanning with push protection, enabled by the maintainer (admin-only, so not independently checked). `SECURITY.md`, `contributing.md` and `docs/feed-operations.md` no longer say they are off. The abuse.ch key still needs rotating, and the 81 pre-existing branches still need deleting.

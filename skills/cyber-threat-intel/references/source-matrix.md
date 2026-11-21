@@ -243,5 +243,3 @@ Rules for changing this list (they bind `original-prompt.md` and the `standalone
 - Malshare — malshare.com [SHOULD]
 - theZoo — github.com/ytisf/theZoo — live malware repository [SHOULD]
 - Cape Sandbox — capesandbox.com — open-source malware sandbox [SHOULD]
-</content>
-</invoke>
