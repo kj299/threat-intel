@@ -215,11 +215,18 @@ class TestCassetteSize:
 
     CEILING_MB = 4.0
 
-    @pytest.mark.parametrize("feed", ["threatfox", "threatfox_api", "cisa_kev", "nvd"])
+        # Every committed cassette, discovered rather than listed: a hand-kept list
+    # covered 4 of 16 recordings, so a new adapter's cassette was never checked.
+    _CASSETTES = sorted(
+        p.stem for p in (pathlib.Path(__file__).parent / "cassettes").glob("*.yaml")
+    )
+
+    def test_the_cassette_list_is_not_empty(self):
+        assert self._CASSETTES, "no cassettes found — the size guard would guard nothing"
+
+    @pytest.mark.parametrize("feed", _CASSETTES)
     def test_a_committed_cassette_stays_under_the_ceiling(self, feed: str):
         path = pathlib.Path(__file__).parent / "cassettes" / f"{feed}.yaml"
-        if not path.is_file():
-            pytest.skip(f"no cassette recorded for {feed}")
         size_mb = path.stat().st_size / 1e6
         assert size_mb <= self.CEILING_MB, (
             f"{path.name} is {size_mb:.1f} MB, over the {self.CEILING_MB} MB "

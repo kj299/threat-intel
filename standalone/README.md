@@ -1,11 +1,11 @@
 # Standalone Artifacts
 
-Two self-contained files. No sibling references, no `spec.yaml`, no schema files, no examples directory required. Either can be copied out of this repo and used independently of the rest of the project.
+Two near-self-contained files. No `spec.yaml`, no schema files, no examples directory required. The one sibling reference is the government-advisory receipt detail (`../skills/cyber-threat-intel/references/government-advisories.md`, plus the optional `scripts/government_coverage.py` validator); copied out of the repo that link dangles, and the contract is applied from the inline summary. Otherwise either file can be used independently of the rest of the project.
 
 ## Files
 
 - [`cyber-threat-intel-prompt.md`](cyber-threat-intel-prompt.md) — single-file **prompt**. Paste into any capable LLM chat (Claude, GPT, Gemini, Llama, etc.) as the system or first user message.
-- [`cyber-threat-intel-skill.md`](cyber-threat-intel-skill.md) — single-file **Anthropic Agent Skill** (`SKILL.md` with YAML frontmatter). Drop into any Agent Skills consumer (Claude Code, Claude API skills, or compatible runtimes). Rename to `SKILL.md` and place at `skills/cyber-threat-intel/SKILL.md` in the target project.
+- [`cyber-threat-intel-skill.md`](cyber-threat-intel-skill.md) — single-file **Anthropic Agent Skill** (`SKILL.md` with YAML frontmatter). Drop into any Agent Skills consumer (Claude Code, Claude API skills, or compatible runtimes). Rename to `SKILL.md` and place at `.claude/skills/cyber-threat-intel/SKILL.md` in the target project (or `~/.claude/skills/cyber-threat-intel/SKILL.md` for a personal install). A top-level `skills/` directory is only discovered inside a plugin root.
 
 ## What's inlined
 
@@ -27,7 +27,7 @@ Both files embed everything previously split across `skills/cyber-threat-intel/r
 
 ## Using these with an external consumer
 
-`cyber-threat-intel-prompt.md` is the file to feed a programmatic consumer (a CLI like Claude Code, an OpenAI pipeline, or a SIEM/batch-audit importer). It is self-contained — point your tool at it directly. The legacy single-file `cyber_threat_skill.yaml` was split/renamed in the main skill's 1.2.0 restructure and no longer exists, so a consumer auto-discovering that name will load nothing.
+`cyber-threat-intel-prompt.md` is the file to feed a programmatic consumer (a CLI like Claude Code, an OpenAI pipeline, or a SIEM/batch-audit importer). It carries everything the model needs inline — point your tool at it directly. The legacy single-file `cyber_threat_skill.yaml` was split/renamed in the main skill's 1.2.0 restructure and no longer exists, so a consumer auto-discovering that name will load nothing.
 
 ## Known limitations
 

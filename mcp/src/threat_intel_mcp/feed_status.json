@@ -60,7 +60,7 @@
     "kind": "feeds",
     "verification_status": "not_verified_in_this_environment",
     "last_verified_at": null,
-    "known_limitation": "Legacy CSV endpoint returned HTTP 410 in the documented 2026-10-28 run. Replacement uses the official authenticated JSON get_iocs API (Auth-Key required; first_seen lookback up to 7 days). Authenticated live verification and a new scrubbed API cassette are pending."
+    "known_limitation": "Legacy CSV endpoint returned HTTP 410 in the documented 2026-10-28 run. Replacement uses the official authenticated JSON get_iocs API (Auth-Key required; first_seen lookback up to 7 days). Authenticated collection and scrubbed JSON API cassette playback passed on 2026-11-16; that is dated evidence, not a current-health check."
   },
   "OpenPhish": {
     "tool": "openphish_fetch_iocs",

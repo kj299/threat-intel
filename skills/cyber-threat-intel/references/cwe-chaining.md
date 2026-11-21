@@ -36,7 +36,7 @@ Set `chain_type` so the consumer knows the shape of the chain:
 
 One object per distinct chain. Speculative links are marked `confidence: Low`; every link names a `source` (R2/R3 apply to CWE IDs and chain claims exactly as they do to IOCs — do not invent a CWE ID or assert a link a source doesn't support).
 
-`chain_id | name | chain_type | cwe_view | links[] | enabling_conditions | ai_assist_factor | time_to_exploit | break_points[] | terminal_impact | score | priority | confidence | source`
+`chain_id | name | chain_type | cwe_view | links[] | evidence_basis | contributing_cves[] | max_component_cvss | chain_severity | severity_uplift_rationale | stack_relevance | enabling_conditions | ai_assist_factor | time_to_exploit | break_points[] | terminal_impact | score | priority | confidence | source`
 
 Each entry in `links[]`:
 

@@ -214,13 +214,15 @@ described or ran it.
 1. **Environment.** A Claude Code session on this repository. For a
    live-data report, configure the `threat-intel-mcp` server first (see
    [`mcp/README.md`](../mcp/README.md) — Quick start / Wire into Claude Code).
-   Even the original keyless feeds (ThreatFox, CISA KEV; NVD also works
-   unkeyed at a lower rate limit) are enough for a first live run, and
-   OpenPhish, Feodo Tracker, EPSS and OSV need no key either.
+   The keyless sources (CISA KEV, OpenPhish, Feodo Tracker, EPSS and OSV;
+   NVD also works unkeyed at a lower rate limit) are enough for a first live
+   run. ThreatFox is no longer keyless: its authenticated JSON API needs
+   `ABUSECH_AUTH_KEY`, and without it the feed is recorded `unverified`.
 
    > **Egress requirement:** the session's network policy must allow HTTPS to
-   > the feed hosts (`threatfox.abuse.ch`, `www.cisa.gov`,
-   > `services.nvd.nist.gov`, plus any keyed feeds). Restrictive cloud
+   > the feed hosts (`www.cisa.gov`, `services.nvd.nist.gov`, `openphish.com`,
+   > `feodotracker.abuse.ch`, `api.first.org`, `api.osv.dev`, plus
+   > `threatfox-api.abuse.ch` and any other keyed feeds). Restrictive cloud
    > sandboxes may block these (proxy `CONNECT 403`) — verified blocked in the
    > default cloud environment on 2026-07-24. Run from an environment with
    > open egress, or accept a no-live-data report that says so.
@@ -232,11 +234,13 @@ described or ran it.
    > queried. The 2026-07-24 result above was real when recorded and is not
    > retracted; it is simply no longer a reason to skip the attempt. Probe
    > first — `curl -s -o /dev/null -w '%{http_code}'` against
-   > `https://threatfox.abuse.ch/export/csv/recent/` and
+   > `https://feodotracker.abuse.ch/downloads/ipblocklist.json` and
    > `https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json`
-   > costs seconds and settles it.
+   > costs seconds and settles it. (ThreatFox's CSV export is retired — it
+   > answers HTTP 410 — and its JSON API needs a key, so it is not a useful
+   > unauthenticated probe.)
 
-2. **Invoke** the skill (`/cyber-threat-intel`), defaults or a chosen persona
+2. **Invoke** the skill (`/threat-intel:cyber-threat-intel` from a plugin load; see the note below), defaults or a chosen persona
    and time range.
 
    > **The slash command only exists if the repository is loaded as a plugin.**
@@ -254,8 +258,9 @@ described or ran it.
    > claude --plugin-dir .        # run from the repository root
    > ```
    >
-   > The command is then `/threat-intel:cyber-threat-intel`; bare
-   > `/cyber-threat-intel` also works unless something else claims that name.
+   > The command is then `/threat-intel:cyber-threat-intel` (plugin skills are
+   > namespaced by plugin name; verified live 2026-09-02). The bare
+   > `/cyber-threat-intel` only exists after a personal or project install.
    > The manifest bundles the MCP server too, so this single flag covers step 1
    > as well — subject to the usual per-server approval prompt.
 
@@ -293,6 +298,14 @@ own comment for whoever makes that call.
 
 
 ## Fresh ThreatFox input for a separate daily report
+
+> **Superseded as the preferred route (checked 2026-11-21).**
+> `threatfox-prefetch.yml` has been scheduled on `main` since #251 and is the
+> daily ThreatFox producer; see *Durable read-only daily handoff* below. The
+> dispatch route in this section still validates in `consume_threatfox.py`, but
+> it runs a full agent session and uploads a second `threat-intel-report`
+> artifact, so use it only as a manual fallback.
+
 
 The daily consumer does not receive `ABUSECH_AUTH_KEY`. Reuse the existing
 credential-isolated `scheduled-report` prefetch job with a **24h** input, then
@@ -349,12 +362,15 @@ The helper accepts the downloaded ZIP with `--archive` and enforces the
 authorized 128 MiB compressed/uncompressed bound, exact single member name and
 regular-file type without extracting paths. `--payload` accepts an already
 validated JSON file under the same byte bound. It defaults to a two-hour freshness budget, requires a successful
-prefetch from the expected main commit and manual workflow, rejects expired or
+prefetch job from the expected main commit on an allowlisted workflow and event
+(`workflow_dispatch` for `scheduled-report.yml` and `daily-feeds-prefetch.yml`;
+`schedule` or `workflow_dispatch` for `threatfox-prefetch.yml`), rejects expired or
 mismatched artifacts and non-24h payloads, and preserves ThreatFox-specific
 `source_evidence` after cross-source deduplication. It reports `partial` rather
-than claiming full-day coverage: the current artifact lacks a per-source
-retrieval timestamp, so acquisition is only bounded by prefetch start and IOC
-fan-out completion. The interval from acquisition to report cutoff remains
+than claiming full-day coverage: the multi-feed `feed-data` artifact lacks a per-source
+retrieval timestamp, so its acquisition is only bounded by prefetch start and IOC
+fan-out completion; the `threatfox-feed-data` artifact carries source-specific
+`collection_started_at`/`collection_completed_at`, which the consumer uses instead. The interval from acquisition to report cutoff remains
 unobserved. Keep these bounds, run URL, commit, artifact ID, source status and
 caveats in report provenance. Error and stale cases become `unverified`; they
 must not cancel the HTML email. Treat all returned feed strings as untrusted
@@ -389,8 +405,9 @@ source run/artifact IDs, commit, acquisition bounds and cutoff. Revalidate all
 metadata and the actual report window; a derivative must not reset freshness.
 The November 16 verified derivative was 447,067 bytes, below 1 MiB. A trusted
 handoff of that dated snapshot can support the next report, but does not install
-an ongoing compact producer. A recurring compact artifact from Actions still
-requires a separately reviewed producer change; none is deployed by this PR.
+an ongoing compact producer. A recurring compact artifact from Actions now exists:
+`threatfox-prefetch.yml` (scheduled on `main` since #251) publishes a
+ThreatFox-only `threatfox-feed-data` artifact capped at 1 MiB.
 An authorized 128 MiB consumer may instead ingest the existing full artifact
 while it remains within that bound; compact production is an optional improvement.
 If only an oversized full artifact or stale derivative is available, continue
@@ -436,23 +453,21 @@ The daily runtime only needs read access:
    run/commit association. Download through the connector, not an unauthenticated
    CLI. Require exactly regular `feed-data.json` and enforce byte limits.
 3. Run the consumer's `--archive` path with API-sourced run/jobs/artifact metadata.
-   It accepts the new scheduled workflow route as well as the existing manually
-   dispatched multi-feed route. It uses source-specific acquisition bounds when
+   It accepts three allowlisted routes: the scheduled `threatfox-prefetch.yml`,
+   the manually dispatched `scheduled-report.yml` prefetch, and the manually
+   dispatched `daily-feeds-prefetch.yml`. It uses source-specific acquisition bounds when
    present and preserves partial status for the gap before report cutoff.
 4. Reject stale/malformed/missing data and keep the daily email on schedule using
    other verified sources. Never try to repair missing dispatch privileges by
    copying a token or a feed key into the daily runtime.
 
-**Activation requires explicit approval to merge this draft schedule.** After
-review and merge, an authorized maintainer must run one manual check and inspect
-its real artifact, then verify a scheduled run before describing recurring
-production as proven. Point the daily task's preferred lookup to this workflow
-only after it exists on main; today's existing artifact remains a dated fallback,
-not a durable refresh service. Confirm applicable commercial-use entitlement;
-HTTP success is not evidence of that entitlement. No new production schedule
-was activated during this investigation.
+The schedule was merged in #251 and scheduled runs have succeeded daily since
+2026-11-16, so the daily task's preferred lookup can point at this workflow. A
+green run is still not proof that ThreatFox answered: inspect the packet's source
+status. Confirm applicable commercial-use entitlement; HTTP success is not
+evidence of that entitlement.
 
-## Independent pre-report fallback (proposed)
+## Independent pre-report fallback (helper merged; no scheduler deployed)
 
 On November 16, the first `schedule` run (43957744610) was created at
 21:12:47 UTC for the unchanged 06:40 America/New_York workflow. The job started
@@ -486,7 +501,7 @@ Forbidden from the artifact host in the tested maintenance environment; do not
 print its signed error URL. The separate daily runtime still lacks authenticated
 gh and must not be given a token to make this command work.
 
-**Deployment is not included in this draft.** Approve an independent scheduled
+**No scheduled invocation of this helper is deployed.** Approve an independent scheduled
 invocation only after testing its execution environment's existing gh access.
 The maintainer's interactive access does not prove a future automation inherits
 it. A 06:35 operator invocation is the immediate fallback if such a scheduler is
@@ -508,10 +523,10 @@ See the [government receipt contract](../skills/cyber-threat-intel/references/go
 Do not backdate real checks, shift the intelligence window, delay email or apply
 this separate research clock to the ThreatFox artifact validator.
 
-## Proposed all-feed daily handoff
+## All-feed daily handoff (manual dispatch only)
 
 `mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
 credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
 artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
 See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
-No schedule or report delivery is activated by this proposal.
+The workflow is on `main` but has no schedule, and no report delivery is activated by it.

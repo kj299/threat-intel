@@ -24,9 +24,11 @@ terms apply; commercial/for-profit use may require an enhanced subscription.
 complete historical coverage. Date filtering must preserve the requested window;
 retrieval time is not an IOC observation time. In-band API statuses distinguish
 quiet results from authentication, quota, or format failures. Unit fixtures do
-not prove current upstream access: authenticated live validation and a newly
-recorded, credential-scrubbed JSON API cassette remain pending. Preserve the old
-CSV cassette as historical evidence, not replacement-API validation.
+not prove current upstream access. Authenticated collection was validated and a
+credential-scrubbed JSON API cassette (`mcp/tests/cassettes/threatfox_api.yaml`)
+was recorded on 2026-11-16, with playback tests in `test_cassette_playback.py`;
+that is dated evidence, not a current-health promise. The old CSV cassette
+(`threatfox.yaml`) is kept as historical evidence, not replacement-API validation.
 
 Shodan empty responses require an entitlement check; Pulsedive refusal requires a
 quota/plan check. ANY.RUN, Intel 471 and Censys remain implemented despite absent
@@ -68,10 +70,12 @@ require authorized repository-settings access and provider access. Do not retrie
 print old key values, and do not treat history cleanup as a replacement for revocation.
 
 Monitor successful delivery artifacts and per-source contribution/freshness, not
-commits to the frozen `reports/` evaluation corpus. Keep the legacy staleness alarm
-manual until a delivery monitor is validated against actual workflow run metadata.
+commits to the frozen `reports/` evaluation corpus. The legacy staleness alarm
+stays manual regardless: it watches commits to the frozen `reports/` corpus, so it
+only becomes meaningful once a home for new, non-frozen-corpus reports is chosen
+(see `report-staleness.yml`).
 
-The new read-only `report-delivery` workflow checks successful generator runs for
+The read-only `report-delivery` workflow checks successful generator runs for
 an unexpired, nonempty `threat-intel-report` artifact within ten days. A green job
 without an artifact does not satisfy delivery. It opens no issues and sends no
 messages. Local decision tests cover missing, failed, expired, and stale delivery;

@@ -84,12 +84,16 @@ threat-intel/
 +-- README.md                                         # this file
 +-- LICENSE
 +-- CLAUDE.md                                         # AI-assistant project context
++-- .claude-plugin/plugin.json                        # plugin manifest (exposes the skill, bundles the MCP server)
++-- .gitleaks.toml                                    # gitleaks rules used by secret-scan.yml
 +-- docs/                                             # ALL prose documentation
 |   +-- index.md                                      # the deep reference (protocol, personas, scoring, validation)
 |   +-- architecture.md                               # Mermaid data-flow diagram
 |   +-- report-runbook.md                             # generating reports; the staleness alarm
 |   +-- report-runbook-windows.md                     # the same walkthrough for Windows PowerShell 5.1
 |   +-- protocol-adapters.md                          # bring-your-own-endpoint transports (gRPC/MQTT/WS/GraphQL/ZMQ)
+|   +-- feed-operations.md                            # per-feed access states, evidence and what still needs verifying
+|   +-- daily-briefing-manifest.md                    # the manual all-feed daily handoff: contract, limits, gaps
 |   +-- releases/                                     # historical release notes (never edited to match today)
 +-- changelog.md
 +-- contributing.md
@@ -104,6 +108,16 @@ threat-intel/
 +-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox read -> scanned data artifact (no agent)
 +-- .github/workflows/daily-feeds-prefetch.yml        # manual-only: all feeds, 24h -> scanned data artifact (no agent)
 +-- .github/workflows/report-delivery.yml             # daily: fails unless a recent scheduled-report run left a report artifact
++-- .github/dependabot.yml                            # weekly pip + github-actions updates, 7-day cooldown
++-- .github/CODEOWNERS                                # review routing
++-- scripts/                                          # credential-free repo-level helpers
+|   +-- validate.py                                   # runs validate.yml's checks locally
+|   +-- check_delivery.py                             # report-delivery.yml's artifact decision
+|   +-- consume_threatfox.py                          # validates a ThreatFox data artifact for a daily report
+|   +-- refresh_threatfox.py                          # maintainer-side: one dispatch of threatfox-prefetch, returns a pointer
+|   +-- consume_daily_feeds.py                        # validates the all-feed daily-feed-data artifact
+|   +-- daily_source_roster.py                        # emits every matrix source as an unattempted receipt
+|   +-- government_coverage.py                        # government-advisory plan + receipt validator
 +-- tests/invalid/                                    # negative fixtures (must be rejected)
 +-- skills/
     +-- cyber-threat-intel/
@@ -118,6 +132,7 @@ threat-intel/
         |   +-- output-templates.md                   # per-persona report sections
         |   +-- siem-queries.md                       # SPL/KQL authoring: starter-first, normalized CIM/ASIM (no invented datasets)
         |   +-- compliance-frameworks.md              # NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR
+        |   +-- government-advisories.md              # government-advisory discovery receipt (CISA Advisories, CERT-EU)
         |   +-- original-prompt.md                    # long-form prompt for non-Claude assistants
         +-- schemas/
         |   +-- output.schema.json                    # JSON Schema for output validation
@@ -125,10 +140,14 @@ threat-intel/
             +-- outputs.json                          # one example per persona
 +-- evals/                                           # skill-output honesty evals (invariants + scenarios)
 +-- standalone/                                      # flattened single-file distributions (hand-maintained mirrors)
+|   +-- README.md                                   # what the two files are and how to install them
 |   +-- cyber-threat-intel-prompt.md                # self-contained prompt (any LLM)
 |   +-- cyber-threat-intel-skill.md                 # self-contained Agent Skill
 +-- mcp/                                             # threat-intel-mcp server (v0.15.0)
     +-- pyproject.toml                               # package definition (threat-intel-mcp)
+    +-- README.md                                    # server setup, adapters, credentials, tests
+    +-- constraints-dev.txt                          # pinned dev dependency set CI installs against
+    +-- .env.example                                 # every credential env var, with no values
     +-- src/threat_intel_mcp/
     |   +-- server.py                                # MCPServer entry point (22 tools)
     |   +-- __main__.py                              # python -m threat_intel_mcp entry point
@@ -138,11 +157,13 @@ threat-intel/
     |   +-- resilience.py                            # circuit breaker + backoff retry (guarded_fetch)
     |   +-- netpolicy.py                             # per-adapter egress allowlist (httpx hook)
     |   +-- sanitize.py                              # feed free-text sanitization (R6 runtime defense)
-    |   +-- indicator_values.py  # Semantic validation of actionable indicator values
-    |   +-- provenance.py  # Source evidence and conservative TLP merging
+    |   +-- indicator_values.py                      # semantic validation of indicator values
+    |   +-- provenance.py                            # per-source evidence + most-restrictive TLP on merge
     |   +-- secret_fields.py  # Shared credential header inventory
-    |   +-- feed_status.py  # Discovery status independent of source access
+    |   +-- feed_status.py                           # integration_status for list_available_feeds (no upstream probe)
+    |   +-- feed_status.json                         # the per-feed status registry it reads
     |   +-- normalize.py                             # finalize_iocs: sanitize -> validate -> dedup
+    |   +-- ioc_network.schema.json                  # packaged ioc_network schema the IOC pipeline validates against
     |   +-- stix_patterns.py                         # STIX pattern parsing (ANY.RUN TAXII)
     |   +-- adapters/
     |   |   +-- base.py                              # FetchResult, SourceAdapter protocol, error taxonomy
@@ -181,7 +202,7 @@ threat-intel/
     +-- scripts/
     |   +-- prefetch_threatfox.py                    # bounded ThreatFox-only daily data artifact
     |   +-- prefetch_feeds.py                        # the report path's fixed fetcher (holds credentials)
-    |   +-- prefetch_daily_feeds.py  Bounded daily collection-only wrapper
+    |   +-- prefetch_daily_feeds.py                  # manual-only all-feed 24h collector (daily-feeds-prefetch.yml)
     |   +-- record_cassettes.py                      # records real feed responses for offline replay
     +-- tests/                                       # unit + httpx-mock integration tests (no live network)
 ```
@@ -262,7 +283,11 @@ Configure in Claude Code (`claude mcp add -s project` writes this to the project
         "ANYRUN_API_KEY": "API-Key your-anyrun-token",
         "INTEL471_EMAIL": "you@example.com", "INTEL471_API_KEY": "your-intel471-key",
         "CENSYS_API_ID": "your-censys-id", "CENSYS_API_SECRET": "your-censys-secret",
-        "VULNCHECK_API_KEY": "your-vulncheck-key"
+                "VULNCHECK_API_KEY": "your-vulncheck-key",
+        "NVD_API_KEY": "your-nvd-key",
+        "ABUSECH_AUTH_KEY": "your-abusech-key",
+        "PULSEDIVE_API_KEY": "your-pulsedive-key"
+
       }
     }
   }
@@ -283,7 +308,7 @@ There are **two kinds of credential**, and they do not go in the same place:
 
 | | What | Where it goes |
 |---|---|---|
-| **Feed keys** | The 15 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, `ABUSECH_AUTH_KEY`, `PULSEDIVE_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, and `scheduled-report`'s `prefetch` job |
+| **Feed keys** | The 15 adapter credentials (`NVD_API_KEY`, `VULNCHECK_API_KEY`, `ABUSECH_AUTH_KEY`, `PULSEDIVE_API_KEY`, …) | Locally, your environment; in a fork, repository secrets — read by `record-cassettes`, `live-feed-check`, `scheduled-report`'s `prefetch` job, `daily-feeds-prefetch` (manual-only) and, for `ABUSECH_AUTH_KEY` alone, `threatfox-prefetch` |
 | **Model credential** | `CLAUDE_CODE_OAUTH_TOKEN` *or* `ANTHROPIC_API_KEY` — only if you run the report workflow | Your fork's secrets for `scheduled-report` |
 
 **Never put a feed key in the agent's job** — CI fails the PR if you do. `scheduled-report.yml` runs an agent whose job is reading untrusted feed content and whose output is published, so any credential in its environment is reachable by a prompt injection and can leave in the published report. That is why the credentials sit in a *separate `prefetch` job* which runs a fixed script and hands the agent a data file: jobs get separate runners, so the agent's machine never holds a key. Same secrets, categorically different blast radius.
@@ -298,6 +323,9 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 | `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run (an account-side limit such as a spent quota xfails instead) |
 | `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — every feed credential |
+| `daily-feeds-prefetch` workflow (manual dispatch) | `secrets.*`, injected as env vars | **yes** — every feed credential; no agent in the job |
+| `threatfox-prefetch` workflow (daily) | `secrets.ABUSECH_AUTH_KEY` | **yes** — that one key only; no agent in the job |
+
 | `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 
 **Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
@@ -337,7 +365,7 @@ For the conforming output shape and a table of common validation errors with the
 
 **A frozen corpus of 11 dated reports, kept as the honesty eval's fixtures — not a growing archive.** `evals/run.py --corpus` walks every one on each PR and checks all 8 hard invariants, which is the entire offline half of #83. CI fails if the count changes, so adding one is a decision rather than a side effect.
 
-Each run produces a full report; it is **published to the run's summary page and job log** instead of committed, because a run is useful while its permanent history is not. Generation runs **weekly** (Mondays 05:23 UTC — removed in #170, restored 2026-09-20 once #169's threshold was met) and can also be dispatched by hand. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
+Each run produces a full report; it is **published to the run's summary page and job log, and uploaded as the `threat-intel-report` artifact,** instead of committed, because a run is useful while its permanent history is not. Generation runs **weekly** (Mondays 05:23 UTC — removed in #170, restored 2026-09-20 once #169's threshold was met) and can also be dispatched by hand. Each report opens with an honest **coverage badge** (`FULL`/`PARTIAL`/`MINIMAL`), a **methodology notice** stating what retrieval was actually available, and closes with **Appendix A: Source Coverage Ledger** — what was and wasn't consulted. Reports never contain fabricated indicators: a run without live feed access says so and emits no literal IOC values.
 
 How they're generated, how to run one (including wiring the MCP server for live-data reports), and why the staleness alarm stays manual while `reports/` is frozen: see [docs/report-runbook.md](docs/report-runbook.md).
 

@@ -1700,7 +1700,7 @@ async def list_available_feeds() -> dict[str, Any]:
                 "name": "ThreatFox",
                 "tier": _threatfox.tier,
                 "domain": "threatfox.abuse.ch",
-                "description": "ThreatFox authenticated JSON get_iocs API; Auth-Key required; up to 7 days by first_seen; live verification pending",
+                "description": "ThreatFox authenticated JSON get_iocs API; Auth-Key required; up to 7 days by first_seen",
                 "feed_types": list(THREATFOX_FEED_TYPES.keys()),
                 "credential_configured": abusech_cred_ok,
                 "tool": "threatfox_fetch_iocs",

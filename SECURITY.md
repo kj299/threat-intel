@@ -92,8 +92,9 @@ So you can tell the difference between a gap and a deliberate choice:
   itself asserted in CI (issue #111). That assertion has one known failure:
   the abuse.ch Auth-Key sat in two cassettes from 2026-09-12 to 2026-10-17
   because its header was not on the scrub list (see the changelog); the list
-  is now derived from what the adapters send, and every committed cassette is
-  re-scanned on each PR.
+  is now one shared constant (`secret_fields.py`) that a CI test checks against
+  every credential header the adapters actually send, and every committed
+  cassette is re-scanned on each PR.
 - Audit logging redacts credential-shaped values (`audit.py`).
 - Each adapter carries an egress allowlist; feeds cannot be pointed elsewhere
   by configuration alone.

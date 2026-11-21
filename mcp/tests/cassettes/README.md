@@ -28,7 +28,7 @@ a draft PR with the result. Runners have open outbound internet.
 ```bash
 python mcp/scripts/record_cassettes.py              # keyless feeds
 python mcp/scripts/record_cassettes.py --all        # include keyed feeds
-python mcp/scripts/record_cassettes.py --only threatfox
+python mcp/scripts/record_cassettes.py --only threatfox   # keyed: needs ABUSECH_AUTH_KEY; writes threatfox_api.yaml
 ```
 
 ## Credentials
@@ -42,9 +42,12 @@ touched test fixtures.
 Three things stand between a recording session and a committed secret:
 
 1. `tests/vcr_config.py` scrubs credential headers and query parameters.
-2. `record_cassettes.py` greps its own output for credential-shaped strings and
-   exits non-zero if it finds any.
-3. The workflow re-greps before it is allowed to commit.
+2. `record_cassettes.py` scans what it wrote — credential header names and query
+   parameters structurally, plus every configured credential value as a literal —
+   and exits non-zero on a hit. It never greps response bodies: an NVD
+   description says "password" thousands of times.
+3. The workflow re-runs the same scanner (`--verify-only --all`) before it is
+   allowed to commit.
 
 The scrubbing is asserted in CI by
 [`test_vcr_harness.py`](../test_vcr_harness.py), against a local server and a
@@ -61,9 +64,9 @@ would pass on a file that still contained the key too.
   upstream format moved.
 - **A recording with zero records** makes the playback test assert against a
   quiet day forever. The recorder warns; do not commit it.
-- **Size.** The ThreatFox CSV is around 1 MB. Prefer a representative slice over
-  megabytes per adapter, but keep enough rows to exercise every branch — each
-  `ioc_type`, and the tags column whose embedded commas caused #100.
+- **Size.** A ThreatFox `get_iocs` response is around 1 MB. Prefer a representative
+  slice over megabytes per adapter, but keep enough rows to exercise every
+  branch — at least one per `ioc_type`.
 
 ## Playback is offline
 
@@ -96,10 +99,14 @@ so trimming cannot quietly drop the branch that parses a less common score.
 
 VulnCheck is trimmed the same way (`shrink_vulncheck_cassette`: six pages kept
 with `_meta.page` / `total_pages` verbatim, per-entry evidence lists capped), and
-ThreatFox's CSV export is trimmed on raw text lines (`shrink_threatfox_cassette`),
-keeping every comment line and at least one row per `ioc_type` so the
-comma-then-space dialect that #100 turned on is still what gets parsed.
-CISA KEV (~1.9 MB) and the small feeds are committed **whole**: single responses
+ThreatFox is trimmed by `shrink_threatfox_cassette`: the authenticated JSON
+recording (`threatfox_api.yaml`) keeps at least one `data` row per `ioc_type`, up
+to 2,000 rows. The historical CSV recording (`threatfox.yaml`, the retired
+export) was trimmed on raw text lines, keeping every comment line and one row per
+`ioc_type`, so the comma-then-space dialect behind #100 still gets parsed by the
+regression test.
+Every other cassette — CISA KEV (~1.9 MB), GreyNoise (~2.4 MB), AbuseIPDB
+(~1.2 MB) and the small feeds — is committed **whole**: single responses
 of a size git handles fine, and an untrimmed cassette is the stronger artefact
 wherever it is affordable.
 

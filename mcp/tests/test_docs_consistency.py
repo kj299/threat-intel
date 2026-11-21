@@ -671,7 +671,8 @@ def test_file_trees_do_not_list_a_module_more_often_than_it_exists():
 
     on_disk = Counter(
         p.name
-        for directory in (_SERVER_SRC, _SCRIPTS_DIR, _TESTS_DIR)
+                # The root README's tree also lists the repo-level scripts/ helpers.
+        for directory in (_SERVER_SRC, _SCRIPTS_DIR, _TESTS_DIR, _REPO_ROOT / "scripts")
         for p in directory.rglob("*.py")
         if p.name not in _TREE_IGNORED
     )
