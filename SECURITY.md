@@ -13,10 +13,11 @@ deliberately modest so they can actually be kept.
 **Use GitHub's private vulnerability reporting:**
 [Report a vulnerability](https://github.com/kj299/threat-intel/security/advisories/new).
 
-If that page says private reporting is not enabled, the maintainer has not yet
-turned it on (issue #164; it was off as of 2026-10-17) and there is no private
-channel until they do — this file does not invent one. Please wait for the
-setting rather than opening a public issue.
+Private reporting is enabled (confirmed through GitHub's public API on
+2026-11-21; it was off until then, issue #164). If that page ever says it is
+not enabled, there is no private channel until the maintainer turns it back on
+— this file does not invent one. Please wait for the setting rather than
+opening a public issue.
 
 That channel is used rather than an email address because this project has no
 security mailing list, and publishing a personal address here would be

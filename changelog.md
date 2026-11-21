@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- **The #164 repository settings are on** (2026-11-21): private vulnerability reporting and automatic head-branch deletion, both confirmed through GitHub's public API, and secret scanning with push protection, enabled by the maintainer (admin-only, so not independently checked). `SECURITY.md`, `contributing.md` and `docs/feed-operations.md` no longer say they are off. The abuse.ch key still needs rotating, and the 81 pre-existing branches still need deleting.
+
 ### Documentation
 
 - **Layout docs caught up with the workflows merged in #245-#255.** `daily-feeds-prefetch.yml` and `report-delivery.yml` were described in no layout doc; `threatfox-prefetch.yml` was missing from the README tree and still called "proposed" and "draft-only" in four places although its schedule has been active on `main` since #251 (scheduled runs green 2026-11-16 through 2026-11-19); `secret-scan.yml` and `report-staleness.yml` were missing from the architecture component table. `CLAUDE.md`, the README tree, `docs/architecture.md`, `mcp/README.md`, `docs/report-runbook.md` and `docs/feed-operations.md` now say what each workflow does, what it holds and when it runs. No code or workflow changed.
