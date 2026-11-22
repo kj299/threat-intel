@@ -96,3 +96,10 @@ The workflow is on `main` but has no schedule, and it delivers no report.
 - `scripts/validate.py` -- runs the `validate` job's steps locally.
 - `.github/workflows/record-cassettes.yml` -- dispatch-only recorder; holds every feed credential and opens a PR with the recordings after re-scanning them for secrets.
 - `docs/feed-operations.md` (per-feed access states and evidence), `docs/protocol-adapters.md` (bring-your-own-endpoint transports), `docs/report-runbook-windows.md` (the runbook for PowerShell).
+
+The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
+once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
+delay share the existing 90-second deadline; acquisition bounds span the whole
+operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
+Authentication, HTTP status, schema and other failures are not retried here.
+The adapter and broader fan-out/circuit-breaker policies remain unchanged.

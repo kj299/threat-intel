@@ -530,3 +530,10 @@ credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
 artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
 See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
 The workflow is on `main` but has no schedule, and no report delivery is activated by it.
+
+The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
+once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
+delay share the existing 90-second deadline; acquisition bounds span the whole
+operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
+Authentication, HTTP status, schema and other failures are not retried here.
+The adapter and broader fan-out/circuit-breaker policies remain unchanged.

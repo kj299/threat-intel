@@ -708,3 +708,10 @@ credential-isolated `daily-feeds-prefetch.yml`; `scripts/consume_daily_feeds.py`
 `daily-feed-data` artifact and `scripts/daily_source_roster.py` emits every matrix source as an unattempted receipt.
 See the [daily briefing manifest](../docs/daily-briefing-manifest.md) for limits, adoption and gaps.
 The workflow is on `main` but has no schedule, and it delivers no report.
+
+The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
+once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
+delay share the existing 90-second deadline; acquisition bounds span the whole
+operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
+Authentication, HTTP status, schema and other failures are not retried here.
+The adapter and broader fan-out/circuit-breaker policies remain unchanged.
