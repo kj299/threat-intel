@@ -431,3 +431,129 @@ def test_refresh_gh_failure_withholds_signed_urls(refresher, monkeypatch):
     with pytest.raises(refresher.RefreshError) as exc:
         refresher.api("commits/main")
     assert "secret" not in str(exc.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body,expected_count", [
+    ({"query_status": "no_result"}, 0),
+    ({"query_status": "ok", "data": [{"ioc": "192.0.2.1:443", "ioc_type": "ip:port",
+       "first_seen": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+       "confidence_level": 90, "threat_type": "botnet_cc"}]}, 1),
+])
+async def test_protocol_retry_then_success(producer, httpx_mock, body, expected_count, caplog):
+    import httpx
+    import json
+    from tests.test_abusech import FakeCredentials
+    from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+
+    secret = "synthetic-protocol-exception-secret"
+    httpx_mock.add_exception(httpx.RemoteProtocolError(secret))
+    httpx_mock.add_response(json=body)
+    payload = await producer.collect(ThreatFoxAdapter(FakeCredentials("test-key")))
+    summary = payload["iocs"]["per_source"][0]
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 2
+    assert all(r.method == "POST" and json.loads(r.content) == {"query": "get_iocs", "days": 1}
+               for r in requests)
+    assert summary["attempt_count"] == 2
+    assert summary["status"] == "consulted" and summary["record_count"] == expected_count
+    assert summary["collection_started_at"] <= summary["retrieved_at"] <= summary["collection_completed_at"]
+    assert secret not in caplog.text + producer.encode(payload, secret)
+
+
+@pytest.mark.asyncio
+async def test_protocol_failure_twice_stops_unverified(producer, httpx_mock):
+    import httpx
+    from tests.test_abusech import FakeCredentials
+    from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+
+    for _ in range(2):
+        httpx_mock.add_exception(httpx.RemoteProtocolError("synthetic-sensitive-text"))
+    payload = await producer.collect(ThreatFoxAdapter(FakeCredentials("test-key")))
+    summary = payload["iocs"]["per_source"][0]
+    assert len(httpx_mock.get_requests()) == summary["attempt_count"] == 2
+    assert summary["status"] == "unverified" and summary["record_count"] == 0
+    assert "RemoteProtocolError" in summary["error"]
+    assert "synthetic-sensitive-text" not in producer.encode(payload, "")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("response", [
+    {"status_code": 401}, {"status_code": 403}, {"status_code": 429}, {"status_code": 503},
+    {"json": {"query_status": "ok", "data": [{"ioc_type": "unknown"}]}},
+    {"content": b"not json"},
+])
+async def test_http_and_schema_failures_not_retried(producer, httpx_mock, response):
+    from tests.test_abusech import FakeCredentials
+    from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
+
+    httpx_mock.add_response(**response)
+    payload = await producer.collect(ThreatFoxAdapter(FakeCredentials("test-key")))
+    summary = payload["iocs"]["per_source"][0]
+    assert len(httpx_mock.get_requests()) == summary["attempt_count"] == 1
+    assert summary["status"] == "unverified"
+
+
+@pytest.mark.asyncio
+async def test_retry_delay_shares_original_deadline(producer, monkeypatch):
+    import asyncio
+    import httpx
+
+    wait_for = asyncio.wait_for
+    budgets = []
+
+    async def shortened(awaitable, *, timeout):
+        budgets.append(timeout)
+        return await wait_for(awaitable, timeout=0.01)
+
+    class Broken:
+        async def fetch(self, **kwargs):
+            raise httpx.RemoteProtocolError("synthetic")
+
+    monkeypatch.setattr(producer.asyncio, "wait_for", shortened)
+    payload = await producer.collect(Broken())
+    summary = payload["iocs"]["per_source"][0]
+    assert budgets == [90]
+    assert summary["attempt_count"] == 1  # Cancelled during the retry delay.
+    assert summary["status"] == "unverified" and "TimeoutError" in summary["error"]
+
+
+@pytest.mark.asyncio
+async def test_partial_survives_protocol_retry(producer):
+    import httpx
+    from threat_intel_mcp.adapters.base import FetchResult
+
+    class Adapter:
+        calls = 0
+
+        async def fetch(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.RemoteProtocolError("synthetic")
+            return FetchResult([], "ThreatFox", 9, producer.now(), 1, 0,
+                               ["recent_iocs"], partial_failure=["test coverage limitation"])
+
+    result = await producer.collect(Adapter())
+    summary = result["iocs"]["per_source"][0]
+    assert summary["status"] == "partial" and summary["attempt_count"] == 2
+    assert summary["partial_failure"] == ["test coverage limitation"]
+    assert result["iocs"]["sources_consulted"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["ReadTimeout", "LocalProtocolError", "CredentialNotFoundError"])
+async def test_other_errors_do_not_retry(producer, kind):
+    import httpx
+    from threat_intel_mcp.vault.base import CredentialNotFoundError
+
+    error = CredentialNotFoundError if kind == "CredentialNotFoundError" else getattr(httpx, kind)
+
+    class Broken:
+        async def fetch(self, **kwargs):
+            raise error("synthetic-sensitive-text")
+
+    result = await producer.collect(Broken())
+    summary = result["iocs"]["per_source"][0]
+    assert summary["attempt_count"] == 1 and summary["status"] == "unverified"
+    assert kind in summary["error"]
+    assert "synthetic-sensitive-text" not in producer.encode(result, "")

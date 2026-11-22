@@ -7,8 +7,11 @@ import json
 import os
 from pathlib import Path
 
+import httpx
+
 from threat_intel_mcp.adapters.threatfox import ThreatFoxAdapter
 from threat_intel_mcp.normalize import finalize_iocs
+from threat_intel_mcp.resilience import retry_with_backoff
 from threat_intel_mcp.vault.env import EnvCredentialProvider
 
 MAX_OUTPUT_BYTES = 1024 * 1024
@@ -28,10 +31,24 @@ async def collect(adapter):
         "partial_failure": [],
         "error": None,
         "collection_started_at": started,
+        "attempt_count": 0,
     }
+    async def fetch():
+        summary["attempt_count"] += 1
+        return await adapter.fetch(time_range="24h")
+
     records = []
     try:
-        result = await asyncio.wait_for(adapter.fetch(time_range="24h"), timeout=90)
+        # get_iocs is read-only. Retry only the observed protocol failure, here
+        # rather than in the adapter (whose fan-out callers already retry).
+        # One shared deadline covers both attempts and the bounded backoff.
+        result = await asyncio.wait_for(
+            retry_with_backoff(
+                fetch, retries=1, retry_on=(httpx.RemoteProtocolError,),
+                base_delay=0.5, max_delay=0.5,
+            ),
+            timeout=90,
+        )
         records = finalize_iocs(result.iocs)
         summary.update(
             status="partial" if result.partial_failure else "consulted",
