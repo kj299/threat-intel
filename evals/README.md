@@ -32,7 +32,7 @@ have meant no eval ran until both worked.
 Scenario invocation shells out to:
 
 ```bash
-claude --plugin-dir . -p "<scenario prompt>"
+claude --plugin-dir . -p --output-format stream-json --verbose "<scenario prompt>"
 ```
 
 ### Where a run's output goes

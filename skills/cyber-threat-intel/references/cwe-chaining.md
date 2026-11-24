@@ -95,7 +95,7 @@ The intel value is the **factor and its takeaway**, never the generated exploit.
 
 - **`observed_days`** — median days from disclosure to in-the-wild exploitation for the chain's contributing CWE classes (cite the TTE source).
 - **`trend`** — `accelerating` when the window is shrinking year-over-year (raises urgency and compresses patch SLA), `stable`, or `decelerating`.
-- A chain whose `ai_assist_factor` is moderate/high **and** whose `time_to_exploit.trend` is `accelerating` should escalate by at least one priority band and drive its break-point control to the front of the Actions Matrix.
+- A chain whose `ai_assist_factor` is moderate/high **and** whose `time_to_exploit.trend` is `accelerating` should escalate by one priority band and drive its break-point control to the front of the Actions Matrix.
 
 Cross-check chains against the **CISA KEV** catalog and **Project Zero "0day In the Wild"** tracker (projectzero.google/0day.html): a contributing CWE class with a KEV or ITW entry is under active exploitation and forces an urgency uplift regardless of modeled TTE.
 
@@ -224,7 +224,7 @@ future CVEs in the same weakness class.
 
 ## Scoring a chain
 
-Reuse the threat-scoring engine ([scoring.md](scoring.md)) at the chain level: the chain inherits the **exploitability** of its weakest (most exploitable) primary link, the **impact** of its terminal resultant link (record it in `terminal_impact`), and an **urgency** uplift when `ai_assist_factor` is moderate/high, when `time_to_exploit.trend` is `accelerating`, or when a contributing CWE class is under active exploitation (KEV/ITW). Map the chain score to P1–P5 and drive the break-point control into the Actions Matrix at that priority.
+Reuse the threat-scoring engine ([scoring.md](scoring.md)) at the chain level: the chain inherits the **exploitability** of its weakest (most exploitable) primary link, the **impact** of its terminal resultant link (record it in `terminal_impact`), and an **urgency** uplift when a contributing CWE class is under active exploitation (KEV/ITW); a chain whose `ai_assist_factor` is moderate/high **and** whose `time_to_exploit.trend` is `accelerating` additionally escalates one priority band. Map the chain score to P1–P5 and drive the break-point control into the Actions Matrix at that priority.
 
 ## Reporting
 

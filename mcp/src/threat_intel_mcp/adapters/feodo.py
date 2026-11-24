@@ -12,8 +12,9 @@ Credential
 ----------
 ``credentials.get("abusech", "auth_key")`` -> ``ABUSECH_AUTH_KEY``, the same key
 every abuse.ch service uses. The download path may still answer without it, so
-the key is **optional** here for the same reason it is on ThreatFox -- sending
-it when present, working without it while that route still answers.
+the key is **optional** here -- sent when present, working without it while
+that route still answers. (ThreatFox once worked the same way; its keyless CSV
+export was retired with HTTP 410 and its JSON API requires the key.)
 
 Feed contract
 -------------

@@ -322,7 +322,7 @@
           { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "no sector-relevant disclosures in window" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero"], "skipped": [{ "source": "SpecterOps blog", "reason": "not consulted in this run" }], "met": false },
           { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "The DFIR Report"], "skipped": [{ "source": "Bleeping Computer", "reason": "not consulted in this run" }], "met": false },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": true },
           { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories", "FBI IC3 / Flash Alerts", "FS-ISAC"], "skipped": [], "met": true },
           { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [{ "source": "ThreatFox", "reason": "not consulted in this run" }], "met": false }
         ],
@@ -426,7 +426,7 @@
           { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not relevant to SMB scope this run" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": [], "skipped": [{ "source": "Project Zero", "reason": "not consulted in this run" }], "met": false },
           { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "Bleeping Computer", "Have I Been Pwned"], "skipped": [], "met": true },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": true },
           { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories", "FBI IC3 / Flash Alerts"], "skipped": [], "met": false },
           { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [], "met": false }
         ],
@@ -561,7 +561,7 @@
           { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not consulted in this run" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps blog"], "skipped": [], "met": true },
           { "tier": 6, "required_min": 3, "consulted": ["The DFIR Report", "Bleeping Computer"], "skipped": [], "met": false },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": true },
           { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories"], "skipped": [{ "source": "NCSC UK", "reason": "not consulted in this run" }], "met": false },
           { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar"], "skipped": [{ "source": "ThreatFox", "reason": "not consulted in this run" }], "met": false }
         ],
@@ -694,7 +694,7 @@
           { "tier": 4, "required_min": 2, "consulted": [], "skipped": [{ "source": "HackerOne", "reason": "not relevant to a consumer scope" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": [], "skipped": [{ "source": "Project Zero", "reason": "not relevant to a consumer scope" }], "met": false },
           { "tier": 6, "required_min": 3, "consulted": ["Krebs on Security", "Bleeping Computer", "Malwarebytes Labs", "Have I Been Pwned"], "skipped": [], "met": true },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": true },
           { "tier": 8, "required_min": 3, "consulted": ["FBI IC3 / Flash Alerts", "CISA Advisories"], "skipped": [], "met": false },
           { "tier": 9, "required_min": 3, "consulted": [], "skipped": [{ "source": "MalwareBazaar", "reason": "not relevant to a consumer scope" }], "met": false }
         ],
@@ -847,7 +847,7 @@
           { "tier": 4, "required_min": 2, "consulted": ["HackerOne"], "skipped": [{ "source": "Bugcrowd", "reason": "not consulted in this run" }], "met": false },
           { "tier": 5, "required_min": 2, "consulted": ["Project Zero", "SpecterOps blog", "Rapid7 blog"], "skipped": [], "met": true },
           { "tier": 6, "required_min": 3, "consulted": ["The DFIR Report"], "skipped": [{ "source": "Krebs on Security", "reason": "not consulted in this run" }], "met": false },
-          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": false },
+          { "tier": 7, "required_min": "best-effort", "consulted": [], "skipped": [{ "source": "Flashpoint", "reason": "paywalled \u2014 not accessible in this run" }], "met": true },
           { "tier": 8, "required_min": 3, "consulted": ["CISA Advisories"], "skipped": [{ "source": "NCSC UK", "reason": "not consulted in this run" }], "met": false },
           { "tier": 9, "required_min": 3, "consulted": ["MalwareBazaar", "ThreatFox"], "skipped": [], "met": false }
         ],

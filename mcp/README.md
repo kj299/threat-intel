@@ -15,7 +15,7 @@ Implements the architecture described in [threat-intel issue #1](https://github.
 
 ```
 Claude Code
-  │  skill: threat-intel  (SKILL.md + output.schema.json)
+  │  skill: cyber-threat-intel  (SKILL.md + output.schema.json)
   │  skill_input.feed_integrations = [{"name": "Q-Feeds", "tier": 2}, ...]
   │
   │  IOC tool calls: fetch_all_iocs            (all IOC feeds at once)
@@ -65,7 +65,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | URLhaus adapter + `urlhaus_fetch_iocs` (abuse.ch; **requires** the shared `ABUSECH_AUTH_KEY`) | ✅ #212 |
 | Feodo Tracker adapter + `feodo_fetch_iocs` (abuse.ch botnet C2 IPs; same key, optional) | ✅ #212 |
 | Pulsedive adapter + `pulsedive_fetch_iocs` (`PULSEDIVE_API_KEY`; one page per fetch — free tier is 50 req/day) | ⚠️ #215 — built, but the first real call returned HTTP 429 on request one of one; Explore may be paid-only |
-| ThreatFox requires the shared abuse.ch `Auth-Key` for JSON `get_iocs`; the legacy CSV route subsequently returned HTTP 410 | ✅ #212 |
+| ThreatFox moved to the authenticated JSON `get_iocs` API (shared `Auth-Key` required) after the legacy CSV export began answering HTTP 410 (#241) | ✅ #248 |
 | Executive HTML renderer (`python -m threat_intel_mcp.render`) | ✅ #110 |
 | ANY.RUN TAXII/STIX adapter + `anyrun_fetch_iocs` | ✅ Phase 2 (deferred item) |
 | Intel 471 indicators adapter + `intel471_fetch_iocs` | ✅ Phase 2 (deferred item) |
@@ -86,7 +86,7 @@ Claude receives ioc_network[] / vuln records[] + coverage_ledger, cites sources 
 | Secrets-rotation playbook | ✅ Phase 4 (docs) |
 | MISP ZeroMQ subscriber (`transports/misp_zmq.py`) — first concrete `ProtocolAdapter` | ✅ #162 |
 | Empty-parse guard on every adapter (`guard_parsed`; ThreatFox and OSV apply the rule inline) | ✅ #106 |
-| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters historically; ThreatFox includes both historical CSV and authenticated JSON API evidence) | ✅ #105, #199, #208, #211 |
+| Recorded feed cassettes replayed offline — ThreatFox, CISA KEV, NVD, OpenPhish, EPSS, OSV, VulnCheck KEV, VirusTotal, URLhaus, Feodo Tracker, Q-Feeds, AbuseIPDB, AlienVault OTX, Shodan, GreyNoise (Recorded for 15 of 19 adapters historically; ThreatFox includes both historical CSV and authenticated JSON API evidence) | ✅ #105, #199, #208, #211, #249 |
 | Cassettes for ANY.RUN, Intel 471, Censys | blocked on feed credentials (#169) |
 | Cassette for Pulsedive | blocked on its 429 (account plan or quota) |
 | Shodan's feed returns zero matches | `category:malware` (Malware Hunter) is a membership feature; the account's plan gets an empty page, recorded as such |
@@ -133,7 +133,7 @@ cp .env.example .env
 set -a; . ./.env; set +a
 ```
 
-**Three routes, and why the file alone does nothing.** The credential provider reads `os.environ` of the *MCP server* process ([`vault/env.py`](src/threat_intel_mcp/vault/env.py)), and that process is a child of `claude`. `python-dotenv` is not a dependency and no code reads `.env` — it is a place to keep keys, not a mechanism. So pick one:
+**Three routes, and why the file alone does nothing.** The credential provider reads `os.environ` of the *MCP server* process ([`vault/env.py`](src/threat_intel_mcp/vault/env.py)), and that process is a child of `claude`. `python-dotenv` is not a direct dependency (it arrives only transitively) and no code here reads `.env` — it is a place to keep keys, not a mechanism. So pick one:
 
 1. **Put them in the registration.** Most reliable: it does not depend on which shell you launch from.
 
@@ -167,8 +167,6 @@ claude mcp add threat-intel \
   -- python -m threat_intel_mcp
 ```
 
-`--scope project` writes `.mcp.json` in the repo instead of your user config. Equivalent JSON, if you prefer to write the config by hand:
-
 > **Launch it as a module, not by bare command name.** `pip install` puts the
 > `threat-intel-mcp` console script in the interpreter's scripts directory,
 > which is often *not* on `PATH` — notably with Windows Store Python, where it
@@ -185,6 +183,8 @@ claude mcp add threat-intel \
 > If you installed into a virtualenv, point at that interpreter explicitly
 > (`.venv/bin/python`, or `.venv\Scripts\python.exe` on Windows) so the server
 > starts with the environment the package is actually installed in.
+
+`--scope project` writes `.mcp.json` in the repo instead of your user config. Equivalent JSON, if you prefer to write the config by hand:
 
 ```json
 {
@@ -203,7 +203,11 @@ claude mcp add threat-intel \
         "INTEL471_EMAIL": "you@example.com",
         "INTEL471_API_KEY": "your-intel471-key",
         "CENSYS_API_ID": "your-censys-id",
-        "CENSYS_API_SECRET": "your-censys-secret"
+        "CENSYS_API_SECRET": "your-censys-secret",
+        "NVD_API_KEY": "your-nvd-key",
+        "VULNCHECK_API_KEY": "your-vulncheck-key",
+        "ABUSECH_AUTH_KEY": "your-abusech-auth-key",
+        "PULSEDIVE_API_KEY": "your-pulsedive-key"
       }
     }
   }
@@ -211,6 +215,27 @@ claude mcp add threat-intel \
 ```
 
 Omit keys you don't have — the server runs with however many feeds are configured.
+
+### 5. Use with the threat-intel skill
+
+In Claude Code, after the MCP server is connected (the bare `/cyber-threat-intel` is a personal or project install's name; under `claude --plugin-dir .` it is `/threat-intel:cyber-threat-intel`):
+
+```
+/cyber-threat-intel
+feed_integrations: [
+  {"name": "Q-Feeds",       "tier": 2, "access_level": "premium"},
+  {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
+  {"name": "VirusTotal",    "tier": 3, "access_level": "free"},
+  {"name": "AlienVault OTX","tier": 3, "access_level": "free"},
+  {"name": "Shodan",        "tier": 3, "access_level": "premium"},
+  {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"},
+  {"name": "ANY.RUN",       "tier": 9, "access_level": "enterprise"},
+  {"name": "Intel 471",     "tier": 7, "access_level": "enterprise"},
+  {"name": "Censys",        "tier": 3, "access_level": "premium"}
+]
+```
+
+`access_level` is the plan you hold, and the schema accepts only `free`, `premium` or `enterprise`. Claude will call the relevant feed tools (`*_fetch_iocs`, `abuseipdb_fetch_blocklist`) and `virustotal_enrich_iocs` for enrichment, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
 
 ## Vault Credentials (Phase 2)
 
@@ -277,27 +302,6 @@ key name — the provider reads field `api_key` from the secret at
   }
 }
 ```
-
-### 5. Use with the threat-intel skill
-
-In Claude Code, after the MCP server is connected (the bare `/cyber-threat-intel` is a personal or project install's name; under `claude --plugin-dir .` it is `/threat-intel:cyber-threat-intel`):
-
-```
-/cyber-threat-intel
-feed_integrations: [
-  {"name": "Q-Feeds",       "tier": 2, "access_level": "premium"},
-  {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
-  {"name": "VirusTotal",    "tier": 3, "access_level": "free"},
-  {"name": "AlienVault OTX","tier": 3, "access_level": "free"},
-  {"name": "Shodan",        "tier": 3, "access_level": "premium"},
-  {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"},
-  {"name": "ANY.RUN",       "tier": 9, "access_level": "enterprise"},
-  {"name": "Intel 471",     "tier": 7, "access_level": "enterprise"},
-  {"name": "Censys",        "tier": 3, "access_level": "premium"}
-]
-```
-
-`access_level` is the plan you hold, and the schema accepts only `free`, `premium` or `enterprise`. Claude will call the relevant feed tools (`*_fetch_iocs`, `abuseipdb_fetch_blocklist`) and `virustotal_enrich_iocs` for enrichment, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
 
 ## Implementing a paid-subscription feed adapter
 
@@ -411,13 +415,15 @@ Two of them are there because a live call disproved a belief, which is the best 
 6. **Set honest confidence and `action`.** Map the vendor's own score/verdict to `High`/`Medium`/`Low`; use `action: block` only for high-confidence blocklists, `action: alert` for heuristic/crawler detections (as `shodan.py` does). Never invent a confidence the source doesn't support (R3).
 7. **Normalize to `ioc_network`** with at least `type`, `value`, `confidence`, `source`. Parse IPs with `ipaddress` (rejects malformed octets), and normalise any naive timestamps to RFC 3339 so runtime date-time validation passes (see `shodan.py::_normalize_timestamp`). Return `None` to skip a record rather than emitting a half-populated one.
 8. **Register it.** Add a `{name}_fetch_iocs` tool in `server.py` (copy an existing one — they're identical except for names/tiers), append a `FeedSource(..., CircuitBreaker("Name"), _CONFIG_ERRORS)` to `_FEED_SOURCES` so `fetch_all_iocs` picks it up, and add a `list_available_feeds` entry, and add the feed to `feed_status.json` under the same name (`feed_status.annotate_discovery` looks every listed feed up there and raises `KeyError` otherwise). An adapter is a source too: it needs a source-matrix entry at its tier in the same PR.
-9. **Record a cassette if the feed is keyless.** `pytest-httpx` fixtures encode what you *believe* the
+9. **Record a cassette.** `pytest-httpx` fixtures encode what you *believe* the
    feed returns; a cassette is bytes it actually sent. ThreatFox shipped a parser that returned 0 IOCs
    from a live 1 MB response while every mock test passed (#100), which is why `mcp/tests/cassettes/`
-   exists. Record with the `record-cassettes` workflow (runners have egress the dev sandbox lacks) and
-   keep the recording under the 4 MB ceiling `tests/test_vcr_harness.py` enforces. A credentialed feed
-   cannot be recorded until its key is configured (#169) — that is a known gap, not an exemption.
-10. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is automatically covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` (add it to the tool list there) — that guard is what catches the "raised `ValueError` on a bad body" mistake.
+   exists. Record with the `record-cassettes` workflow (runners have egress the dev sandbox lacks; for a
+   credentialed feed set `include_keyed: true` or name it in `feeds`, with its key configured as a
+   repository secret) and keep the recording under the 4 MB ceiling `tests/test_vcr_harness.py`
+   enforces. A feed whose key is not configured cannot be recorded (#169) — that is a known gap, not
+   an exemption.
+10. **Test with `pytest-httpx`** — no live calls in CI. Mock the documented response, assert normalization, pagination stop, cache reuse, the total-failure `raise`, and (if the key is in the URL) that it never appears in `caplog`. See `tests/test_shodan.py` for the full set. Your new single-feed tool is covered by the parametrized malformed-body guard in `tests/test_server_smoke.py` once you add it to that file's tool lists, which its registration test forces you to do — that guard is what catches the "raised `ValueError` on a bad body" mistake.
 
 ### API contract for each paid subscription source
 
@@ -569,13 +575,13 @@ tests/
 ├── test_server_success_paths.py  Tool success paths with mocked upstreams
 ├── test_server_enrichment_degrade.py  Enrichment tools (VirusTotal/EPSS/OSV) degrade + caller-error paths
 ├── test_government_coverage.py Per-publisher discovery and evidence receipt gates
-├── test_daily_threatfox_input.py Daily artifact freshness, provenance and source attribution gates
+├── test_daily_threatfox_input.py Daily artifact freshness, provenance and source attribution gates; producer bounds and one-retry rule; refresh helper
 ├── test_docs_consistency.py  Docs-as-code: env vars, Vault paths, tool parity, counts, file trees
 ├── test_cassette_playback.py  Adapters replayed against recorded real responses (#105)
 ├── test_vcr_harness.py    Cassette scrubbing + size-ceiling guards
 ├── test_empty_parse_guards.py  guard_parsed coverage across every adapter (#106)
 ├── test_pipeline_duplication.py  #84 trip-wire: IOC/CVE pipelines must not diverge
-├── test_prefetch_feeds.py Report-path fetcher: credential refusal, EPSS + VirusTotal wiring
+├── test_prefetch_feeds.py Report-path fetcher: credential refusal, EPSS, OSV + VirusTotal wiring
 ├── test_daily_feed_handoff.py  Daily artifact provenance, coverage and isolation
 ├── test_live_feeds.py     Live endpoint checks (pytest -m live; deselected by default)
 ├── test_misp_zmq.py       MISP ZeroMQ subscriber tests
@@ -693,7 +699,11 @@ are missed. A background subscriber draining into a buffer would capture
 everything at the cost of this server's first long-lived task; that is a
 deliberate follow-up, not an oversight.
 
+## Daily ThreatFox producer
+
 The [`threatfox-prefetch` workflow](../.github/workflows/threatfox-prefetch.yml) uses `scripts/prefetch_threatfox.py` for one bounded, credential-isolated collection — at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried) — and a scanned artifact of at most 1 MiB. It has no model or email step and has run on its daily schedule from `main` since #251. The read-only daily consumer contract is described in the [report runbook](../docs/report-runbook.md#durable-read-only-daily-handoff).
+
+## Repository scripts outside this package
 
 Government advisory discovery uses `scripts/government_coverage.py` at the repository root: a credential-free plan and receipt validator, not an MCP adapter or automatic fetcher. It distinguishes CISA Advisories from KEV, requires a separate CERT-EU receipt and scoped high-impact CVE checks, and emits gaps without blocking delivery. See the skill government-advisory reference for caller adoption and freshness limits.
 

@@ -17,7 +17,7 @@ If none specified: `enterprise_soc` with `output_format: technical_ioc_package`.
 
 ## Persona-Specific Output Sections
 
-See [output-templates.md](output-templates.md) for the section list per persona.
+See [output-templates.md](output-templates.md) for the section list each `output_format` selects.
 
 ## Pairing an executive overview with a technical report
 
@@ -28,7 +28,7 @@ The `executive_overview` input (default `off`) is additive, so a single run can 
 |---|---|
 | `off` | Technical report only — prior behaviour, unchanged |
 | `attached` | The rendered dashboard opens the technical report |
-| `separate` | Companion artifact at `report-output/<date>-threat-intel-executive.html` |
+| `separate` | Companion artifact at `report-output/<date>-threat-intel-executive.html`, beside the technical report at `report-output/<date>-threat-intel.md` |
 
 This matters most for `enterprise_soc` teams who have to brief leadership: previously that
 meant two runs and two chances to diverge.
@@ -41,9 +41,10 @@ executive summary and dashboard, so an analyst can see exactly what leadership w
 The failure this design targets is not verbosity. It is **two documents that disagree**: a
 dashboard reporting risk decreasing while the technical report lists three new
 actively-exploited CVEs. Five invariants are asserted in `evals/` — same `report_id` and
-`generated_at`, same badge and source count, every executive claim resolving to a technical
-section, risk scores from the [scoring.md](scoring.md) formula rather than recomputed, and
-each artifact naming the other. Each is checked wherever both artifacts show the value: the
+`generated_at`, same badge and source count, every CVE the overview names also present in the technical report (the
+decidable part of "every executive claim resolves to a technical section"), every `N/100`
+score in the overview present in the report, and the overview naming the report (the reverse
+is a style note). Each is checked wherever both artifacts show the value: the
 rendered overview shows `generated_at` and the badge, but not a report id or a source count.
 
 ## Rendering the visual dashboard

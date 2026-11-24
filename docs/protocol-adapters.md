@@ -26,6 +26,10 @@ shipped REST feeds work.
 - **No hardcoded endpoint.** A concrete adapter is configured entirely from
   operator-supplied values. Building against an invented endpoint or a made-up
   response schema would violate this repo's no-fabrication rule.
+- **No protocol client dependencies by default.** `gql`, `websockets`,
+  `paho-mqtt`, and `grpcio` are *not* dependencies of `threat-intel-mcp`. A
+  concrete adapter adds the single library it needs as an optional extra —
+  `pyzmq` arrived this way with the MISP adapter.
 
 **Ships as of #162 — one concrete adapter, and what it does and does not prove:**
 
@@ -42,10 +46,6 @@ shipped REST feeds work.
   feed**. A merged ZeroMQ adapter is not evidence that the credential path works.
 - Whether a bounded window is the right collection model for a bursty publisher
   is an open, evidence-gated question: #167.
-- **No protocol client dependencies by default.** `gql`, `websockets`,
-  `paho-mqtt`, and `grpcio` are *not* dependencies of `threat-intel-mcp`. A
-  concrete adapter adds the single library it needs as an optional extra —
-  `pyzmq` arrived this way with the MISP adapter.
 
 ## Where credentials live
 
@@ -107,9 +107,10 @@ class MyGraphQLFeed(ProtocolAdapter):
         }
 ```
 
-Register it like any other source — wrap it in a `FeedSource` with its own
-`CircuitBreaker` and add it to the server's `_FEED_SOURCES` list so `fetch_all_iocs`
-picks it up. The base class handles validation, dedup, and `FetchResult`.
+Register it like any other source (see `mcp/README.md` → Step-by-step, step 8): a
+module-level adapter, a `FeedSource` with its own `CircuitBreaker` in the server's
+`_FEED_SOURCES` list so `fetch_all_iocs` picks it up, a single-feed tool, a
+`list_available_feeds` entry, a `feed_status.json` entry and a source-matrix entry. The base class handles validation, dedup, and `FetchResult`.
 
 ## Why credentials, not adapters, are the deliverable here
 

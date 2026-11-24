@@ -152,7 +152,7 @@ overview found on its own months later cannot be mistaken for the whole analysis
 
 To drive the skill programmatically (Claude Code, an OpenAI pipeline, or a tool that ingests its output):
 
-- **Feed the self-contained artifact** [`standalone/cyber-threat-intel-prompt.md`](../standalone/cyber-threat-intel-prompt.md). It inlines the source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract. Do not feed `spec.yaml` alone (CI spec only — no workflow / SIEM guidance). The legacy `cyber_threat_skill.yaml` was split/renamed in 1.2.0 and no longer exists; a consumer auto-discovering that filename loads nothing and produces empty output.
+- **Feed the self-contained artifact** [`standalone/cyber-threat-intel-prompt.md`](../standalone/cyber-threat-intel-prompt.md). It inlines the source matrix, scoring, the starter-first SPL/KQL rules, and the `delimited_batch_export` contract. Do not feed `spec.yaml` alone (it is the CI spec: structured flags such as `siem_query_rules` and `workflow_modes`, but not the workflow steps or SPL/KQL starters). The legacy `cyber_threat_skill.yaml` was split/renamed in 1.2.0 and no longer exists; a consumer auto-discovering that filename loads nothing and produces empty output.
 - **Structured IOC hand-off**: with `build_iocs_and_queries` on (default), `delimited_batch_export` carries `mitre_id`, `name`, `fields` (`detection_method`, `detection_value`, `severity`, `actor`), `source`, `confidence`. Map to your importer's columns (e.g. `MITRE_ID|Name|Detection_Method|Detection_Value|Severity|Actor`).
 - **The consumer owns input validation.** The skill emits raw typed values and never escapes/sanitizes on a tool's behalf. For ingestibility, `detection_value` should be a concrete metacharacter-free ASCII literal and `detection_method` one of the common six (`registry key`, `event id`, `process name`, `file path`, `named pipe`, `wmi query`) — strict importers drop rows that violate this. (See *Limitations* below.)
 - **Validate** output against [`schemas/output.schema.json`](../skills/cyber-threat-intel/schemas/output.schema.json) before ingesting.
@@ -204,6 +204,10 @@ python - <<'PY'
 import json, jsonschema
 schema = json.load(open("skills/cyber-threat-intel/schemas/output.schema.json"))
 instance = json.load(open("output.json"))
+# The root schema describes {"skill_input", "skill_output"} and requires neither, so a
+# bare output object validates vacuously. Wrap it the way CI does:
+if "skill_output" not in instance:
+    instance = {"skill_output": instance}
 jsonschema.validate(instance, schema, format_checker=jsonschema.FormatChecker())
 print("valid")
 PY
@@ -211,7 +215,7 @@ PY
 
 ### Valid Output Shape
 
-A conforming threat intelligence report includes:
+A conforming `skill_output` object (validated wrapped as `{"skill_input": …, "skill_output": …}`, as CI validates the examples) includes:
 
 - `metadata` — `generated_at`, `skill_version`, `sources_referenced`
 - `alert_level` — `level`, `icon`, `color`, `message`

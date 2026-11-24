@@ -34,7 +34,7 @@ page budget the format names, and keep Appendix A.
 5. Investment Recommendations
 6. Appendix A: Source Coverage Ledger
 
-## Technical Report (Enterprise SOC default)
+## Technical Report (`technical_report`)
 
 1. Header with Coverage Badge
 2. Executive Summary
@@ -48,7 +48,8 @@ page budget the format names, and keep Appendix A.
 10. Technical Appendix
 11. Appendix A: Source Coverage Ledger
 
-## SOC IOC Package
+## SOC IOC Package (`technical_ioc_package`, the `enterprise_soc` default)
+
 
 1. Header with Coverage Badge
 2. Deployment Priority

@@ -78,8 +78,7 @@ only becomes meaningful once a home for new, non-frozen-corpus reports is chosen
 The read-only `report-delivery` workflow checks successful generator runs for
 an unexpired, nonempty `threat-intel-report` artifact within ten days. A green job
 without an artifact does not satisfy delivery. It opens no issues and sends no
-messages. Local decision tests cover missing, failed, expired, and stale delivery;
-It has run on its daily schedule on GitHub since 2026-11-16 (checked 2026-11-20, all green). Artifact presence
+messages. Local decision tests (`evals/test_delivery.py`) cover missing, failed, expired, and stale delivery. It has run on its daily schedule on GitHub since 2026-11-16 (checked 2026-11-20, all green). Artifact presence
 proves delivery, not report correctness. The old corpus-based staleness workflow
 remains manual.
 

@@ -10,6 +10,8 @@ flowchart TD
         Skill["Skill\nskills/cyber-threat-intel/SKILL.md"]
         Output["Output\nValidated against\noutput.schema.json"]
         Render["render/executive.py + render/report.py\npython -m threat_intel_mcp.render\nexecutive_overview: attached | separate\nself-contained HTML — NOT an MCP tool"]
+    end
+    subgraph GHA["GitHub Actions — scheduled-report.yml"]
         Prefetch["scheduled-report.yml : job 1 of 2\nprefetch — HOLDS the feed credentials\nfixed script, no agent\nmcp/scripts/prefetch_feeds.py\n→ feed-data.json artifact"]
         Sched["scheduled-report.yml : job 2 of 2\ngenerate — the agent. NO credentials,\nno MCP feed server. Reads feed-data.json\nreport → report-output/ (gitignored)\n→ run summary + job log\n+ threat-intel-report artifact (30d) — never reports/"]
     end
@@ -20,7 +22,7 @@ flowchart TD
     end
 
     subgraph MCP["threat-intel-mcp (stdio transport)"]
-        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       openphish_fetch_iocs\n       urlhaus_fetch_iocs\n       feodo_fetch_iocs\n       pulsedive_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       epss_enrich_cves\n       osv_enrich_cves\n       list_available_feeds"]
+        Server["MCP Server\nserver.py\nIOC tools: qfeeds_fetch_iocs\n       abuseipdb_fetch_blocklist\n       otx_fetch_iocs\n       shodan_fetch_iocs\n       greynoise_fetch_iocs\n       anyrun_fetch_iocs\n       intel471_fetch_iocs\n       censys_fetch_iocs\n       threatfox_fetch_iocs\n       openphish_fetch_iocs\n       urlhaus_fetch_iocs\n       feodo_fetch_iocs\n       pulsedive_fetch_iocs\n       fetch_all_iocs\nCVE tools: cisa_kev_fetch_cves\n       nvd_fetch_cves\n       vulncheck_fetch_cves\n       fetch_all_cves\nEnrichment: virustotal_enrich_iocs\n       epss_enrich_cves\n       osv_enrich_cves\nDiscovery: list_available_feeds"]
 
         FanOut["fetch_all_iocs fan-out\nfanout.py\nasyncio.gather over all sources\nmerge + cross-source dedup"]
         VulnFanOut["fetch_all_cves fan-out\nvulns.py\nfan_out_vulns over CVE sources\nmerge + dedup by CVE ID"]
@@ -75,13 +77,13 @@ flowchart TD
         URLhaus_API["URLhaus API v1\nhttps://urlhaus-api.abuse.ch/v1\nGET /urls/recent/ · Auth-Key"]
         Feodo_API["Feodo Tracker blocklist\nhttps://feodotracker.abuse.ch\nGET /downloads/ipblocklist.json"]
         Pulsedive_API["Pulsedive Explore\nhttps://pulsedive.com/api\nGET /explore.php?q=..&key=.."]
-        OpenPhish_API["OpenPhish Community feed\nhttps://openphish.com/feed.txt\npublic text · 300 URLs · 12h refresh"]
+        OpenPhish_API["OpenPhish Community feed\nhttps://openphish.com/feed.txt\n(redirects to raw.githubusercontent.com)\npublic text · 300 URLs · 12h refresh"]
         EPSS_API["FIRST.org EPSS API\nhttps://api.first.org/data/v1/epss\nGET ?cve=a,b,c · no auth"]
         OSV_API["OSV.dev API\nhttps://api.osv.dev/v1\nGET /vulns/{id} · no auth"]
         AnyRun_API["ANY.RUN API\nhttps://api.any.run/v1\nGET /feeds/taxii2/... · STIX"]
         Intel471_API["Intel 471 API\nhttps://api.intel471.com/v1\nGET /indicators/stream · cursor"]
         Censys_API["Censys API v2\nhttps://search.censys.io/api/v2\nGET /hosts/search · labels:malware"]
-        CISAKEV_API["CISA KEV catalog\nhttps://www.cisa.gov/sites/default/files/feeds/\nknown_exploited_vulnerabilities.json\npublic JSON"]
+        CISAKEV_API["CISA KEV catalog\nhttps://www.cisa.gov/sites/default/files/feeds/\nknown_exploited_vulnerabilities.json\npublic JSON · fallback: cisagov/kev-data\non raw.githubusercontent.com"]
         NVD_API["NIST NVD API 2.0\nhttps://services.nvd.nist.gov/rest/json/cves/2.0\nlastModStartDate/EndDate · paginated"]
         VulnCheck_API["VulnCheck API v3\nhttps://api.vulncheck.com/v3\nGET /index/vulncheck-kev · paginated"]
         MISP_EP["MISP ZeroMQ pub-sub\noperator-supplied tcp:// endpoint\nmisp_json · misp_json_attribute\nmisp_json_self keep-alive (1/min)"]
@@ -123,12 +125,12 @@ flowchart TD
     EnvCred -->|"api_key"| Shodan
     EnvCred -->|"api_key"| GreyNoise
     EnvCred -->|"api_key"| AnyRun
-    EnvCred -->|"api_key"| Intel471
-    EnvCred -->|"api_key"| Censys
+    EnvCred -->|"email + api_key"| Intel471
+    EnvCred -->|"api_id + api_secret"| Censys
     EnvCred -.->|"api_key (optional)"| NVD
     EnvCred -->|"api_key"| VulnCheck
     EnvCred -->|"auth_key"| URLhaus
-    EnvCred -.->|"auth_key (required)"| ThreatFox
+    EnvCred -->|"auth_key"| ThreatFox
     EnvCred -.->|"auth_key (optional)"| Feodo
     EnvCred -->|"api_key"| Pulsedive
     VaultCred -.->|"api_key (Phase 2)"| QFeeds
@@ -138,12 +140,12 @@ flowchart TD
     VaultCred -.->|"api_key (Phase 2)"| Shodan
     VaultCred -.->|"api_key (Phase 2)"| GreyNoise
     VaultCred -.->|"api_key (Phase 2)"| AnyRun
-    VaultCred -.->|"api_key (Phase 2)"| Intel471
-    VaultCred -.->|"api_key (Phase 2)"| Censys
+    VaultCred -.->|"email + api_key (Phase 2)"| Intel471
+    VaultCred -.->|"api_id + api_secret (Phase 2)"| Censys
     VaultCred -.->|"api_key (Phase 2, optional)"| NVD
     VaultCred -.->|"api_key (Phase 2)"| VulnCheck
     VaultCred -.->|"auth_key (Phase 2)"| URLhaus
-    VaultCred -.->|"auth_key (required)"| ThreatFox
+    VaultCred -.->|"auth_key (Phase 2)"| ThreatFox
     VaultCred -.->|"auth_key (Phase 2, optional)"| Feodo
     VaultCred -.->|"api_key (Phase 2)"| Pulsedive
     QFeeds -->|"GET /api?feed_type=..&page=N"| QFeedsAPI
@@ -184,26 +186,26 @@ flowchart TD
     NVD_API -->|"JSON vulnerabilities[]"| NVD
     VulnCheck -->|"GET /index/vulncheck-kev?page=N (Bearer)"| VulnCheck_API
     VulnCheck_API -->|"JSON data[] · _meta.total_pages"| VulnCheck
-    QFeeds -->|"raw ioc_network objects"| Normalize
-    AbuseIPDB -->|"raw ioc_network objects"| Normalize
-    OTX -->|"raw ioc_network objects"| Normalize
-    Shodan -->|"raw ioc_network objects"| Normalize
-    GreyNoise -->|"raw ioc_network objects"| Normalize
-    ThreatFox -->|"raw ioc_network objects"| Normalize
-    OpenPhish -->|"raw ioc_network objects"| Normalize
-    URLhaus -->|"raw ioc_network objects"| Normalize
-    Feodo -->|"raw ioc_network objects"| Normalize
-    Pulsedive -->|"raw ioc_network objects"| Normalize
-    AnyRun -->|"raw ioc_network objects"| Normalize
-    Intel471 -->|"raw ioc_network objects"| Normalize
-    Censys -->|"raw ioc_network objects"| Normalize
-    CISAKEV -->|"raw vuln records"| VulnNormalize
-    NVD -->|"raw vuln records"| VulnNormalize
-    VulnCheck -->|"raw vuln records"| VulnNormalize
-    Normalize -->|"validated + deduped IOCs"| FetchResult
-    VulnNormalize -->|"validated + deduped CVEs"| VulnFetchResult
-    FetchResult -->|"iocs · coverage_ledger_entry"| Server
-    VulnFetchResult -->|"vulns · coverage_ledger_entry"| Server
+    QFeeds -->|"raw ioc_network objects"| FetchResult
+    AbuseIPDB -->|"raw ioc_network objects"| FetchResult
+    OTX -->|"raw ioc_network objects"| FetchResult
+    Shodan -->|"raw ioc_network objects"| FetchResult
+    GreyNoise -->|"raw ioc_network objects"| FetchResult
+    ThreatFox -->|"raw ioc_network objects"| FetchResult
+    OpenPhish -->|"raw ioc_network objects"| FetchResult
+    URLhaus -->|"raw ioc_network objects"| FetchResult
+    Feodo -->|"raw ioc_network objects"| FetchResult
+    Pulsedive -->|"raw ioc_network objects"| FetchResult
+    AnyRun -->|"raw ioc_network objects"| FetchResult
+    Intel471 -->|"raw ioc_network objects"| FetchResult
+    Censys -->|"raw ioc_network objects"| FetchResult
+    CISAKEV -->|"raw vuln records"| VulnFetchResult
+    NVD -->|"raw vuln records"| VulnFetchResult
+    VulnCheck -->|"raw vuln records"| VulnFetchResult
+    FetchResult -->|"finalize_iocs, run by the tool or the fan-out"| Normalize
+    VulnFetchResult -->|"finalize_vulns, run by the tool or the fan-out"| VulnNormalize
+    Normalize -->|"validated + deduped IOCs\n(the tool adds coverage_ledger_entry)"| Server
+    VulnNormalize -->|"validated + deduped CVEs\n(the tool adds coverage_ledger_entry)"| Server
     Server -->|"FetchResult / VulnFetchResult dict"| Skill
     Skill -->|"cites each live source by name: IOC feeds · CVE feeds ·\nenrichments (VirusTotal / EPSS / OSV)\nincorporates IOCs + vulnerabilities into report"| Output
     Output -->|"validated JSON"| User
@@ -211,8 +213,8 @@ flowchart TD
     MISPZMQ -->|"SUBSCRIBE b'' · single frame\ntopic SPACE json"| MISP_EP
     Adapters -.->|"parse routes through\n(ThreatFox and OSV inline the rule)"| GuardParsed
     VulnAdapters -.->|"parse routes through"| GuardParsed
-    GuardParsed -->|"understood records"| Normalize
-    GuardParsed -->|"understood records"| VulnNormalize
+    GuardParsed -->|"understood records"| FetchResult
+    GuardParsed -->|"understood records"| VulnFetchResult
     Output -->|"same validated object,\nnever a second document"| Render
     Prefetch -.->|"feed-data.json artifact\n(data only, no credential)"| Sched
     Sched -.->|"invokes the skill\nreading the file, not fetching"| Skill
@@ -236,13 +238,13 @@ flowchart TD
 | Report delivery monitor | `.github/workflows/report-delivery.yml` · `scripts/check_delivery.py` | Daily 08:17 UTC and on dispatch; read-only, no feed credential. Fails unless a successful `scheduled-report.yml` run in the last ten days carries an unexpired, non-empty `threat-intel-report` artifact. Opens no issue and sends nothing. Proves delivery, not correctness |
 | Report staleness alarm | `.github/workflows/report-staleness.yml` | Manual-only legacy alarm keyed on commits to `reports/`, which is a frozen corpus, so its condition is permanently true; superseded in practice by the delivery monitor above |
 | MCP Server | `mcp/src/threat_intel_mcp/server.py` | `MCPServer` stdio server (mcp 2.0's successor to FastMCP); exposes IOC tools `qfeeds_fetch_iocs`, `abuseipdb_fetch_blocklist`, `otx_fetch_iocs`, `shodan_fetch_iocs`, `greynoise_fetch_iocs`, `anyrun_fetch_iocs`, `intel471_fetch_iocs`, `censys_fetch_iocs`, `threatfox_fetch_iocs`, `openphish_fetch_iocs`, `urlhaus_fetch_iocs`, `feodo_fetch_iocs`, `pulsedive_fetch_iocs`, `fetch_all_iocs`; CVE tools `cisa_kev_fetch_cves`, `nvd_fetch_cves`, `vulncheck_fetch_cves`, `fetch_all_cves`; enrichment tools `virustotal_enrich_iocs` (per-indicator, key required), `epss_enrich_cves` and `osv_enrich_cves` (per-CVE, both keyless) — none part of the IOC fan-out (#203); and `list_available_feeds` |
-| Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every configured adapter concurrently via `asyncio.gather`, validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
+| Fan-out | `mcp/src/threat_intel_mcp/fanout.py` | `fetch_all_iocs` backend: runs every registered IOC adapter concurrently via `asyncio.gather` (an unconfigured one degrades to `unverified`), validates + dedupes per source, merges into one deduplicated set, surfaces degraded sources to the Coverage Ledger |
 | Vuln fan-out + pipeline | `mcp/src/threat_intel_mcp/vulns.py` | `fetch_all_cves` backend: `fan_out_vulns` over the CVE sources (same `CircuitBreaker`/`guarded_fetch` resilience), plus `finalize_vulns` = sanitize → validate against the inline CVE-keyed vuln-record schema → dedupe by CVE ID (keeps highest CVSS, folds in KEV exploit-status/due-date). Emits vulnerability records, not `ioc_network` |
 | Resilience | `mcp/src/threat_intel_mcp/resilience.py` | `CircuitBreaker` (closed/open/half-open) + `retry_with_backoff` (exponential backoff + jitter) wrapped by `guarded_fetch`; isolates one flaky feed from the rest. Whether a failure retries / trips the breaker follows the adapter **error taxonomy** in `adapters/base.py`: `ValueError` = caller error (surfaced), `CredentialError`/`KeyError` = config (degrade, no retry), `AccountLimitError` = account refused (degrade, no retry), anything else incl. a malformed body = upstream (degrade, retry) |
 | Protocol credentials | `mcp/src/threat_intel_mcp/vault/protocols.py` | Typed, validated credential bundles for gRPC / MQTT / WebSocket / GraphQL feeds, loaded via the same `CredentialProvider` |
 | Protocol adapter base | `mcp/src/threat_intel_mcp/transports/base.py` | `ProtocolAdapter`: abstract bring-your-own-endpoint `SourceAdapter` (impl `_collect` + `_normalize`); ships **no live feed / no hardcoded endpoint**. See [protocol-adapters.md](protocol-adapters.md) |
 | MISP ZeroMQ adapter | `mcp/src/threat_intel_mcp/transports/misp_zmq.py` | Issue #162, the first concrete `ProtocolAdapter`. Subscribes `zmq.SUB` for a bounded window and parses MISP's single-frame `topic SPACE json` framing (verified against `MISP/tools/misp-zmq/sub.py`, not assumed — a multipart reader gets nothing). Honours MISP's own `to_ids` flag, which is a **string** `"1"`/`"0"`: a truthiness check would treat `"0"` as True and emit every non-actionable attribute. **Uses no credentials** — MISP ZMQ has no auth — so it proves the transport, not the credential path. Endpoint is operator-supplied; no hostname is committed |
-| Executive renderer | `mcp/src/threat_intel_mcp/render/executive.py` | Issues #110 and #168: renders an `enterprise_executive` output as a self-contained landscape HTML page. Driven by the `executive_overview` skill input (`off` | `attached` | `separate`) — `output_format` still names the *primary* deliverable, and this is additive, so one run yields both. The overview is a **projection of the same validated output object**, never a second document, which is what stops the two artifacts disagreeing; five consistency invariants are asserted in `evals/` (`check_paired_artifacts`). Page (no external stylesheet, script, font or image). CLI: `python -m threat_intel_mcp.render in.json -o out.html`. **Deliberately not an MCP tool** — the tool surface is the *feed* contract, mirrored in both skill files and asserted by the skill↔server parity test (#79); rendering is a local transform of data the caller already holds. Risk bands use a sequential single-hue ramp, not red/amber/green: status hues are non-monotonic in lightness (moderate is *lighter* than low and high) and collapse in greyscale. Nothing is encoded by colour alone; modelled figures carry a `MODELLED` chip in the tile; an absent coverage badge renders as `COVERAGE NOT REPORTED` rather than defaulting |
+| Executive renderer | `mcp/src/threat_intel_mcp/render/executive.py` | Issues #110 and #168: renders an `enterprise_executive` output as a self-contained landscape HTML page. Driven by the `executive_overview` skill input (`off` | `attached` | `separate`) — `output_format` still names the *primary* deliverable, and this is additive, so one run yields both. The overview is a **projection of the same validated output object**, never a second document, which is what stops the two artifacts disagreeing; five consistency invariants are asserted in `evals/` (`check_paired_artifacts`). The page is self-contained (no external stylesheet, script, font or image). CLI: `python -m threat_intel_mcp.render in.json -o out.html`. **Deliberately not an MCP tool** — the tool surface is the *feed* contract, mirrored in both skill files and asserted by the skill↔server parity test (#79); rendering is a local transform of data the caller already holds. Risk bands use a sequential single-hue ramp, not red/amber/green: status hues are non-monotonic in lightness (moderate is *lighter* than low and high) and collapse in greyscale. Nothing is encoded by colour alone; modelled figures carry a `MODELLED` chip in the tile; an absent coverage badge renders as `COVERAGE NOT REPORTED` rather than defaulting |
 | Report renderer | `mcp/src/threat_intel_mcp/render/report.py` | Renders a **markdown** threat-intel report (what the skill and the weekly workflow emit) as one self-contained HTML page: header block as a card with the coverage badge, contents list, tables wrapped for narrow screens, `P1`-`P5` priority labels as chips (the label text is kept, so nothing is colour-only). **The input is untrusted** -- the text derives from feeds (R6) -- so raw HTML in it is escaped (markdown-it-py with `html=False`), images are disabled outright (an `<img>` to a feed-supplied URL is a beacon), only `http(s)`, `mailto` and in-page links survive and every one carries `rel="noopener noreferrer nofollow"` plus a `data-host` showing the real destination (punycode for IDN), and a CSP of `default-src 'none'` forbids scripts and network even if something slipped. Needs the optional `report` extra (`markdown-it-py`); without it the CLI exits 3 with the install command. CLI: `python -m threat_intel_mcp.render report.md -o report.html` (`--format auto` picks by suffix: `.md` or `.markdown` -> report, anything else including stdin -> executive; `--label` adds a label to the page header). `mcp/tests/test_report_render.py` asserts safety against an allowlist of tags, attributes and URL schemes parsed with `HTMLParser` rather than by grepping for bad strings, and renders every file in the frozen `reports/` corpus. Also **not an MCP tool** |
 | Skill-output evals | `evals/` | Issue #83: the honesty half of CI. `invariants.py` asserts R1-R6 properties over a generated report — badge present and not over-claimed, Appendix A present, an explicit no-fabrication claim, no reserved-range/filler indicators, sparse reports stating sparsity in prose. `run.py --corpus` runs offline over every committed report and is PR-gated; `run.py --files PATH...` runs the same invariants over arbitrary reports (`scheduled-report.yml` does this to each fresh one); `run.py --scenario KEY` invokes the skill (model call, on demand); `run.py --list` names the scenarios. `evidence.py` is an opt-in grounding check of a skill-output JSON against the prefetch payload. Badge checking is **directional** — over-claiming fails, under-claiming is a style note — and matching is on substance across real phrasings rather than exact labels |
 | Pipeline duplication guard | `mcp/tests/test_pipeline_duplication.py` | Issue #84's acceptance criteria, made mechanical. The IOC (`fanout.py`) and CVE (`vulns.py`) pipelines are a **sanctioned pair**; a third copy of the `_SUMMARY_KEYS`/`_degraded`/`_run_source` signature fails the build with the refactor plan. Also guards the risk #84 does not name — the two copies **diverging**, since a fix landing in one and not the other is invisible while both keep passing their own tests. Compared as control-flow shape (identifiers and constants stripped), because text similarity has no usable threshold: the copies sit at 96% and a real four-line drift only reached 91.5% |
@@ -280,7 +282,7 @@ flowchart TD
 | VulnFetchResult | `mcp/src/threat_intel_mcp/vulns.py` | Dataclass: `vulns`, `source`, `tier`, `record_count`, `retrieved_at`, `latency_ms`, `feed_types_fetched`, `partial_failure` (the vuln counterpart to `FetchResult`) |
 | Output schema | `skills/cyber-threat-intel/schemas/output.schema.json` | JSON Schema the final report is validated against |
 
-The credential-free daily consumer helper, [`scripts/consume_threatfox.py`](../scripts/consume_threatfox.py), validates a scanned Actions feed artifact against externally retrieved run metadata and preserves ThreatFox-specific first_seen evidence. It bounds acquisition time and reports partial or unverified coverage without changing workflows or report schedules; see the [report runbook](report-runbook.md#fresh-threatfox-input-for-a-separate-daily-report).
+The credential-free daily consumer helper, [`scripts/consume_threatfox.py`](../scripts/consume_threatfox.py), validates a scanned Actions feed artifact against externally retrieved run metadata and preserves ThreatFox-specific first_seen evidence. It bounds acquisition time and reports partial or unverified coverage without changing workflows or report schedules; see the [report runbook](report-runbook.md#durable-read-only-daily-handoff).
 
 The source-only producer [`prefetch_threatfox.py`](../mcp/scripts/prefetch_threatfox.py) keeps the existing abuse.ch key in a fixed Actions step, caps the 24h collection at 90 seconds — at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried) — scans the output for credential material, and publishes `threatfox-feed-data` with source acquisition bounds. Its [schedule](../.github/workflows/threatfox-prefetch.yml) is 06:40 America/New_York and has been active on `main` since #251; it has no model or email step. A green run is not upstream success: the packet's source status is.
 

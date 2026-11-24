@@ -96,9 +96,10 @@ So you can tell the difference between a gap and a deliberate choice:
   every credential header the adapters actually send, and every committed
   cassette is re-scanned on each PR.
 - Audit logging redacts credential-shaped values (`audit.py`).
-- Each adapter carries an egress allowlist; feeds cannot be pointed elsewhere
-  by configuration alone.
+- Each HTTP feed adapter (`adapters/`) carries an egress allowlist; feeds cannot be
+  pointed elsewhere by configuration alone. The MISP ZeroMQ transport is
+  bring-your-own-endpoint by design, has no allowlist, and is not exposed as a
+  server tool.
 - HashiCorp Vault is supported for non-local deployments;
   `EnvCredentialProvider` documents itself as development-only.
-- The report-generation workflow is barred by CI from holding feed
-  credentials at all, because it runs an agent over untrusted content.
+- The report workflow's agent job (`scheduled-report.yml` → `generate`) is barred by CI from holding feed credentials, because it runs an agent over untrusted content; the keys sit in a separate `prefetch` job, on its own runner, that runs a fixed script and hands the agent a data file.

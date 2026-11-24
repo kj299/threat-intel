@@ -15,7 +15,7 @@ Both files embed everything previously split across `skills/cyber-threat-intel/r
 - The full 9-tier Source Matrix (the prompt has the long-form list; the skill has a tighter version with the same preferred `[MUST]` sources and optional `[SHOULD]` sources)
 - IOC / TTP / actor / forecast / business-risk extraction schemas
 - Threat scoring formula and P1–P5 priority mapping
-- All 6 personas and their section lists
+- All 6 personas, and the section lists of the four fixed templates (Executive Brief, Technical Report, SOC IOC Package, Personal Security Guide)
 - Compliance framework mappings (NIST CSF, ISO 27001, PCI DSS, DORA, NYDFS, SOX, GDPR)
 - Output sections, the optional `build_iocs_and_queries` toggle, and the Appendix A Source Coverage Ledger template
 
@@ -37,4 +37,4 @@ Both files embed everything previously split across `skills/cyber-threat-intel/r
 
 ## Versioning
 
-These files are hand-maintained mirrors of the canonical sources in [`../skills/cyber-threat-intel/`](../skills/cyber-threat-intel/), updated whenever the protocol, source matrix, scoring, or personas change. They are not the source of truth — they're flattened distributions, and CI's source-list and user-input parity checks fail when they drift.
+These files are hand-maintained mirrors of the canonical sources in [`../skills/cyber-threat-intel/`](../skills/cyber-threat-intel/), updated whenever the protocol, source matrix, scoring, or personas change. They are not the source of truth — they're flattened distributions, and CI fails when they drift: its user-input parity check covers both files, its source-list parity check covers the prompt, and the skill's condensed matrix is guarded only by the excluded-origin denylist.
