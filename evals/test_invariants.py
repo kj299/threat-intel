@@ -275,7 +275,7 @@ def _pair(report_extra: str = "", overview_extra: str = "") -> tuple[str, str]:
         "<p>CVE-2026-8452 requires immediate action.</p>"
         "<p>14 sources consulted</p>"
         "<footer>Every finding here is drawn from "
-        "reports/2026-08-31-threat-intel.md</footer>"
+        "report-output/2026-08-31-threat-intel.md</footer>"
         + overview_extra
     )
     return report, overview
@@ -345,7 +345,7 @@ def test_overview_not_naming_the_report_fails():
     """The invariant that matters most: an overview found alone months later."""
     report, overview = _pair()
     stripped = overview.replace(
-        "Every finding here is drawn from reports/2026-08-31-threat-intel.md",
+        "Every finding here is drawn from report-output/2026-08-31-threat-intel.md",
         "Prepared for the board.",
     )
     _fails(report, stripped, "pair_overview_names_report")

@@ -23,7 +23,7 @@ The skill follows the [Anthropic Agent Skills](https://code.claude.com/docs/en/s
   - `output-templates.md` -- per-persona section lists and the mandatory Source Coverage Ledger template. `executive_overview` is **orthogonal** to these: it prepends or splits off the overview without changing which sections the chosen template emits
   - `siem-queries.md` -- Splunk SPL / Sentinel KQL authoring (discovery-first, schema-driven, no invented datasets)
   - `compliance-frameworks.md` -- NIST/ISO/PCI/DORA/NYDFS/SOX/GDPR mappings
-    - `government-advisories.md` -- the daily government-advisory discovery receipt: CISA Advisories and CERT-EU recorded independently of KEV, official discovery routes, freshness limits
+  - `government-advisories.md` -- the daily government-advisory discovery receipt: CISA Advisories and CERT-EU recorded independently of KEV, official discovery routes, freshness limits
   - `original-prompt.md` -- the original long-form prompt, kept for non-Claude assistants and as the canonical source for tier-name parity checks
 - `standalone/` -- self-contained copies for consumers that cannot install a plugin: `cyber-threat-intel-prompt.md` (long-form) and `cyber-threat-intel-skill.md` (condensed). **These are mirrors, not derivatives generated at build time**, so they drift silently unless CI compares them: the source-list check covers three files (matrix + original-prompt + standalone prompt) and the user-input check covers four (SKILL.md + original-prompt + both standalone files). The latter exists because `original-prompt.md` went a whole release missing input #10 (#168).
 - `skills/cyber-threat-intel/schemas/output.schema.json` -- JSON Schema for validating structured output
@@ -55,7 +55,7 @@ Repo-root `README.md`, `LICENSE`, `SECURITY.md`, `CLAUDE.md`, `changelog.md`, `c
 
 - `scripts/consume_threatfox.py` -- credential-free daily-report artifact validator: verifies run/artifact provenance, bounded freshness and ThreatFox-specific first_seen evidence; yields partial/unverified coverage without scheduling or deploying an integration. See `docs/report-runbook.md`.
 
-- `.github/workflows/threatfox-prefetch.yml` + `mcp/scripts/prefetch_threatfox.py` -- dedicated daily data producer, **scheduled on `main` since #251** (06:40 America/New_York, plus manual dispatch): one bounded ThreatFox read, 1 MiB scanned artifact (`threatfox-feed-data`, one-day retention), no agent/email/repository writes; the job holds only `ABUSECH_AUTH_KEY`. Scheduled runs have succeeded daily since 2026-11-16, but a green job is not upstream success -- the packet's own source status says whether ThreatFox answered. Consumer reads artifacts without dispatch privileges.
+- `.github/workflows/threatfox-prefetch.yml` + `mcp/scripts/prefetch_threatfox.py` -- dedicated daily data producer, **scheduled on `main` since #251** (06:40 America/New_York, plus manual dispatch): one bounded ThreatFox collection — at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried) — 1 MiB scanned artifact (`threatfox-feed-data`, one-day retention), no agent/email/repository writes; the job holds only `ABUSECH_AUTH_KEY`. Scheduled runs have succeeded daily since 2026-11-16, but a green job is not upstream success -- the packet's own source status says whether ThreatFox answered. Consumer reads artifacts without dispatch privileges.
 - `.github/workflows/daily-feeds-prefetch.yml` + `mcp/scripts/prefetch_daily_feeds.py` -- all-feed counterpart of the above, **manual dispatch only** (no schedule) and refused off `main`. One job holds every feed credential and no agent: it calls `prefetch_feeds.collect` once for 24h with VirusTotal capped at 8, suppresses stdout/stderr and logging so upstream error text never reaches the Actions log, scans the output for every credential value, refuses anything over 128 MiB rather than truncating, and uploads `daily-feed-data` with one-day retention. See `docs/daily-briefing-manifest.md`.
 - `.github/workflows/report-delivery.yml` + `scripts/check_delivery.py` -- delivery monitor, daily at 08:17 UTC and on dispatch; read-only (`contents: read`, `actions: read`), no feed credential. Lists successful `scheduled-report.yml` runs from the last ten days and **fails unless one carries an unexpired, non-empty `threat-intel-report` artifact** -- a green generator run without an artifact is not delivery. It opens no issue and sends nothing; a red run is the whole signal. This is the monitor `report-staleness.yml` could not be: it watches artifacts, not commits to the frozen `reports/` corpus. Artifact presence proves delivery, not report correctness.
 
@@ -97,9 +97,4 @@ The workflow is on `main` but has no schedule, and it delivers no report.
 - `.github/workflows/record-cassettes.yml` -- dispatch-only recorder; holds every feed credential and opens a PR with the recordings after re-scanning them for secrets.
 - `docs/feed-operations.md` (per-feed access states and evidence), `docs/protocol-adapters.md` (bring-your-own-endpoint transports), `docs/report-runbook-windows.md` (the runbook for PowerShell).
 
-The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
-once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
-delay share the existing 90-second deadline; acquisition bounds span the whole
-operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
-Authentication, HTTP status, schema and other failures are not retried here.
-The adapter and broader fan-out/circuit-breaker policies remain unchanged.
+

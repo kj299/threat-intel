@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- **Reconciliation pass (2026-11-24).** Follows the 2026-11-21 audit and catches what landed since:
+  - **#260's retry paragraph** had been appended to four docs under the all-feed handoff heading, and `docs/report-runbook.md` still said the ThreatFox producer makes "no retries". The fact now sits in each doc's description of the ThreatFox producer.
+  - **Skill vs tools.** `SKILL.md` and the standalone skill now say how to pass `time_range` (the tools parse only `h`/`d`; only five feeds apply the window at all), the enrichment tools' input caps, and that enrichment returns no ledger entry. Tool docstrings and the MCP README example used `access_level` values the schema rejects; they now use `free`/`premium`/`enterprise`.
+  - **Executive overview claims.** The skill said both artifacts carry the same `report_id` and source count; the renderer shows neither, so the docs now name what both actually carry. The rendered overview named its companion as `reports/<date>-threat-intel.md`, the frozen corpus; it now names `report-output/`, where the report is written. The render command now creates its output directory first.
+  - **Mirrors.** The three long prompt files now use the schema's field names and enum spellings (from `extraction-framework.md`); the CWE-chain escalation rule matches `spec.yaml`; confidence-calibration and the block/monitor/watchlist grouping appear in all four copies; the standalone prompt names its `output_format` values and the two CWE rules it was missing; the standalone skill gains the government-receipt and executive-overview workflow steps; R4's badge spelling matches the header template the honesty eval reads.
+
 - **Full documentation audit against the code (2026-11-21).** Every maintained doc was read against the code, workflows and file tree; the mismatches found are fixed. The main clusters:
   - **ThreatFox still described as keyless** in the two runbooks, including a probe of the retired CSV URL (which answers 410) and a Windows snippet that could not succeed (`ThreatFoxAdapter()` built without credentials). Probes now use Feodo Tracker; the snippet passes the provider.
   - **"Proposed" / "draft" wording for merged work**: the all-feed daily handoff, the ThreatFox producer's activation notes and the pre-report fallback helper, across `CLAUDE.md`, `docs/architecture.md`, `mcp/README.md`, `docs/report-runbook.md` and `docs/daily-briefing-manifest.md`.

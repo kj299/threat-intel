@@ -339,7 +339,9 @@ user_inputs:
         report_id and generated_at; identical coverage badge and source count;
         every executive claim resolving to a technical section; risk scores
         from the same scoring.md formula rather than recomputed; and each
-        artifact naming the other. The last matters most: an executive overview
+        artifact naming the other. Each is checked wherever both artifacts
+        show the value; the rendered overview shows generated_at and the badge,
+        not a report id or source count. The last matters most: an executive overview
         found alone, months later, must not be mistakable for the whole
         analysis.
 

@@ -342,7 +342,7 @@ def _footer(meta: dict[str, Any], ledger: Any) -> str:
     generated = str(meta.get("generated_at") or "")
     date = re.match(r"(\d{4}-\d{2}-\d{2})", generated)
     companion = (
-        f"reports/{date.group(1)}-threat-intel.md" if date else "the technical report for this run"
+        f"report-output/{date.group(1)}-threat-intel.md" if date else "the technical report for this run"
     )
     tiers = len(ledger) if isinstance(ledger, list) else 0
     appendix = (

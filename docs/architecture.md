@@ -282,7 +282,7 @@ flowchart TD
 
 The credential-free daily consumer helper, [`scripts/consume_threatfox.py`](../scripts/consume_threatfox.py), validates a scanned Actions feed artifact against externally retrieved run metadata and preserves ThreatFox-specific first_seen evidence. It bounds acquisition time and reports partial or unverified coverage without changing workflows or report schedules; see the [report runbook](report-runbook.md#fresh-threatfox-input-for-a-separate-daily-report).
 
-The source-only producer [`prefetch_threatfox.py`](../mcp/scripts/prefetch_threatfox.py) keeps the existing abuse.ch key in a fixed Actions step, caps the 24h collection including its protocol retry at 90 seconds, scans the output for credential material, and publishes `threatfox-feed-data` with source acquisition bounds. Its [schedule](../.github/workflows/threatfox-prefetch.yml) is 06:40 America/New_York and has been active on `main` since #251; it has no model or email step. A green run is not upstream success: the packet's source status is.
+The source-only producer [`prefetch_threatfox.py`](../mcp/scripts/prefetch_threatfox.py) keeps the existing abuse.ch key in a fixed Actions step, caps the 24h collection at 90 seconds — at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried) — scans the output for credential material, and publishes `threatfox-feed-data` with source acquisition bounds. Its [schedule](../.github/workflows/threatfox-prefetch.yml) is 06:40 America/New_York and has been active on `main` since #251; it has no model or email step. A green run is not upstream success: the packet's source status is.
 
 Government advisory discovery uses `scripts/government_coverage.py` at the repository root: a credential-free plan and receipt validator, not an MCP adapter or automatic fetcher. It distinguishes CISA Advisories from KEV, requires a separate CERT-EU receipt and scoped high-impact CVE checks, and emits gaps without blocking delivery. See the skill government-advisory reference for caller adoption and freshness limits.
 
@@ -299,9 +299,4 @@ credential-isolated `daily-feeds-prefetch.yml`; `scripts/consume_daily_feeds.py`
 See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
 The workflow is on `main` but has no schedule, and it delivers no report.
 
-The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
-once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
-delay share the existing 90-second deadline; acquisition bounds span the whole
-operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
-Authentication, HTTP status, schema and other failures are not retried here.
-The adapter and broader fan-out/circuit-breaker policies remain unchanged.
+

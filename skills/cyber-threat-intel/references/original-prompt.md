@@ -18,14 +18,14 @@ Treat this as strong guidance, not a hard gate. Aim to follow every rule below; 
 | 8 — Government & Regulatory | 3 | |
 | 9 — Malware Analysis & Sandboxing | 3 | |
 
-**R2 — Cite a source for every IOC, TTP, and claim.** Each table row, each IOC, each threat actor profile, each detection rule should carry a `source:` field naming a specific entry from the Source Matrix in Part 1. If you can't attribute an item to a real source, don't present it as a confirmed finding — drop it, or mark it clearly as inferred/illustrative. Placeholders like `source: unknown`, `general knowledge`, or `n/a` are not citations.
+**R2 — Cite a source for every IOC, TTP, and claim.** Each table row, each IOC, each threat actor profile, each detection rule should carry a `source:` field naming a specific entry from the Source Matrix in Part 1. If you can't attribute an item to a real source, don't present it as a confirmed finding — drop it, or mark it clearly as inferred/illustrative. Placeholders like `source: unknown`, `general knowledge`, or `n/a` are not citations. In the structured output only IOCs, TTPs, hunting queries, CWE chains and `delimited_batch_export` rows have a `source` field; cite actors, vulnerabilities and detection-rule origins in the report text or the rule's own metadata.
 
 **R3 — Don't fabricate (the rule that matters most).** If a source is paywalled, offline, or outside your knowledge, mark the finding `status: unverified (source inaccessible)` — do NOT invent IPs, hashes, CVE numbers, or actor attributions. Fabricated IOCs are more dangerous than missing ones: a plausible-but-fake hash or block-list IP poisons detection pipelines and burns analyst time. When there simply isn't much for the requested scope and time range, say that directly (e.g. "little new activity in the last 7 days for X") instead of filling space. The Coverage Ledger (Appendix A) records skipped sources honestly.
 
 **R4 — Coverage badge is an honest self-report.** Stamp the report header with the badge that reflects what you actually consulted:
-- `COVERAGE: FULL` — broad coverage; most tier targets met (≈25+ preferred sources)
-- `COVERAGE: PARTIAL` — some tiers well covered, others thin (≈13–24)
-- `COVERAGE: MINIMAL` — little retrievable signal for this scope/time range (<13)
+- `Coverage: FULL` — broad coverage; most tier targets met (≈25+ preferred sources)
+- `Coverage: PARTIAL` — some tiers well covered, others thin (≈13–24)
+- `Coverage: MINIMAL` — little retrievable signal for this scope/time range (<13)
 
 A `MINIMAL` badge on a genuinely sparse report is the correct, honest outcome — not a failure to paper over. Don't inflate the badge.
 
@@ -297,23 +297,23 @@ Format: `name — domain — what it provides [MUST | SHOULD]`. `[MUST]` marks p
 For every finding, use the schemas below. Emit one row per item that actually exists — do NOT emit blank template rows.
 
 ### A. New Attack Method (one row per distinct technique)
-Fields: `technique_name | mitre_id | tactic | cves | cwes | cvss | exploit_maturity (none/poc/weaponized/itw) | first_observed | source | sophistication | targeted_sectors | targeted_tech | description | business_impact`
+Fields: `technique_name | mitre_attack_id | attack_vector (the ATT&CK tactic) | cve_ids | cwe_ids | cvss_score | cvss_version | exploit_availability (None/PoC/Weaponized/In-The-Wild) | first_observed | last_observed | sources | sophistication (Basic/Intermediate/Advanced/Nation-State) | targeted_sectors | targeted_technologies | technical_description | business_impact`
 
 (`cwes` = underlying weakness classes, e.g. `CWE-89`, `CWE-502` — the bridge to CWE-chain analysis in Part 3.)
 
 ### B. Indicators of Compromise
-Every IOC row should include `source` and `confidence (high/med/low)`. If an indicator can't be attributed to a real source, don't emit it as confirmed.
+Every IOC row should include `source` and `confidence (High/Medium/Low)`. If an indicator can't be attributed to a real source, don't emit it as confirmed.
 
-**Network IOCs** — fields: `type (ipv4/ipv6/domain/url/cert_hash/ja3/ja3s/jarm/user_agent/cidr) | value | confidence | source | first_seen | last_seen | threat | mitre_id | action (block/alert/hunt) | tlp`
+**Network IOCs** — fields: `type (IPv4/IPv6/Domain/URL/SSL_Certificate_Hash/JA3/JA3S/JARM/HTTP_Header/User_Agent/CIDR_Range) | value | confidence | source | first_seen | last_seen | associated_threat | associated_actor | mitre_technique | kill_chain_phase | action (block/alert/hunt) | tlp (WHITE/GREEN/AMBER/AMBER+STRICT/RED)`
 
-**Host IOCs** — fields: `type (sha256/sha1/md5/ssdeep/imphash/filename/path/registry_key/registry_value/scheduled_task/service/mutex/named_pipe/process/cmdline/wmi_sub) | value | confidence | source | threat | platform | action | detection_source`
+**Host IOCs** — fields: `type (MD5/SHA1/SHA256/SHA512/SSDEEP/IMPHASH/File_Name/File_Path/Registry_Key/Registry_Value/Scheduled_Task/Service_Name/Mutex/Named_Pipe/Process_Name/Command_Line/WMI_Query/WMI_Subscription) | value | confidence | source | associated_threat | associated_malware_family | platform (Windows/Linux/macOS/Android/iOS/Cross-Platform) | action | detection_source`
 
-**Email IOCs** — fields: `type (sender/sender_domain/reply_to/subject_pattern/attachment_name/attachment_hash/x_orig_ip) | value | confidence | source | campaign | action`
+**Email IOCs** — fields: `type (Sender_Address/Sender_Domain/Reply_To/Subject_Pattern/Attachment_Name/Attachment_Hash/Header_X-Originating-IP/Header_X-Mailer) | value | confidence | source | campaign | threat_type (Phishing/Spear_Phishing/BEC/Malware_Distribution/Credential_Harvesting) | action`
 
-**Behavioral IOCs** — fields: `behavior | data_source | detection_logic | mitre_id | threshold | source`
+**Behavioral IOCs** — fields: `behavior | data_source | detection_logic | mitre_technique | alert_threshold | siem_query | source`
 
 ### C. TTP Mapping (MITRE ATT&CK)
-One row per technique observed. Fields: `tactic | technique_id | technique_name | sub_technique | procedure | detection_method | data_sources | source`
+One row per technique observed. Fields: `tactic | technique_id | technique_name | sub_technique_id | sub_technique_name | procedure_details | detection_method | data_sources | platforms | permissions_required | mitigations | source`
 
 Tactics to cover if present: Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration, Impact.
 
@@ -339,10 +339,10 @@ For each predicted indicator, state the basis (which observed pattern generated 
 - C2 protocol characteristics
 
 ### C. Threat Actor Updates
-Fields: `actor | type (apt/criminal/hacktivist) | motivation | new_ttps | new_infra | target_changes | confidence | source`
+Fields: `name | aliases | type (APT/Criminal/Hacktivist/Insider/Unknown) | motivation (Financial/Espionage/Disruption/Hacktivism/Unknown) | origin_country | suspected_attribution | target_sectors | target_regions | active_since | last_activity | associated_ttps | associated_malware | associated_tools | infrastructure | confidence`
 
 ### D. Exploitation Forecast
-Fields: `cve | days_since_disclosure | exploit_maturity | mass_exploitation (yes/no, GreyNoise) | org_exposure | priority | source`
+Fields: `cve_id | cvss_score | days_since_disclosure | exploit_maturity (None/PoC/Weaponized/In-The-Wild) | greynoise_activity (true/false) | greynoise_classification (benign/malicious/unknown) | cisa_kev_listed | epss_score | org_exposure (None/Low/Medium/High/Critical) | affected_products | priority`
 
 ### E. CWE Chaining (AI-assisted attacks)
 
@@ -350,13 +350,13 @@ Adversaries chain **weakness classes** (CWE), not just CVEs: a primary weakness 
 
 One row per distinct chain:
 
-`chain_id | name | chain_type (primary_resultant/composite/named_chain/multi_branch) | cwe_view (CWE-1000/CWE-709/CWE-1003) | links (each: cwe_id, role primary/resultant, mitre_id, tactic, evidence, detection_opportunity, data_source, source) | enabling_conditions | ai_assist_factor (none/low/moderate/high) | time_to_exploit (observed_days, trend accelerating/stable/decelerating, source) | break_points (each: at_link cwe_id, control, control_type preventive/detective/corrective, mapped_mitigation, detection_telemetry) | terminal_impact | score | priority | confidence | source`
+`chain_id | name | chain_type (primary_resultant/composite/named_chain/multi_branch) | cwe_view (CWE-1000/CWE-709/CWE-1003) | links[] (cwe_id, role, mitre_id, tactic, evidence, detection_opportunity, data_source, source) | evidence_basis (named_chain_catalog/osint_reported/inferred) | contributing_cves | max_component_cvss | chain_severity (Critical/High/Medium/Low) | severity_uplift_rationale | stack_relevance | enabling_conditions | ai_assist_factor (none/low/moderate/high) | time_to_exploit (observed_days, trend accelerating/stable/decelerating, source) | break_points[] (at_link, control, control_type, rationale, mapped_mitigation, detection_telemetry) | terminal_impact | score | priority | confidence (High/Medium/Low) | source`
 
 Rules:
 - **Every chain ships ≥1 `break_point`** — the single control that invalidates the largest downstream tail. A chain without one is incomplete. Rank break-points: shared primary (collapses all branches) → preventive at earliest enabling link → detective at resultant → corrective backstop.
 - Set `chain_type` and cite `cwe_view` (CWE-1000 `CanPrecede`/`CanFollow`, CWE-709 named chains, CWE-1003 NVD mapping). For a `multi_branch` chain, the break-point at the shared primary collapses every branch.
 - `ai_assist_factor` records how much AI tooling (automated weakness discovery, variant generation, chain synthesis, PoC drafting) lowers the attacker's cost — and pairs with a defensive takeaway (shrink exposure windows, prefer behavioral detection, harden every primary link, compress patch SLAs). Report the **factor and takeaway, never the weaponization**.
-- `time_to_exploit` quantifies exploit velocity (e.g. Zero Day Clock TTE). An `accelerating` trend with `ai_assist_factor` ≥ moderate, or a contributing CWE class in CISA KEV / Project Zero "0day In the Wild", escalates priority by one band.
+- `time_to_exploit` quantifies exploit velocity (e.g. Zero Day Clock TTE). An `accelerating` trend with `ai_assist_factor` ≥ moderate escalates priority by one band; a contributing CWE class in CISA KEV / Project Zero "0day In the Wild" forces an urgency uplift.
 - For each link's `detection_opportunity`, emit a matching starter hunting query on normalized schema (Part 5 §7).
 - CWE IDs and links obey R2/R3: cite a source; mark unsupported links `confidence: Low`; never invent a CWE ID or a link.
 - Score the chain via the standard engine in [`scoring.md`](scoring.md) (exploitability of weakest primary link, impact of terminal resultant captured in `terminal_impact`, urgency uplift per the velocity rule above) and drive the break-point control into the Actions Matrix.
@@ -410,7 +410,7 @@ One paragraph per major risk relevant to the new business context.
 
 Included when "Build IOCs and detection queries" is on (the default). Provide indicators in the formats below. Every IOC carries `source`, `confidence`, `first_seen`, `action`.
 
-**Before emitting:** de-duplicate IOCs (same value collapsed to one row, keeping the highest-confidence source) and calibrate confidence — `high` only for indicators corroborated by ≥2 independent sources or a first-party vendor/government report; `low` for single-source or pattern-inferred indicators.
+**Before emitting:** de-duplicate IOCs (same value collapsed to one row, keeping the highest-confidence source) and calibrate confidence — `High` only for indicators corroborated by ≥2 independent sources or a first-party vendor/government report; `Low` for single-source or pattern-inferred indicators.
 
 **Immediate Block (high confidence)** — network + host + email IOCs suitable for direct firewall/EDR/gateway ingestion.
 
@@ -474,8 +474,8 @@ not** — never write it as a second document. The failure to design against is 
 but two documents that disagree: a dashboard reporting risk decreasing while the report
 lists three new actively-exploited CVEs.
 
-Both artifacts carry the same report id, generation timestamp, coverage badge and source
-count, and **each names the other** — an overview found alone months later must not read as
+Both artifacts carry the same generation timestamp and coverage badge, and **each names the
+other** — an overview found alone months later must not read as
 the whole analysis. Risk figures come from the scoring formula in [`scoring.md`](scoring.md) already applied, never
 recomputed. On a `MINIMAL` week the overview must *look* thinner, not merely say so.
 

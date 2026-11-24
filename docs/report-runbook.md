@@ -435,8 +435,7 @@ Scheduled runs may be delayed or dropped, and only run from the default branch.
 (When this was written the cron existed only on a PR branch; it is on `main` now.)
 
 This producer has `contents: read`, no email or model step, a five-minute job
-limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs`
-once for 24h, with a 90-second overall timeout and no retries. It schema-validates
+limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs` for 24h with at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried). It schema-validates
 and deduplicates network records, records source acquisition start/end, scans
 literal and JSON-escaped credential values, and caps `feed-data.json` at 1 MiB.
 Missing-key/upstream failures publish an honest `unverified` packet; oversized
@@ -525,15 +524,11 @@ this separate research clock to the ThreatFox artifact validator.
 
 ## All-feed daily handoff (manual dispatch only)
 
-`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
-credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
-artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
+`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in the manual-only,
+credential-isolated `daily-feeds-prefetch.yml`; `scripts/consume_daily_feeds.py` validates the
+`daily-feed-data` artifact and returns its records as research candidates only;
+`scripts/daily_source_roster.py` emits every named source in the matrix as an unattempted receipt.
 See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
-The workflow is on `main` but has no schedule, and no report delivery is activated by it.
+The workflow is on `main` but has no schedule, and it delivers no report.
 
-The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
-once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
-delay share the existing 90-second deadline; acquisition bounds span the whole
-operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
-Authentication, HTTP status, schema and other failures are not retried here.
-The adapter and broader fan-out/circuit-breaker policies remain unchanged.
+

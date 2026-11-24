@@ -1,6 +1,6 @@
 name: threatfox-prefetch
 
-# Proposed in a draft PR. Merging this schedule is an explicit activation step.
+# Scheduled on main since #251 (daily 06:40 America/New_York, plus manual dispatch).
 # No model, email, submissions, repository writes or credentials in the consumer.
 on:
   workflow_dispatch:

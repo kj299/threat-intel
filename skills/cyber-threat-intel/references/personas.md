@@ -43,13 +43,15 @@ dashboard reporting risk decreasing while the technical report lists three new
 actively-exploited CVEs. Five invariants are asserted in `evals/` — same `report_id` and
 `generated_at`, same badge and source count, every executive claim resolving to a technical
 section, risk scores from the [scoring.md](scoring.md) formula rather than recomputed, and
-each artifact naming the other.
+each artifact naming the other. Each is checked wherever both artifacts show the value: the
+rendered overview shows `generated_at` and the badge, but not a report id or a source count.
 
 ## Rendering the visual dashboard
 
 `enterprise_executive` declares `format: visual_dashboard`, and the skill emits
 the data for one — `risk_dashboard`, `financial_impact`,
-`investment_recommendations` — as validated JSON. **The skill itself emits
+`investment_recommendations` — as JSON alongside the validated output (the schema
+does not yet define these three objects, so their shape is not checked). **The skill itself emits
 markdown**; the dashboard is produced by rendering that JSON:
 
 ```bash

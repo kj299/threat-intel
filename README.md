@@ -105,7 +105,7 @@ threat-intel/
 +-- .github/workflows/report-staleness.yml            # manual-only staleness alarm (see docs/report-runbook.md)
 +-- .github/workflows/record-cassettes.yml            # records real feed responses into mcp/tests/cassettes/
 +-- .github/workflows/secret-scan.yml                 # gitleaks over each PR's commits and each push to main (.gitleaks.toml rules)
-+-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox read -> scanned data artifact (no agent)
++-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox collection -> scanned data artifact (no agent)
 +-- .github/workflows/daily-feeds-prefetch.yml        # manual-only: all feeds, 24h -> scanned data artifact (no agent)
 +-- .github/workflows/report-delivery.yml             # daily: fails unless a recent scheduled-report run left a report artifact
 +-- .github/dependabot.yml                            # weekly pip + github-actions updates, 7-day cooldown
@@ -319,7 +319,7 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 
 | How you run it | Reads keys from | Actions secrets used? |
 |---|---|---|
-| Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
+| Locally (`/cyber-threat-intel` from a personal or project install, `/threat-intel:cyber-threat-intel` under `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
 | `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run (an account-side limit such as a spent quota xfails instead) |
 | `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — every feed credential |

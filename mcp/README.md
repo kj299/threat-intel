@@ -280,24 +280,24 @@ key name — the provider reads field `api_key` from the secret at
 
 ### 5. Use with the threat-intel skill
 
-In Claude Code, after the MCP server is connected:
+In Claude Code, after the MCP server is connected (the bare `/cyber-threat-intel` is a personal or project install's name; under `claude --plugin-dir .` it is `/threat-intel:cyber-threat-intel`):
 
 ```
 /cyber-threat-intel
 feed_integrations: [
   {"name": "Q-Feeds",       "tier": 2, "access_level": "premium"},
   {"name": "AbuseIPDB",     "tier": 3, "access_level": "free"},
-  {"name": "VirusTotal",    "tier": 3, "access_level": "public"},
-  {"name": "AlienVault OTX","tier": 3, "access_level": "community"},
-  {"name": "Shodan",        "tier": 3, "access_level": "membership"},
+  {"name": "VirusTotal",    "tier": 3, "access_level": "free"},
+  {"name": "AlienVault OTX","tier": 3, "access_level": "free"},
+  {"name": "Shodan",        "tier": 3, "access_level": "premium"},
   {"name": "GreyNoise",     "tier": 3, "access_level": "enterprise"},
-  {"name": "ANY.RUN",       "tier": 9, "access_level": "ti"},
-  {"name": "Intel 471",     "tier": 7, "access_level": "titan"},
-  {"name": "Censys",        "tier": 3, "access_level": "search"}
+  {"name": "ANY.RUN",       "tier": 9, "access_level": "enterprise"},
+  {"name": "Intel 471",     "tier": 7, "access_level": "enterprise"},
+  {"name": "Censys",        "tier": 3, "access_level": "premium"}
 ]
 ```
 
-Claude will call the relevant feed tools (`*_fetch_iocs`, `abuseipdb_fetch_blocklist`) and `virustotal_enrich_iocs` for enrichment, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
+`access_level` is the plan you hold, and the schema accepts only `free`, `premium` or `enterprise`. Claude will call the relevant feed tools (`*_fetch_iocs`, `abuseipdb_fetch_blocklist`) and `virustotal_enrich_iocs` for enrichment, blend live IOCs with its training-data knowledge, and cite each source in the Coverage Ledger (Appendix A) without marking findings as `unverified`.
 
 ## Implementing a paid-subscription feed adapter
 
@@ -693,7 +693,7 @@ are missed. A background subscriber draining into a buffer would capture
 everything at the cost of this server's first long-lived task; that is a
 deliberate follow-up, not an oversight.
 
-The [`threatfox-prefetch` workflow](../.github/workflows/threatfox-prefetch.yml) uses `scripts/prefetch_threatfox.py` for one bounded, credential-isolated read and a scanned artifact of at most 1 MiB. It has no model or email step and has run on its daily schedule from `main` since #251. The read-only daily consumer contract is described in the [report runbook](../docs/report-runbook.md#durable-read-only-daily-handoff).
+The [`threatfox-prefetch` workflow](../.github/workflows/threatfox-prefetch.yml) uses `scripts/prefetch_threatfox.py` for one bounded, credential-isolated collection — at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried) — and a scanned artifact of at most 1 MiB. It has no model or email step and has run on its daily schedule from `main` since #251. The read-only daily consumer contract is described in the [report runbook](../docs/report-runbook.md#durable-read-only-daily-handoff).
 
 Government advisory discovery uses `scripts/government_coverage.py` at the repository root: a credential-free plan and receipt validator, not an MCP adapter or automatic fetcher. It distinguishes CISA Advisories from KEV, requires a separate CERT-EU receipt and scoped high-impact CVE checks, and emits gaps without blocking delivery. See the skill government-advisory reference for caller adoption and freshness limits.
 
@@ -709,9 +709,4 @@ credential-isolated `daily-feeds-prefetch.yml`; `scripts/consume_daily_feeds.py`
 See the [daily briefing manifest](../docs/daily-briefing-manifest.md) for limits, adoption and gaps.
 The workflow is on `main` but has no schedule, and it delivers no report.
 
-The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
-once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
-delay share the existing 90-second deadline; acquisition bounds span the whole
-operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
-Authentication, HTTP status, schema and other failures are not retried here.
-The adapter and broader fan-out/circuit-breaker policies remain unchanged.
+
