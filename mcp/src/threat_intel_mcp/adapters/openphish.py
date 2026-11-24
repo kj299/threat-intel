@@ -4,8 +4,8 @@ Fetches the free OpenPhish Community feed (https://openphish.com/feed.txt) and
 normalises it to ioc_network objects compatible with output.schema.json from
 kj299/threat-intel.
 
-**No credential required** -- nor does any key help, unlike ThreatFox and Feodo
-Tracker, which also answer without one but use the abuse.ch key when present.
+**No credential required** -- nor does any key help, unlike Feodo Tracker,
+which also answers without one but uses the abuse.ch key when present.
 That is the whole reason it is here: a feed
 that needs no key is ``consulted`` on every run forever, where a credentialed
 one degrades to ``unverified`` the moment a subscription lapses.

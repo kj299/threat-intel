@@ -11,8 +11,8 @@ ThreatFox all authenticate with the same ``Auth-Key`` header, which is why this
 adapter, ``feodo.py`` and ``threatfox.py`` read the same credential rather than
 three near-identical ones.
 
-Unlike ThreatFox's, this credential is **required**. ThreatFox reaches a
-grandfathered CSV export that still answers unauthenticated; the URLhaus v1 API
+This credential is **required**, as it now is for ThreatFox's JSON API (its
+keyless CSV export was retired with HTTP 410). The URLhaus v1 API
 has required the header since abuse.ch made authentication mandatory on
 2025-06-30, so an unconfigured key here is a config error, not a soft fallback.
 

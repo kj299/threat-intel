@@ -30,7 +30,7 @@ skill against feed data a separate, credential-holding job has already fetched
 (see below — the agent has no MCP feed server), and **publishes the report to
 the run's summary page and its job log** — it is not committed. The job-log
 copy is the one an agent session can read back: the summary has no REST API,
-and the artifact downloads from a blob host sandboxed sessions cannot reach. It
+and direct artifact downloads (`gh run download`) hit a blob host sandboxed sessions cannot reach (the GitHub connector route worked on 2026-11-16; see below). It
 is printed with workflow commands suspended, because the text derives from
 untrusted feed content.
 
@@ -39,6 +39,7 @@ untrusted feed content.
 > pins the count. A run writes to gitignored `report-output/` and the summary
 > step publishes it; nothing is added to `reports/`. A run is useful, a
 > permanent history of runs is not — read it in the Actions run, or copy it out.
+
 It runs **weekly on a cron (Mondays 05:23 UTC), restored 2026-09-20**, and can
 still be triggered on demand from Actions → scheduled-report → *Run workflow*
 with a chosen persona and time range.
@@ -51,7 +52,7 @@ with a chosen persona and time range.
 > [#169](https://github.com/kj299/threat-intel/issues/169) named the trigger
 > for revisiting it — three or more additional sources configured — and that
 > has been met on keyless sources alone: OpenPhish, EPSS, OSV and Feodo Tracker
-> need no credential and are always consulted, on top of the original three.
+> need no credential (they are consulted whenever their fetch succeeds), on top of the original three (ThreatFox — since moved to a keyed API — CISA KEV and NVD).
 > `prefetch_feeds.py` also reaches every credentialed adapter with a
 > configured key, which only adds to that count.
 >
@@ -79,9 +80,11 @@ page.** A Console API key (`sk-ant-api…`) is copied from
 terminal — there is no page to copy it from. Pasting an API key into the OAuth
 secret does not make it one.
 
-The workflow routes on the credential's **format**, not on which secret it
-landed in, so a key in the wrong slot still reaches the right input and the run
-logs a warning saying so. It does not, and cannot, convert one into the other.
+The workflow checks the format of whatever is in the OAuth secret: an API key
+(`sk-ant-api…`) pasted there is routed to the API-key input, and the run logs a
+warning saying so. The reverse is not detected: an OAuth token placed in
+`ANTHROPIC_API_KEY` is passed as an API key. Neither can be converted into the
+other.
 
 Set whichever suits you. The weekly cron is on (restored 2026-09-20), so this
 is a standing cost: one agent session every Monday, plus any dispatches. A Console API key is a separate product from a
@@ -221,7 +224,7 @@ described or ran it.
 
    > **Egress requirement:** the session's network policy must allow HTTPS to
    > the feed hosts (`www.cisa.gov`, `services.nvd.nist.gov`, `openphish.com`,
-   > `feodotracker.abuse.ch`, `api.first.org`, `api.osv.dev`, plus
+   > `feodotracker.abuse.ch`, `api.first.org`, `api.osv.dev`, `raw.githubusercontent.com` (OpenPhish's redirect target and CISA KEV's fallback mirror), plus
    > `threatfox-api.abuse.ch` and any other keyed feeds). Restrictive cloud
    > sandboxes may block these (proxy `CONNECT 403`) — verified blocked in the
    > default cloud environment on 2026-07-24. Run from an environment with
@@ -418,8 +421,7 @@ the daily report with ThreatFox unverified and disclose the integration gap.
 
 > **Status (checked 2026-11-20):** the schedule below was merged in #251 and is
 > active on `main`. Scheduled runs succeeded on 2026-11-16 through 2026-11-19.
-> The paragraphs that call it "proposed" or "draft" record the state when this
-> section was written. A green run still does not prove ThreatFox answered:
+> A green run still does not prove ThreatFox answered:
 > read the packet's source status.
 
 Independent verification established that the daily inherited runtime can
@@ -435,8 +437,7 @@ Scheduled runs may be delayed or dropped, and only run from the default branch.
 (When this was written the cron existed only on a PR branch; it is on `main` now.)
 
 This producer has `contents: read`, no email or model step, a five-minute job
-limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs`
-once for 24h, with a 90-second overall timeout and no retries. It schema-validates
+limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs` for 24h with at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried). It schema-validates
 and deduplicates network records, records source acquisition start/end, scans
 literal and JSON-escaped credential values, and caps `feed-data.json` at 1 MiB.
 Missing-key/upstream failures publish an honest `unverified` packet; oversized
@@ -482,10 +483,10 @@ degradation at 15:33, and was resolved at 16:26. It later acknowledged workflow
 start-time impact. The intended 11:40 event precedes its notice and actual 21:12
 run follows resolution; this is relevant context, not proof of causality.
 
-A second GitHub cron does not remove this provider dependency. The independently
-triggered fallback is `python scripts/refresh_threatfox.py`, run at **06:35
+A second GitHub cron does not remove this provider dependency. The intended independently
+triggered fallback is `python scripts/refresh_threatfox.py`, to be run at **06:35
 America/New_York** by an already authenticated maintenance environment under an
-independent scheduler. This removes reliance on the GitHub cron trigger, but
+independent scheduler (none is deployed; see below). This removes reliance on the GitHub cron trigger, but
 still depends on GitHub dispatch/runner availability and the upstream API; it is
 not an availability guarantee. It dispatches the existing source-only workflow exactly
 once, waits up to five minutes plus bounded API calls, pins main, refuses ambiguous
@@ -525,15 +526,11 @@ this separate research clock to the ThreatFox artifact validator.
 
 ## All-feed daily handoff (manual dispatch only)
 
-`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in a manual-only
-credential-isolated workflow; `scripts/consume_daily_feeds.py` validates the
-artifact and `scripts/daily_source_roster.py` seeds explicit publisher receipts.
+`mcp/scripts/prefetch_daily_feeds.py` reuses the fixed collectors in the manual-only,
+credential-isolated `daily-feeds-prefetch.yml`; `scripts/consume_daily_feeds.py` validates the
+`daily-feed-data` artifact and returns its records as research candidates only;
+`scripts/daily_source_roster.py` emits every named source in the matrix as an unattempted receipt.
 See the [daily briefing manifest](daily-briefing-manifest.md) for limits, adoption and gaps.
-The workflow is on `main` but has no schedule, and no report delivery is activated by it.
+The workflow is on `main` but has no schedule, and it delivers no report.
 
-The ThreatFox-only daily collector retries `httpx.RemoteProtocolError` at most
-once using the existing backoff helper (0.25–0.5 seconds). Both attempts and the
-delay share the existing 90-second deadline; acquisition bounds span the whole
-operation. `attempt_count` is sanitized metadata, not a coverage upgrade.
-Authentication, HTTP status, schema and other failures are not retried here.
-The adapter and broader fan-out/circuit-breaker policies remain unchanged.
+

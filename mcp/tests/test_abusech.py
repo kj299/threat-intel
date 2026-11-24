@@ -4,7 +4,7 @@ Uses pytest-httpx — no live network in CI.
 
 Synthetic cases cover failure modes and credential transmission. Historical
 CSV threatfox.yaml does not validate the current authenticated JSON API;
-threatfox_api.yaml remains a coverage gap until safely captured.
+threatfox_api.yaml (recorded 2026-11-16) does, in test_cassette_playback.py.
 """
 
 from __future__ import annotations

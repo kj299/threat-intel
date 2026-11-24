@@ -557,7 +557,7 @@ async def otx_fetch_iocs(
         1. Call this tool; receive iocs.
         2. Pass iocs as context to the skill invocation.
         3. Set skill_input.feed_integrations = [{"name": "AlienVault OTX", "tier": 3,
-           "access_level": "community"}] so the Coverage Ledger marks it consulted.
+           "access_level": "free"}] so the Coverage Ledger marks it consulted.
     """
     try:
         result = await _otx.fetch(time_range=time_range, feed_types=feed_types)
@@ -634,7 +634,7 @@ async def shodan_fetch_iocs(
         1. Call this tool; receive iocs.
         2. Pass iocs as context to the skill invocation.
         3. Set skill_input.feed_integrations = [{"name": "Shodan", "tier": 3,
-           "access_level": "membership"}] so the Coverage Ledger marks it consulted.
+           "access_level": "premium"}] so the Coverage Ledger marks it consulted.
     """
     try:
         result = await _shodan.fetch(time_range=time_range, feed_types=feed_types)
@@ -1002,7 +1002,7 @@ async def openphish_fetch_iocs(
         1. Call this tool; receive iocs.
         2. Pass iocs as context to the skill invocation.
         3. Set skill_input.feed_integrations = [{"name": "OpenPhish", "tier": 6,
-           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+           "access_level": "free"}] so the Coverage Ledger marks it consulted.
     """
     try:
         result = await _openphish.fetch(time_range=time_range, feed_types=feed_types)
@@ -1293,7 +1293,7 @@ async def cisa_kev_fetch_cves(
         1. Call this tool; receive vulns.
         2. Pass vulns as context to the skill invocation (vulnerability section).
         3. Set skill_input.feed_integrations = [{"name": "CISA KEV", "tier": 1,
-           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+           "access_level": "free"}] so the Coverage Ledger marks it consulted.
     """
     try:
         result = await _cisa_kev.fetch(time_range=time_range, feed_types=feed_types)
@@ -1361,7 +1361,7 @@ async def vulncheck_fetch_cves(
         1. Call this tool; receive vulns.
         2. Pass vulns as context to the skill invocation (vulnerability section).
         3. Set skill_input.feed_integrations = [{"name": "VulnCheck KEV",
-           "tier": 1, "access_level": "community"}] so the Coverage Ledger marks
+           "tier": 1, "access_level": "free"}] so the Coverage Ledger marks
            it consulted.
     """
     try:
@@ -1433,7 +1433,7 @@ async def nvd_fetch_cves(
         1. Call this tool; receive vulns.
         2. Pass vulns as context to the skill invocation (vulnerability section).
         3. Set skill_input.feed_integrations = [{"name": "NVD", "tier": 1,
-           "access_level": "public"}] so the Coverage Ledger marks it consulted.
+           "access_level": "free"}] so the Coverage Ledger marks it consulted.
     """
     try:
         result = await _nvd.fetch(time_range=time_range, feed_types=feed_types)

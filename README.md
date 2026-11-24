@@ -55,7 +55,7 @@ Copy-Item -Recurse -Force skills\cyber-threat-intel .claude\skills\
 
 ### Use as-is from this repo
 
-If you've cloned this repo and want to invoke the skill in-place, the standard Claude Code discovery paths are `~/.claude/skills/` and `<workdir>/.claude/skills/`. A `<repo>/skills/` directory is not on the default search path (though it can be reached via plugin / marketplace mechanisms). The simplest path is to copy the skill into one of the standard locations as shown above.
+If you've cloned this repo and want to invoke the skill in-place, the standard Claude Code discovery paths are `~/.claude/skills/` and `<workdir>/.claude/skills/`. A `<repo>/skills/` directory is not on the default search path, but the repo is a plugin: run `claude --plugin-dir .` at the root and invoke `/threat-intel:cyber-threat-intel` (this also starts the bundled MCP server). Otherwise, copy the skill into one of the standard locations as shown above.
 
 ---
 
@@ -105,7 +105,7 @@ threat-intel/
 +-- .github/workflows/report-staleness.yml            # manual-only staleness alarm (see docs/report-runbook.md)
 +-- .github/workflows/record-cassettes.yml            # records real feed responses into mcp/tests/cassettes/
 +-- .github/workflows/secret-scan.yml                 # gitleaks over each PR's commits and each push to main (.gitleaks.toml rules)
-+-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox read -> scanned data artifact (no agent)
++-- .github/workflows/threatfox-prefetch.yml          # daily 06:40 ET: one bounded ThreatFox collection -> scanned data artifact (no agent)
 +-- .github/workflows/daily-feeds-prefetch.yml        # manual-only: all feeds, 24h -> scanned data artifact (no agent)
 +-- .github/workflows/report-delivery.yml             # daily: fails unless a recent scheduled-report run left a report artifact
 +-- .github/dependabot.yml                            # weekly pip + github-actions updates, 7-day cooldown
@@ -319,13 +319,12 @@ The commonest surprise: **Actions secrets only exist inside a running workflow.*
 
 | How you run it | Reads keys from | Actions secrets used? |
 |---|---|---|
-| Locally (`/cyber-threat-intel`, `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
+| Locally (`/cyber-threat-intel` from a personal or project install, `/threat-intel:cyber-threat-intel` under `claude --plugin-dir .`) | the environment of the `claude` process, inherited by the MCP server it spawns | no |
 | `record-cassettes` workflow | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `live-feed-check` workflow (weekly) | `secrets.*`, injected as env vars | **yes** — every feed credential; a feed with no key skips, one whose key fails is a red run (an account-side limit such as a spent quota xfails instead) |
 | `scheduled-report` → `prefetch` job | `secrets.*`, injected as env vars | **yes** — every feed credential |
 | `daily-feeds-prefetch` workflow (manual dispatch) | `secrets.*`, injected as env vars | **yes** — every feed credential; no agent in the job |
 | `threatfox-prefetch` workflow (daily) | `secrets.ABUSECH_AUTH_KEY` | **yes** — that one key only; no agent in the job |
-
 | `scheduled-report` → `generate` job (the agent) | a data file from `prefetch`; model credential only | no, and CI fails the PR if you add them |
 
 **Copying `mcp/.env` is not enough — nothing loads that file for you.** Either register the keys with `claude mcp add -e KEY=...`, or `set -a; . ./mcp/.env; set +a` in the shell you launch `claude` from. Full mechanics, and the `xargs` pitfall that silently truncates the ANY.RUN key: [local key setup](mcp/README.md#2-set-your-api-keys).
@@ -350,6 +349,10 @@ python - <<'PY'
 import json, jsonschema
 schema = json.load(open("skills/cyber-threat-intel/schemas/output.schema.json"))
 instance = json.load(open("your-output.json"))
+# The root schema describes {"skill_input", "skill_output"} and requires neither, so a
+# bare output object validates vacuously. Wrap it the way CI does:
+if "skill_output" not in instance:
+    instance = {"skill_output": instance}
 jsonschema.validate(instance, schema, format_checker=jsonschema.FormatChecker())
 print("valid")
 PY
@@ -384,7 +387,7 @@ tooling such as a SIEM importer or batch-audit tool. Two things matter most:
 
 - **Feed [`standalone/cyber-threat-intel-prompt.md`](standalone/cyber-threat-intel-prompt.md)**,
   which inlines everything the model needs. Do **not** feed `spec.yaml` alone — it is the CI
-  spec and carries no workflow or SIEM guidance.
+  spec: it carries structured flags (`siem_query_rules`, `workflow_modes`) but not the workflow steps, source matrix or SPL/KQL starters the prompt inlines.
 - **The consumer owns input validation.** The skill emits raw typed values and never escapes,
   quotes or sanitizes on a tool's behalf, because anything upstream can violate the contract.
 

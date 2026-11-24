@@ -7,8 +7,8 @@
 # parity checks). The Anthropic Agent Skill identifier ("cyber-threat-intel")
 # and machine-readable description live in SKILL.md frontmatter, NOT here.
 #
-# Full source matrix (canonical for tier-name parity): references/source-matrix.md
-# Long-form prompt (used by tier-parity check, also for non-Claude assistants):
+# Full source matrix: references/source-matrix.md
+# Long-form prompt (canonical for tier-name parity; read by CI's tier-parity check):
 #   references/original-prompt.md
 # =============================================================================
 
@@ -110,7 +110,7 @@ source_coverage_protocol:
       description: "If a source is inaccessible, mark status: unverified. Never invent data. When little is retrievable for the scope/time range, say so plainly instead of padding."
       applies_to: ["IPs", "domains", "hashes", "CVE numbers", "actor attributions", "dates"]
     R4_coverage_badge:
-      description: "Header stamps COVERAGE: FULL | PARTIAL | MINIMAL as an honest self-report; MINIMAL on a sparse report is correct, not a failure"
+      description: "Header stamps `Coverage: FULL | PARTIAL | MINIMAL` as an honest self-report; MINIMAL on a sparse report is correct, not a failure"
     R5_ledger:
       description: "Appendix A of every report is the Source Coverage Ledger so the reader sees what was and wasn't consulted"
     R6_source_as_data:
@@ -337,9 +337,12 @@ user_inputs:
 
         Five consistency invariants are asserted in evals/ — identical
         report_id and generated_at; identical coverage badge and source count;
-        every executive claim resolving to a technical section; risk scores
-        from the same scoring.md formula rather than recomputed; and each
-        artifact naming the other. The last matters most: an executive overview
+        every CVE the overview names also present in the technical report (the
+        decidable part of every executive claim resolving to a technical
+        section); every N/100 score in the overview present in the report;
+        and the overview naming the report (the reverse is a style note). Each is checked wherever both artifacts
+        show the value; the rendered overview shows generated_at and the badge,
+        not a report id or source count. The last matters most: an executive overview
         found alone, months later, must not be mistakable for the whole
         analysis.
 
@@ -623,7 +626,7 @@ execution:
 # =============================================================================
 metadata:
   created: "2026-03-30"
-  last_updated: "2026-10-16"
+  last_updated: "2026-11-24"
   # (URLhaus was removed in 1.20.0 at operator request and later returned as an
   # MCP adapter; source-matrix.md lists it in Tier 9 again.)
 

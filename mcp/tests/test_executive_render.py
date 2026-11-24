@@ -233,7 +233,7 @@ def test_print_landscape_is_declared(rendered: str):
 
 def test_names_its_companion_technical_report(rendered: str, executive_output: dict):
     date = executive_output["metadata"]["generated_at"][:10]
-    assert f"reports/{date}-threat-intel.md" in rendered
+    assert f"report-output/{date}-threat-intel.md" in rendered
     assert "This is a summary, not the analysis" in rendered
 
 

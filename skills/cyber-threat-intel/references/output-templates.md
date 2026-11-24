@@ -19,6 +19,12 @@ name each other, and both carry the same coverage badge. When that badge is `MIN
 overview must *look* thinner — muted treatment and an explicit statement of limited coverage
 — rather than presenting a sparse week in a confident layout.
 
+**Which template an `output_format` value selects.** `technical_ioc_package` (the default) uses the
+SOC IOC Package, `technical_report` the Technical Report, `executive_brief` the Executive Brief and
+`personal_security_guide` the Personal Security Guide. `board_presentation`, `ciso_briefing` and
+`checklist` have no fixed section list of their own: use the chosen persona's template within the
+page budget the format names, and keep Appendix A.
+
 ## Executive Brief (max 2 pages)
 
 1. Threat Alert Banner
@@ -28,7 +34,7 @@ overview must *look* thinner — muted treatment and an explicit statement of li
 5. Investment Recommendations
 6. Appendix A: Source Coverage Ledger
 
-## Technical Report (Enterprise SOC default)
+## Technical Report (`technical_report`)
 
 1. Header with Coverage Badge
 2. Executive Summary
@@ -42,7 +48,8 @@ overview must *look* thinner — muted treatment and an explicit statement of li
 10. Technical Appendix
 11. Appendix A: Source Coverage Ledger
 
-## SOC IOC Package
+## SOC IOC Package (`technical_ioc_package`, the `enterprise_soc` default)
+
 
 1. Header with Coverage Badge
 2. Deployment Priority

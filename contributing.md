@@ -84,7 +84,7 @@ grep -r "\[.*\](.*\.md)" *.md skills/ | grep -i CHANGELOG
 
 **After editing the prompt or skill file:**
 - Read through the full file to ensure changes are reflected consistently
-- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` identically in all three mirrored files CI compares line for line: `skills/cyber-threat-intel/references/source-matrix.md`, `skills/cyber-threat-intel/references/original-prompt.md` and `standalone/cyber-threat-intel-prompt.md`
+- If you add a source, verify it's tagged `[MUST]` or `[SHOULD]` identically in all three mirrored files CI compares line for line: `skills/cyber-threat-intel/references/source-matrix.md`, `skills/cyber-threat-intel/references/original-prompt.md` and `standalone/cyber-threat-intel-prompt.md`; also add any `[MUST]` source to the condensed list in `standalone/cyber-threat-intel-skill.md`, which promises the same `[MUST]` set and is not CI-compared
 - If you modify source coverage rules (R1-R6), update all references in `SKILL.md`, `references/`, `original-prompt.md`, `spec.yaml`, and both `standalone/` distributions
 
 **If you bumped the version:**
@@ -96,6 +96,9 @@ The version string lives in six places. CI fails if they disagree. Bump all six 
 4. `skills/cyber-threat-intel/examples/outputs.json` -> every example's `metadata.skill_version`
 5. `.claude-plugin/plugin.json` -> `version`
 6. `docs/index.md` -> the `**Version:**` stamp
+
+Also update by hand (CI checks neither): the `# Version:` comment on line 3 of `spec.yaml`, and a new `metadata.version_history` entry.
+
 
 **If you added or removed a persona:**
 The set of personas in `skills/cyber-threat-intel/spec.yaml` (`persona_profiles` keys) must match exactly the set of `persona` values across `skills/cyber-threat-intel/examples/outputs.json` examples -- one example per persona, no missing, no extras. CI fails on drift. Also update the `**Personas:**` line in `docs/index.md` (CI-pinned to `spec.yaml`), the `persona` enum in `output.schema.json`, and `skills/cyber-threat-intel/references/personas.md`.
@@ -110,7 +113,7 @@ Hashes (`MD5`, `SHA1`, `SHA256`, `SHA512`) are length-pinned hex -- placeholders
 Four files describe the nine-tier source matrix and CI requires they stay in sync:
 1. `skills/cyber-threat-intel/references/original-prompt.md` -- one `### Tier N: <name>` heading per tier (canonical for tier-name parity check)
 2. `skills/cyber-threat-intel/references/source-matrix.md` -- mirrored source list with `## Tier N: <name>` headings
-3. `skills/cyber-threat-intel/spec.yaml` -- `source_coverage_protocol.tier_minimums` keys and `source_tiers` keys (both prefixed `tier_<N>_...`)
+3. `skills/cyber-threat-intel/spec.yaml` -- `source_coverage_protocol.tier_minimums` keys (`tier_<N>_<name>`, e.g. `tier_1_vulnerability_dbs`) and `source_tiers` keys (`tier_<N>`, each with a `name:`)
 4. `skills/cyber-threat-intel/schemas/output.schema.json` -- the `coverage_ledger.items.properties.tier` `minimum`/`maximum` range
 
 Two more places are pinned by other CI checks: `standalone/cyber-threat-intel-prompt.md` must carry the same tier headings and entries (source-list parity), and the tier table in `docs/index.md` must have one row per tier.

@@ -41,11 +41,12 @@ touched test fixtures.
 
 Three things stand between a recording session and a committed secret:
 
-1. `tests/vcr_config.py` scrubs credential headers and query parameters.
+1. `mcp/tests/vcr_config.py` scrubs credential headers and query parameters.
 2. `record_cassettes.py` scans what it wrote — credential header names and query
    parameters structurally, plus every configured credential value as a literal —
-   and exits non-zero on a hit. It never greps response bodies: an NVD
-   description says "password" thousands of times.
+   and exits non-zero on a hit. The structural check never inspects response
+   bodies (an NVD description says "password" thousands of times); only the
+   literal check reads the whole file, bodies included, and it cannot false-alarm.
 3. The workflow re-runs the same scanner (`--verify-only --all`) before it is
    allowed to commit.
 
@@ -74,15 +75,16 @@ would pass on a file that still contained the key too.
 matching cassette entry raises rather than reaching the network. A cassette test
 cannot quietly become a live test.
 
-Tests **skip** when a cassette is missing. Recording requires egress that CI does
-not have, so an absent cassette is a coverage gap, not a broken build.
+Tests **skip** when a cassette is missing. PR CI never records (recording is a
+deliberate `record-cassettes` dispatch, or a local run with egress), so an absent
+cassette is a coverage gap, not a broken build.
 
 ## NVD, VulnCheck and ThreatFox recordings are trimmed; the others are whole
 
 A 7-day NVD window is four pages of ~2000 verbose CVE records — the first
 successful recording produced a **40 MB** `nvd.yaml`. Committed cassettes are
 permanent, and every re-recording adds that again, so `shrink_nvd_cassette` in
-`scripts/record_cassettes.py` trims each page's `vulnerabilities` array to about
+`mcp/scripts/record_cassettes.py` trims each page's `vulnerabilities` array to about
 28 entries (1.8% of the original). `TestCassetteSize` enforces a 4 MB ceiling.
 
 **`resultsPerPage` and `totalResults` are left exactly as NVD sent them.** That
@@ -102,8 +104,8 @@ with `_meta.page` / `total_pages` verbatim, per-entry evidence lists capped), an
 ThreatFox is trimmed by `shrink_threatfox_cassette`: the authenticated JSON
 recording (`threatfox_api.yaml`) keeps at least one `data` row per `ioc_type`, up
 to 2,000 rows. The historical CSV recording (`threatfox.yaml`, the retired
-export) was trimmed on raw text lines, keeping every comment line and one row per
-`ioc_type`, so the comma-then-space dialect behind #100 still gets parsed by the
+export) was trimmed on raw text lines, keeping every comment line, at least one row per
+`ioc_type`, and up to 2,000 rows in feed order, so the comma-then-space dialect behind #100 still gets parsed by the
 regression test.
 Every other cassette — CISA KEV (~1.9 MB), GreyNoise (~2.4 MB), AbuseIPDB
 (~1.2 MB) and the small feeds — is committed **whole**: single responses
@@ -114,7 +116,7 @@ wherever it is affordable.
 
 A request is matched on method, scheme, host, port, path, and query — but
 clock-derived query parameters are left out of the comparison
-(`_VOLATILE_QUERY_PARAMS` in `tests/vcr_config.py`).
+(`_VOLATILE_QUERY_PARAMS` in `mcp/tests/vcr_config.py`).
 
 This is not a convenience. NVD's request window is computed from
 `datetime.now()`, so the recorded query carries the recording moment and the

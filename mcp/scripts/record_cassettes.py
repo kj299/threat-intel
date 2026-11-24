@@ -131,7 +131,7 @@ _REDACTED = "[REDACTED]"
 
 # ─── Size ────────────────────────────────────────────────────────────────────
 #
-# A 7-day NVD window is ~36 MB across four pages, and every re-recording adds
+# A 7-day NVD window is ~40 MB across four pages, and every re-recording adds
 # that again to git history forever. Issue #105 anticipated this: "Truncate to a
 # representative slice rather than committing megabytes per adapter, but keep
 # enough rows to exercise every branch."
