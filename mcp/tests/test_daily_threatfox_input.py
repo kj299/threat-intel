@@ -133,6 +133,21 @@ def test_other_source_timestamp_cannot_make_old_threatfox_record_current(inputs)
     assert check(inputs)["iocs"] == []
 
 
+def test_picks_earliest_matching_threatfox_timestamp_not_merge_winner(inputs):
+    row = inputs[0]["iocs"]["iocs"][0]
+    row["first_seen"] = "2026-11-16T10:45:00Z"
+    row["source_evidence"] += [
+        {"source": "Other", "first_seen": "2026-11-16T10:45:00Z"},
+        {"source": "ThreatFox", "first_seen": "2026-11-16T08:15:00Z", "confidence": "Low"},
+    ]
+    record = check(inputs)["iocs"][0]
+    assert record["first_seen"] == "2026-11-16T08:15:00+00:00"
+    assert record["confidence"] == "Low"
+    assert len(record["source_evidence"]) == 2
+    row["source_evidence"][-1]["first_seen"] = "2026-11-14T08:15:00Z"
+    assert check(inputs)["iocs"] == []
+
+
 def test_upstream_partial_is_not_upgraded(inputs):
     inputs[0]["iocs"]["per_source"][0].update(
         status="partial", partial_failure=["capped"]
@@ -557,3 +572,252 @@ async def test_other_errors_do_not_retry(producer, kind):
     assert summary["attempt_count"] == 1 and summary["status"] == "unverified"
     assert kind in summary["error"]
     assert "synthetic-sensitive-text" not in producer.encode(result, "")
+
+
+@pytest.mark.asyncio
+async def test_oversized_prefetch_survives_consumer_cli_with_exact_counts(
+    inputs, producer, monkeypatch, tmp_path
+):
+    """A green run must yield usable partial evidence, without uncapping output."""
+    from datetime import timedelta
+    import hashlib
+    import json
+    import subprocess
+    import sys
+
+    from threat_intel_mcp.adapters.base import FetchResult
+
+    _, run, artifact, jobs = inputs
+    run.update(path=".github/workflows/threatfox-prefetch.yml", event="schedule")
+    artifact["name"] = "threatfox-feed-data"
+    jobs["jobs"][0]["name"] = "Fetch ThreatFox (holds credential; no agent)"
+    monkeypatch.setattr(producer, "now", lambda: "2026-11-16T11:02:00+00:00")
+    oldest = datetime(2026, 11, 16, 9, tzinfo=timezone.utc)
+    # Build more than 1 MiB using real normalized row shapes and UTF-8 bytes.
+    # Input deliberately arrives oldest first, so taking a raw prefix fails.
+    records = [
+        {
+            "source": "ThreatFox",
+            "type": "Domain",
+            "value": f"synthetic-{i:05}.example",
+            "confidence": "High",
+            "tlp": "AMBER",
+            "first_seen": (oldest + timedelta(seconds=i // 2)).isoformat(),
+            "associated_threat": "é" * 450,
+        }
+        for i in range(1400)
+    ]
+
+    class Adapter:
+        async def fetch(self, **kwargs):
+            assert kwargs == {"time_range": "24h"}
+            return FetchResult(
+                records, "ThreatFox", 9, producer.now(), len(records), 1, ["recent_iocs"],
+                ["upstream caveat"],
+            )
+
+    payload = await producer.collect(Adapter())
+    original = payload["iocs"]["iocs"]
+    assert len(original) == len(records)
+    assert len(json.dumps(payload, ensure_ascii=False).encode()) > 1024 * 1024
+    bounded = producer.encode(payload, "synthetic-secret-not-in-result").encode()
+    assert len(bounded) <= 1024 * 1024
+    assert producer.encode(payload, "").encode() == bounded
+
+    block = json.loads(bounded)["iocs"]
+    kept = block["iocs"]
+    assert 0 < len(kept) < len(original)
+    assert block["record_count"] == block["per_source"][0]["record_count"] == len(kept)
+    assert block["per_source"][0]["status"] == "partial"
+    assert block["sources_consulted"] == []
+    assert block["sources_degraded"] == block["per_source"]
+    assert block["coverage_ledger"] == [{"source": "ThreatFox", "tier": 9, "status": "partial"}]
+    assert block["per_source"][0]["output_limit"] == {
+        "eligible_count": len(original),
+        "omitted_count": len(original) - len(kept),
+    }
+    assert block["per_source"][0]["partial_failure"][0] == "upstream caveat"
+    assert f"{len(original) - len(kept)} omitted" in block["per_source"][0]["partial_failure"][1]
+    ordered = sorted(original, key=lambda row: (row["type"], row["value"]))
+    ordered.sort(key=lambda row: row["first_seen"], reverse=True)
+    assert kept == ordered[:len(kept)]
+
+    raw_archive = archive(tmp_path, ["feed-data.json"], body=bounded)
+    flags = []
+    for label, value in (("run", run), ("artifact", artifact), ("jobs", jobs)):
+        path = tmp_path / f"{label}.json"
+        path.write_text(json.dumps(value))
+        flags.extend([f"--{label}", str(path)])
+    result = subprocess.run(
+        [
+            sys.executable, str(Path(__file__).parents[2] / "scripts/consume_threatfox.py"),
+            "--archive", str(raw_archive), *flags, "--report-end", "2026-11-16T12:00:00Z",
+            "--expected-sha", "abc",
+        ],
+        check=True, capture_output=True,
+    ).stdout
+    assert len(result) <= 1024 * 1024
+    packet = json.loads(result)
+    assert packet["source_payload_sha256"] == hashlib.sha256(bounded).hexdigest()
+    assert packet["status"] == packet["upstream_status"] == "partial"
+    assert packet["artifact_id"] == artifact["id"]
+    assert packet["upstream_record_count"] == len(kept)
+    assert packet["upstream_output_limit"] == block["per_source"][0]["output_limit"]
+    assert packet["upstream_partial_failure"] == block["per_source"][0]["partial_failure"]
+    assert packet["record_count"] == len(packet["iocs"]) > 0
+    assert packet["compact_export"] == {
+        "eligible_count": len(kept),
+        "omitted_count": len(kept) - packet["record_count"],
+    }
+    assert packet["compact_export"]["omitted_count"] > 0
+    assert [item["source_evidence"][0] for item in packet["iocs"]] == kept[:packet["record_count"]]
+    assert "2026-11-16T11:02:00+00:00" in packet["acquisition_between"]
+
+    # The secret resides only in the oldest, omitted row. Scanning only the
+    # retained prefix would let a tainted upstream payload masquerade as safe.
+    original[0]["associated_threat"] += 'synthetic-"echoed-secret'
+    with pytest.raises(RuntimeError, match="Credential material"):
+        producer.encode(payload, 'synthetic-"echoed-secret')
+
+
+@pytest.mark.asyncio
+async def test_no_whole_record_fits_is_reported_unverified(
+    inputs, producer, monkeypatch, tmp_path
+):
+    import hashlib
+    import json
+    import subprocess
+    import sys
+
+    from threat_intel_mcp.adapters.base import FetchResult
+
+    class Adapter:
+        async def fetch(self, **kwargs):
+            row = {
+                "source": "ThreatFox",
+                "type": "Domain",
+                "value": "synthetic.example",
+                "confidence": "High",
+                "first_seen": "2026-11-16T09:00:00Z",
+                "tags": ["é" * 500] * 5,
+            }
+            return FetchResult([row], "ThreatFox", 9, producer.now(), 1, 1, ["recent_iocs"])
+
+    monkeypatch.setattr(producer, "MAX_OUTPUT_BYTES", 2000)
+    monkeypatch.setattr(producer, "now", lambda: "2026-11-16T11:02:00+00:00")
+    payload = await producer.collect(Adapter())
+    payload["iocs"]["per_source"][0]["partial_failure"] = ["untrusted-upstream-free-text"]
+    wire = producer.encode(payload, "")
+    assert len(wire.encode()) <= 2000
+    block = json.loads(wire)["iocs"]
+    assert block["iocs"] == []
+    assert block["per_source"][0]["status"] == "unverified"
+    assert "0 of 1" in block["per_source"][0]["error"]
+
+    _, run, artifact, jobs = inputs
+    run.update(path=".github/workflows/threatfox-prefetch.yml", event="schedule")
+    artifact["name"] = "threatfox-feed-data"
+    jobs["jobs"][0]["name"] = "Fetch ThreatFox (holds credential; no agent)"
+    raw_archive = archive(tmp_path, ["feed-data.json"], body=wire.encode())
+    flags = []
+    for label, value in (("run", run), ("artifact", artifact), ("jobs", jobs)):
+        path = tmp_path / f"{label}.json"
+        path.write_text(json.dumps(value))
+        flags.extend([f"--{label}", str(path)])
+    output = subprocess.run(
+        [
+            sys.executable, str(Path(__file__).parents[2] / "scripts/consume_threatfox.py"),
+            "--archive", str(raw_archive), *flags, "--report-end", "2026-11-16T12:00:00Z",
+            "--expected-sha", "abc",
+        ],
+        check=True, capture_output=True,
+    ).stdout
+    packet = json.loads(output)
+    assert packet["status"] == "unverified"
+    assert packet["record_count"] == 0
+    assert packet["iocs"] == []
+    assert packet["upstream_output_limit"] == {"eligible_count": 1, "omitted_count": 1}
+    assert packet["source_payload_sha256"] == hashlib.sha256(wire.encode()).hexdigest()
+    assert packet["run_id"] == run["id"]
+    assert packet["artifact_id"] == artifact["id"]
+    assert packet["acquisition_between"] == ["2026-11-16T11:02:00+00:00"] * 2
+    assert b"untrusted-upstream-free-text" not in output
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "boolean", "float", "string", "unequal", "zero", "extra_field",
+        "record_count_boolean", "record_count_nonzero", "records_present",
+        "missing_bounds", "missing_retrieved", "source_before_job",
+        "retrieved_after_source", "wrong_route", "wrong_run", "wrong_sha",
+        "failed_job", "expired", "stale", "future", "ordinary_unverified",
+    ],
+)
+def test_invalid_zero_fit_metadata_is_not_forwarded(inputs, case):
+    p, run, artifact, jobs = inputs
+    run.update(path=".github/workflows/threatfox-prefetch.yml", event="schedule")
+    artifact["name"] = "threatfox-feed-data"
+    jobs["jobs"][0]["name"] = "Fetch ThreatFox (holds credential; no agent)"
+    block = p["iocs"]
+    block.update(iocs=[], record_count=0)
+    summary = block["per_source"][0]
+    summary.update(
+        status="unverified",
+        record_count=0,
+        output_limit={"eligible_count": 4, "omitted_count": 4},
+        collection_started_at="2026-11-16T11:01:00Z",
+        collection_completed_at="2026-11-16T11:02:00Z",
+        retrieved_at="2026-11-16T11:01:10Z",
+        error="never copy source diagnostics",
+    )
+    if case in ("boolean", "float", "string", "unequal", "zero"):
+        values = {
+            "boolean": (True, True), "float": (4.0, 4), "string": ("4", 4),
+            "unequal": (4, 3), "zero": (0, 0),
+        }
+        count, omitted = values[case]
+        summary["output_limit"].update(eligible_count=count, omitted_count=omitted)
+    elif case == "extra_field":
+        summary["output_limit"]["other"] = "never copy source diagnostics"
+    elif case == "record_count_boolean":
+        summary["record_count"] = False
+    elif case == "record_count_nonzero":
+        block["record_count"] = 1
+    elif case == "records_present":
+        block["iocs"] = [{"value": "synthetic.example"}]
+    elif case == "missing_bounds":
+        del summary["collection_started_at"]
+    elif case == "missing_retrieved":
+        del summary["retrieved_at"]
+    elif case == "source_before_job":
+        summary["collection_started_at"] = "2026-11-16T10:00:00Z"
+    elif case == "retrieved_after_source":
+        summary["retrieved_at"] = "2026-11-16T11:02:01Z"
+    elif case == "wrong_route":
+        run.update(path=".github/workflows/scheduled-report.yml", event="workflow_dispatch")
+        artifact["name"] = "feed-data"
+        jobs["jobs"][0]["name"] = "Fetch feeds (holds credentials; no agent)"
+    elif case == "wrong_run":
+        artifact["workflow_run"]["id"] = 999
+    elif case == "wrong_sha":
+        run["head_sha"] = "not-expected"
+    elif case == "failed_job":
+        jobs["jobs"][0]["conclusion"] = "failure"
+    elif case == "expired":
+        artifact["expired"] = True
+    elif case == "stale":
+        jobs["jobs"][0]["started_at"] = "2026-11-16T09:45:00Z"
+    elif case == "future":
+        p["generated_at"] = "2026-11-16T12:00:01Z"
+    elif case == "ordinary_unverified":
+        del summary["output_limit"]
+
+    result = check(inputs)
+    assert result["status"] == "unverified"
+    assert result["iocs"] == []
+    assert result["record_count"] == 0
+    assert "upstream_output_limit" not in result
+    assert "never copy source diagnostics" not in str(result)
+    if case == "ordinary_unverified":
+        assert result["reason"] == "ThreatFox unavailable in this collection"
