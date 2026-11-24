@@ -401,8 +401,11 @@ Any earlier verification task explicitly capped at 50 MB must retain its own
 instructions; test the authorized higher limit in a new verification.
 
 The consumer exports only ThreatFox records and provenance, with a strict 1 MiB
-output bound and original-payload SHA-256. Oversized output becomes unverified
-with no records; it is never silently sampled. An authorized maintenance runtime
+output bound and original-payload SHA-256. If the full derivative exceeds 1 MiB,
+it retains the largest newest-first prefix of whole records that fits, with
+window-matched and omitted counts. A nonempty prefix is partial, not complete.
+If no usable record fits, the result is unverified. A prefix is not proof that all
+records through that timestamp were included. An authorized maintenance runtime
 can hand this compact derivative to a report consumer together with its hash,
 source run/artifact IDs, commit, acquisition bounds and cutoff. Revalidate all
 metadata and the actual report window; a derivative must not reset freshness.
@@ -440,9 +443,12 @@ This producer has `contents: read`, no email or model step, a five-minute job
 limit, and only `ABUSECH_AUTH_KEY` in the fixed fetch step. It calls `get_iocs` for 24h with at most one retry, on `httpx.RemoteProtocolError` only, after a 0.25–0.5 s backoff, with both attempts inside the same 90-second deadline (`attempt_count` in the packet is metadata, not a coverage upgrade; authentication, HTTP-status and schema failures are not retried). It schema-validates
 and deduplicates network records, records source acquisition start/end, scans
 literal and JSON-escaped credential values, and caps `feed-data.json` at 1 MiB.
-Missing-key/upstream failures publish an honest `unverified` packet; oversized
-records are withheld rather than silently sampled; credential detection prevents
-publication entirely. The artifact name is **threatfox-feed-data**, retained one
+Missing-key/upstream failures publish an honest `unverified` packet. On overflow,
+the artifact keeps the largest newest-first prefix of whole normalized records
+that fits and reports exported, original and omitted counts; a nonempty prefix
+is partial, and no usable record fitting yields unverified. The credential
+scan checks the full candidate before compaction and the final output, so even
+a would-be omitted credential prevents publication entirely. The artifact name is **threatfox-feed-data**, retained one
 day. Upstream success is not inferred from a green job: read packet source status.
 
 The daily runtime only needs read access:

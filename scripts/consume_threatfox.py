@@ -128,24 +128,26 @@ def consume(
         selected = []
         for record in payload["iocs"]["iocs"]:
             # The winning merged record can belong to another provider. Use
-            # ThreatFox's own evidence, never that winner's first_seen.
+            # ThreatFox's own earliest evidence, never that winner's first_seen
+            # or a later re-observation that could make an old record look new.
             evidence = record.get("source_evidence") or [record]
             matching = [e for e in evidence if e.get("source") == "ThreatFox"]
-            for entry in matching:
-                first_seen = stamp(entry["first_seen"])
-                if report_start <= first_seen <= source_completed:
-                    selected.append(
-                        {
-                            "type": record["type"],
-                            "value": record["value"],
-                            "source": "ThreatFox",
-                            "first_seen": first_seen.isoformat(),
-                            "confidence": entry.get("confidence"),
-                            "tlp": record.get("tlp"),
-                            "source_evidence": matching,
-                        }
-                    )
-                    break
+            dated = [(stamp(entry["first_seen"]), entry) for entry in matching]
+            if dated:
+                first_seen, entry = min(dated, key=lambda pair: pair[0])
+                if not report_start <= first_seen <= source_completed:
+                    continue
+                selected.append(
+                    {
+                        "type": record["type"],
+                        "value": record["value"],
+                        "source": "ThreatFox",
+                        "first_seen": first_seen.isoformat(),
+                        "confidence": entry.get("confidence"),
+                        "tlp": record.get("tlp"),
+                        "source_evidence": matching,
+                    }
+                )
         result.update(
             status="partial",
             upstream_status=summaries[0]["status"],
@@ -164,6 +166,8 @@ def consume(
             ],
             report_start=report_start.isoformat(),
         )
+        if "output_limit" in summaries[0]:
+            result["upstream_output_limit"] = summaries[0]["output_limit"]
         if "collection_started_at" in summaries[0]:
             result["limitations"].append(
                 "Acquisition bounds come from the source-only collector. The interval "
@@ -190,20 +194,71 @@ def consume(
     return result
 
 
+MAX_COMPACT_BYTES = 1024 * 1024
+
+
+def _json(value):
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
 def encode_compact(result):
-    """Bound the downstream derivative; never silently sample oversized data."""
-    encoded = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
-    if len(encoded.encode("utf-8")) > 1024 * 1024:
-        return json.dumps(
-            {
-                "source": "ThreatFox",
-                "status": "unverified",
-                "iocs": [],
-                "record_count": 0,
-                "reason": "Compact output exceeds 1 MiB; no records exported.",
-            }
+    """Expose a size-limited whole-record prefix without claiming full coverage."""
+    encoded = _json(result)
+    if len(encoded.encode("utf-8")) <= MAX_COMPACT_BYTES:
+        return encoded
+
+    records = result["iocs"]
+    total = len(records)
+    try:
+        ordered = sorted(records, key=lambda row: (row["type"], row["value"]))
+        ordered.sort(key=lambda row: stamp(row["first_seen"]), reverse=True)
+        if result["status"] != "partial":
+            ordered = []
+    except (KeyError, TypeError, ValueError, AttributeError):
+        ordered = []
+    sizes = [0]
+    for row in ordered:
+        sizes.append(sizes[-1] + len(_json(row).encode("utf-8")))
+
+    def candidate(count, selected):
+        message = (
+            f"Compact output 1 MiB limit: exported {count} of {total} "
+            f"window-matched records; {total - count} omitted "
+            "(newest first, whole records)."
         )
-    return encoded
+        packet = {
+            **result,
+            "status": "partial" if count else "unverified",
+            "iocs": selected,
+            "record_count": count,
+            "compact_export": {"eligible_count": total, "omitted_count": total - count},
+            "limitations": [*result.get("limitations", []), message],
+        }
+        if not count:
+            packet["reason"] = message
+        return packet
+
+    lo, hi = 0, len(ordered)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        size = len(_json(candidate(mid, [])).encode("utf-8")) + sizes[mid] + mid - 1
+        if size <= MAX_COMPACT_BYTES:
+            lo = mid
+        else:
+            hi = mid - 1
+    encoded = _json(candidate(lo, ordered[:lo]))
+    if len(encoded.encode("utf-8")) <= MAX_COMPACT_BYTES:
+        return encoded
+    # Oversized metadata, not just records: retain the fixed diagnostic only.
+    return _json(
+        {
+            "source": "ThreatFox",
+            "status": "unverified",
+            "iocs": [],
+            "record_count": 0,
+            "reason": "Compact output metadata exceeds 1 MiB; no records exported.",
+        }
+    )
 
 
 def main():
@@ -235,7 +290,7 @@ def main():
             "iocs": [],
             "reason": "Input unreadable; continue report with other verified sources.",
         }
-    print(encode_compact(result))
+    print(encode_compact(result), end="")
 
 
 if __name__ == "__main__":

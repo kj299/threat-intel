@@ -4,6 +4,7 @@ import argparse
 import asyncio
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -81,33 +82,89 @@ async def collect(adapter):
     }
 
 
-def encode(payload, key):
-    raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
-    encoded_key = json.dumps(key, ensure_ascii=False)[1:-1] if key else ""
-    if key and (key in raw or encoded_key in raw):
-        raise RuntimeError("Credential material detected; artifact not written")
-    if len(raw.encode("utf-8")) > MAX_OUTPUT_BYTES:
-        summary = payload["iocs"]["per_source"][0].copy()
-        summary.update(
-            status="unverified",
-            record_count=0,
-            error="ThreatFox output exceeded 1 MiB; records withheld",
+def _json(value):
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+def _bounded_payload(payload):
+    """Return the largest whole-record prefix that fits, labeled incomplete."""
+    block = payload["iocs"]
+    records = block["iocs"]
+    original_summary = block["per_source"][0]
+    total = len(records)
+
+    # The adapter normalizes first_seen to UTC; honor offsets and use the
+    # source’s earliest observation if deduplication kept several.
+    def source_first_seen(row):
+        matching = [
+            datetime.fromisoformat(evidence["first_seen"])
+            for evidence in (row.get("source_evidence") or [row])
+            if evidence["source"] == "ThreatFox"
+        ]
+        if not matching or any(value.tzinfo is None for value in matching):
+            raise ValueError("missing or undated ThreatFox evidence")
+        return min(matching)
+
+    try:
+        ordered = sorted(records, key=lambda row: (row["type"], row["value"]))
+        ordered.sort(key=source_first_seen, reverse=True)
+        if original_summary["status"] not in ("partial", "consulted"):
+            ordered = []
+    except (KeyError, TypeError, ValueError, AttributeError):
+        ordered = []
+    sizes = [0]
+    for row in ordered:
+        sizes.append(sizes[-1] + len(_json(row).encode("utf-8")))
+
+    def candidate(count, selected):
+        status = "partial" if count else "unverified"
+        reason = (
+            f"ThreatFox 1 MiB output limit: exported {count} of {total} normalized "
+            f"records; {total - count} omitted (newest first, whole records)."
         )
-        payload = {
+        summary = {
+            **original_summary,
+            "status": status,
+            "record_count": count,
+            "output_limit": {"eligible_count": total, "omitted_count": total - count},
+            "partial_failure": [*original_summary["partial_failure"], reason],
+            "error": None if count else reason,
+        }
+        return {
             **payload,
             "iocs": {
-                **payload["iocs"],
-                "iocs": [],
-                "record_count": 0,
+                **block,
+                "iocs": selected,
+                "record_count": count,
                 "per_source": [summary],
                 "sources_consulted": [],
                 "sources_degraded": [summary],
                 "coverage_ledger": [
-                    {"source": "ThreatFox", "tier": 9, "status": "unverified"}
+                    {"source": "ThreatFox", "tier": 9, "status": status}
                 ],
             },
         }
-        raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+
+    # Count real UTF-8 bytes and commas, not repr length or character count.
+    # Probe metadata separately, then materialize only the chosen prefix.
+    lo, hi = 0, len(ordered)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        size = len(_json(candidate(mid, [])).encode("utf-8")) + sizes[mid] + mid - 1
+        if size <= MAX_OUTPUT_BYTES:
+            lo = mid
+        else:
+            hi = mid - 1
+    return _json(candidate(lo, ordered[:lo]))
+
+
+def encode(payload, key):
+    raw = _json(payload)
+    encoded_key = json.dumps(key, ensure_ascii=False)[1:-1] if key else ""
+    if key and (key in raw or encoded_key in raw):
+        raise RuntimeError("Credential material detected; artifact not written")
+    if len(raw.encode("utf-8")) > MAX_OUTPUT_BYTES:
+        raw = _bounded_payload(payload)
     if (key and (key in raw or encoded_key in raw)) or len(
         raw.encode("utf-8")
     ) > MAX_OUTPUT_BYTES:
@@ -119,6 +176,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
+    # Package diagnostics can quote malformed feed values. Only the fixed,
+    # sanitized summary below belongs in the credentialed runner's log.
+    logging.disable(logging.CRITICAL)
     payload = asyncio.run(collect(ThreatFoxAdapter(EnvCredentialProvider())))
     raw = encode(payload, os.environ.get("ABUSECH_AUTH_KEY", ""))
     args.out.parent.mkdir(parents=True, exist_ok=True)
