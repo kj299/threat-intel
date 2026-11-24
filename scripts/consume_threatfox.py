@@ -49,6 +49,23 @@ def stamp(value):
     return parsed.astimezone(timezone.utc)
 
 
+def zero_fit_counts(block, summary):
+    """Accept only strict count-only evidence of a source-producer overflow."""
+    counts = summary.get("output_limit")
+    if (
+        not isinstance(counts, dict)
+        or counts.keys() != {"eligible_count", "omitted_count"}
+        or any(type(value) is not int for value in counts.values())
+        or not 0 < counts["eligible_count"] == counts["omitted_count"]
+        or block.get("iocs") != []
+        or any(type(count) is not int or count != 0 for count in (
+            block.get("record_count"), summary.get("record_count"),
+        ))
+    ):
+        return None
+    return counts
+
+
 def consume(
     payload, run, artifact, jobs, *, report_end, expected_sha, max_age_minutes=120
 ):
@@ -108,23 +125,56 @@ def consume(
             raise ArtifactInputError("inconsistent or future acquisition timestamps")
         if report_end - started > timedelta(minutes=max_age_minutes):
             raise ArtifactInputError("collection exceeds freshness budget")
-        summaries = [
-            s for s in payload["iocs"]["per_source"] if s["source"] == "ThreatFox"
-        ]
-        if len(summaries) != 1 or summaries[0]["status"] not in (
-            "consulted",
-            "partial",
-        ):
+        block = payload["iocs"]
+        summaries = [s for s in block["per_source"] if s["source"] == "ThreatFox"]
+        if len(summaries) != 1:
+            raise ArtifactInputError("ThreatFox unavailable in this collection")
+        summary = summaries[0]
+        status = summary["status"]
+        counts = None
+        if status == "unverified" and run["path"] == ".github/workflows/threatfox-prefetch.yml":
+            counts = zero_fit_counts(block, summary)
+        if status not in ("consulted", "partial") and counts is None:
             raise ArtifactInputError("ThreatFox unavailable in this collection")
         source_started = stamp(
-            summaries[0].get("collection_started_at", started.isoformat())
+            summary.get("collection_started_at", started.isoformat())
         )
         source_completed = stamp(
-            summaries[0].get("collection_completed_at", collected.isoformat())
+            summary.get("collection_completed_at", collected.isoformat())
         )
         if not started <= source_started <= source_completed <= collected:
             raise ArtifactInputError("inconsistent source acquisition bounds")
         report_start = report_end - timedelta(days=1)
+        provenance = {
+            "run_url": run["html_url"],
+            "run_id": run["id"],
+            "commit": run["head_sha"],
+            "artifact_id": artifact["id"],
+            "generated_at": generated.isoformat(),
+            "acquisition_between": [
+                source_started.isoformat(), source_completed.isoformat(),
+            ],
+            "report_start": report_start.isoformat(),
+        }
+        if counts is not None:
+            # This exception to the usual source status gate is count-only.
+            # Require explicit source bounds and a successful retrieval stamp,
+            # never default them from the job, and never echo feed diagnostics.
+            if not (
+                "collection_started_at" in summary
+                and "collection_completed_at" in summary
+                and source_started <= stamp(summary["retrieved_at"]) <= source_completed
+            ):
+                raise ArtifactInputError("inconsistent source acquisition bounds")
+            result.update(
+                **provenance,
+                upstream_status="unverified",
+                upstream_record_count=0,
+                upstream_output_limit=counts,
+                record_count=0,
+                reason="ThreatFox output exceeded 1 MiB; no whole record was exported.",
+            )
+            return result
         selected = []
         for record in payload["iocs"]["iocs"]:
             # The winning merged record can belong to another provider. Use
@@ -150,25 +200,16 @@ def consume(
                 )
         result.update(
             status="partial",
-            upstream_status=summaries[0]["status"],
-            upstream_record_count=summaries[0].get("record_count"),
-            upstream_partial_failure=summaries[0].get("partial_failure", []),
+            upstream_status=status,
+            upstream_record_count=summary.get("record_count"),
+            upstream_partial_failure=summary.get("partial_failure", []),
             iocs=selected,
             record_count=len(selected),
-            run_url=run["html_url"],
-            run_id=run["id"],
-            commit=run["head_sha"],
-            artifact_id=artifact["id"],
-            generated_at=generated.isoformat(),
-            acquisition_between=[
-                source_started.isoformat(),
-                source_completed.isoformat(),
-            ],
-            report_start=report_start.isoformat(),
+            **provenance,
         )
-        if "output_limit" in summaries[0]:
-            result["upstream_output_limit"] = summaries[0]["output_limit"]
-        if "collection_started_at" in summaries[0]:
+        if "output_limit" in summary:
+            result["upstream_output_limit"] = summary["output_limit"]
+        if "collection_started_at" in summary:
             result["limitations"].append(
                 "Acquisition bounds come from the source-only collector. The interval "
                 "before report_end remains unobserved; do not claim complete 24-hour coverage."
@@ -179,7 +220,7 @@ def consume(
                 "by prefetch start and IOC fan-out completion; the remainder before report_end "
                 "is unobserved. Do not claim complete 24-hour coverage."
             )
-        if summaries[0].get("partial_failure"):
+        if summary.get("partial_failure"):
             result["limitations"].append(
                 "Upstream also reports partial coverage; preserve artifact caveats."
             )
